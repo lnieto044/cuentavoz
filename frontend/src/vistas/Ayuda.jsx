@@ -1,0 +1,89 @@
+import { useEffect, useState } from "react";
+import { pedir } from "../api";
+import Marco from "../Marco";
+
+const FAQ = [
+  ["¿Cómo corrijo un conteo ya confirmado?",
+   "Diga «corregir» y luego el valor correcto. El valor anterior se conserva."],
+  ["El agente no me entiende un producto",
+   "Dígalo como aparece en la etiqueta. Si no existe, se puede crear: queda pendiente."],
+  ["¿Qué hago si sale una alerta?",
+   "Recuente. Si el número es correcto, confirme: queda marcado para el administrador."],
+  ["Se cayó el internet en plena bodega",
+   "Siga contando: el intérprete local mantiene el flujo y sincroniza al volver la señal."],
+  ["¿Puedo contar dos bodegas a la vez?",
+   "No en el mismo dispositivo. El candado de sesión evita conteos duplicados."],
+];
+
+const COMANDOS = [
+  ["«Iniciar conteo en almacén de suministros»", "abrir una bodega"],
+  ["«Tres tablas para picar blancas»", "registrar un conteo"],
+  ["«Corregir» · «Son nueve»", "corregir sin borrar el original"],
+  ["«¿Cuánto arroz hay y en qué bodegas?»", "consultar el inventario"],
+  ["«Hoy preparamos cincuenta ajiacos»", "pedir insumos por receta"],
+];
+
+export default function Ayuda({ token }) {
+  const [salud, setSalud] = useState(null);
+  useEffect(() => {
+    pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
+  }, [token]);
+
+  const servicios = [
+    ["API y base de datos", salud?.api === "ok"],
+    ["Datos del inventario cargados", (salud?.stock || 0) > 0],
+    ["Agente Gemini (AI Studio)", Boolean(salud?.gemini)],
+  ];
+
+  return (
+    <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
+      <div className="conteo-cols">
+        <div className="card">
+          <h3>Preguntas frecuentes</h3>
+          {FAQ.map(([p, r], i) => (
+            <div key={i} style={{ marginBottom: 12, paddingBottom: 12,
+                 borderBottom: i < FAQ.length - 1 ? "1px solid var(--borde)" : "none" }}>
+              <b style={{ color: "var(--azul)", fontSize: ".92rem" }}>{p}</b>
+              <p style={{ fontSize: ".86rem", color: "var(--grafito)", marginTop: 3 }}>{r}</p>
+            </div>
+          ))}
+
+          <h3 style={{ marginTop: 18 }}>Guía rápida de comandos de voz</h3>
+          {COMANDOS.map(([c, d], i) => (
+            <div className="registro" key={i}>
+              <span style={{ color: "var(--azul)", fontWeight: 700 }}>{c}</span>
+              <span className="cant">{d}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="card">
+          <h3>Estado del sistema</h3>
+          {servicios.map(([t, ok], i) => (
+            <div className="registro" key={i}>
+              <span className="ok" style={{ background: ok ? "var(--verde)" : "#B3261E" }}>
+                {ok ? "✓" : "!"}
+              </span>
+              <span>{t}</span>
+              <span className="cant" style={{ color: ok ? "var(--verde)" : "#B3261E",
+                    fontWeight: 700 }}>
+                {ok ? "operativo" : "revisar"}
+              </span>
+            </div>
+          ))}
+          {!salud?.gemini && (
+            <p className="pista" style={{ marginTop: 10 }}>
+              Sin la llave de Gemini el agente usa el intérprete local: el flujo
+              funciona igual, pero entiende menos variantes de frase. Ponga
+              GOOGLE_API_KEY en el archivo .env para activarlo.
+            </p>
+          )}
+
+          <h3 style={{ marginTop: 18 }}>Soporte</h3>
+          <p style={{ fontSize: ".88rem" }}>Administrador de bodega · disponible</p>
+          <p className="pista">Mesa de ayuda Colsubsidio · ext. 4040</p>
+        </div>
+      </div>
+    </Marco>
+  );
+}

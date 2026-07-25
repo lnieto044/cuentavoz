@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: cuentavoz
+      POSTGRES_PASSWORD: cambieme
+      POSTGRES_DB: cuentavoz
+    volumes:
+      - datos:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          # para que Power BI pueda conectarse
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuentavoz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    restart: always
+    env_file: .env
+    environment:
+      DB_URL: postgresql://cuentavoz:cambieme@db:5432/cuentavoz
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./reportes:/app/reportes
+      - ./backend/fotos:/app/fotos
+
+  web:
+    build: ./frontend
+    restart: always
+    environment:
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+volumes:
+  datos: {}
