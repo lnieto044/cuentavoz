@@ -1,4 +1,5 @@
-export const BASE = import.meta.env.VITE_API_URL ||  "https://cuentavoz-api.onrender.com";
+export const BASE =
+  import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 
 export function guardarToken(t) {
