@@ -1,6 +1,7 @@
 export const BASE =
   import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+console.log("BASE =", BASE);
 
 export function guardarToken(t) {
   localStorage.setItem("cv_token", t);
