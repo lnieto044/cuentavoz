@@ -1,5 +1,7 @@
 /** El armazón que comparten todas las vistas: barra superior con la
     sección, la faja dorada de marca y el logo de Colsubsidio. */
+
+import React from "react";
 export default function Marco({ titulo, chip, children }) {
   return (
     <>
