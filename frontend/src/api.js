@@ -1,4 +1,4 @@
-export const BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+export const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export function guardarToken(t) {
   localStorage.setItem("cv_token", t);
@@ -50,3 +50,4 @@ export const abrirBodega = (bodega, token) =>
     method: "POST",
     body: JSON.stringify({ bodega }),
   }, token);
+
