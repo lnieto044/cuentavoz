@@ -1,4 +1,6 @@
-export const BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// IPv4 explícito, no "localhost": en Windows el navegador suele resolver
+// "localhost" a ::1 (IPv6), y uvicorn por defecto solo escucha en 127.0.0.1.
+export const BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 export function guardarToken(t) {
   localStorage.setItem("cv_token", t);

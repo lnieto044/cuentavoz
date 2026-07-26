@@ -3,11 +3,15 @@ import { pedir, enviarTurno } from "../api";
 import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
 
+const DIA = new Date().toLocaleDateString("es-CO", { weekday: "long" });
+
 export default function Pedido({ token, sesionId = 1 }) {
   const [plato, setPlato] = useState("ajiaco");
   const [porciones, setPorciones] = useState(50);
+  const [dicho, setDicho] = useState("«hoy preparamos cincuenta ajiacos»");
   const [lineas, setLineas] = useState(null);
   const [receta, setReceta] = useState(null);
+  const [enviado, setEnviado] = useState(false);
   const [respuesta, setRespuesta] = useState(
     "Diga el plato y las porciones: «hoy preparamos cincuenta ajiacos»."
   );
@@ -31,6 +35,7 @@ export default function Pedido({ token, sesionId = 1 }) {
   /** La frase del chef la interpreta el agente. */
   async function dictar(texto) {
     setErr("");
+    setDicho(`«${texto}»`);
     try {
       const t = await enviarTurno(texto, sesionId, token);
       if (t.preparacion) setPlato(t.preparacion);
@@ -44,9 +49,18 @@ export default function Pedido({ token, sesionId = 1 }) {
     }
   }
 
+  function corregirCantidad() {
+    const v = window.prompt("¿Cuántas porciones son en realidad?", porciones);
+    if (v && !isNaN(Number(v))) {
+      setPorciones(Number(v));
+      setLineas(null);
+    }
+  }
+
   /** El backend explota la receta y descuenta el stock. */
   async function calcular() {
     setErr("");
+    setEnviado(false);
     try {
       const r = await pedir("/api/pedidos/calcular", {
         method: "POST",
@@ -75,6 +89,7 @@ export default function Pedido({ token, sesionId = 1 }) {
       const msg = "Pedido enviado al almacén.";
       setRespuesta(msg);
       hablar(msg);
+      setEnviado(true);
     } catch (e) {
       setErr(e.message);
     }
@@ -83,27 +98,33 @@ export default function Pedido({ token, sesionId = 1 }) {
   const porPedir = lineas ? lineas.filter((l) => l.falta > 0).length : 0;
 
   return (
-    <Marco titulo="Pedidos  ·  del plato a los insumos"
-           chip={{ texto: "MOMENTO 1 DEL RETO", tipo: "azul" }}>
+    <Marco titulo="Pedidos  ·  Cocina Piscilago"
+           chip={{ texto: "SERVICIO ALMUERZO", tipo: "" }}>
+      <div className="chips">
+        <span className="chip">{DIA[0].toUpperCase() + DIA.slice(1)} · almuerzo</span>
+        <span className="chip">Cocina Piscilago</span>
+        <span className={`chip ${enviado ? "verde" : "oro"}`}>
+          {enviado ? "Pedido enviado" : "Pedido sin enviar"}
+        </span>
+      </div>
+
       <div className="conteo-cols">
         <div className="card">
-          <p className="rotulo">CuentaVoz responde</p>
-          <div className="burbuja">{respuesta}</div>
+          <h3>Lo que dijo el chef</h3>
+          <p className="cita">{dicho}</p>
 
-          <h3 style={{ marginTop: 18 }}>Lo que se va a preparar</h3>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input value={plato} onChange={(e) => setPlato(e.target.value)}
-                   placeholder="ajiaco"
-                   style={{ flex: 2, minWidth: 180, padding: "11px 13px",
-                            border: "1px solid var(--borde)", borderRadius: 12 }} />
-            <input type="number" value={porciones} min="1"
-                   onChange={(e) => setPorciones(e.target.value)}
-                   style={{ width: 110, padding: "11px 13px",
-                            border: "1px solid var(--borde)", borderRadius: 12 }} />
-            <button className="btn" onClick={calcular}>Calcular el pedido</button>
-            <button className="btn borde" onClick={verReceta}>Ver la receta</button>
-          </div>
-          {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+          <h3 style={{ marginTop: 18 }}>Lo que entendió CuentaVoz</h3>
+          <table>
+            <tbody>
+              <tr><td>Preparación</td><td><b style={{ color: "var(--azul)" }}>
+                {plato.toUpperCase()}</b></td></tr>
+              <tr><td>Porciones</td><td><b style={{ color: "var(--azul)" }}>{porciones}</b></td></tr>
+              <tr><td>Receta aplicada</td><td><b style={{ color: "var(--azul)" }}>
+                estándar de Colsubsidio</b></td></tr>
+              <tr><td>Momento</td><td><b style={{ color: "var(--azul)" }}>
+                pedido al almacén</b></td></tr>
+            </tbody>
+          </table>
         </div>
 
         <div className="card mic-caja">
@@ -115,11 +136,22 @@ export default function Pedido({ token, sesionId = 1 }) {
                   })}>
             🎤
           </button>
-          <b>{estado === "escuchando" ? "Escuchando…" : "Toque y hable"}</b>
-          <small>«hoy preparamos cincuenta ajiacos»</small>
+          <b>{estado === "escuchando" ? "Escuchando…" : "Mantenga presionado y hable"}</b>
+          <small>También sirve: «pedir insumos para 30 sancochos»</small>
           <small style={{ color: "var(--verde)", fontWeight: 700 }}>
             Receta + stock = pedido
           </small>
+        </div>
+      </div>
+
+      <div className="card">
+        <p className="rotulo">CuentaVoz responde</p>
+        <div className="burbuja">{respuesta}</div>
+        {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+        <div className="grilla-botones">
+          <button className="btn" onClick={calcular}>Calcular el pedido</button>
+          <button className="btn borde" onClick={corregirCantidad}>Corregir cantidad</button>
+          <button className="btn oro" onClick={verReceta}>Ver la receta</button>
         </div>
       </div>
 
@@ -205,11 +237,13 @@ export default function Pedido({ token, sesionId = 1 }) {
               La cantidad necesaria sale de la receta por porción; el faltante es
               lo necesario menos lo que ya hay en la bodega.
             </p>
-            <div className="grilla-botones">
-              <button className="btn verde" onClick={enviar}>
-                Enviar pedido al almacén
-              </button>
-            </div>
+            {!enviado && (
+              <div className="grilla-botones">
+                <button className="btn verde" onClick={enviar}>
+                  Enviar pedido al almacén
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

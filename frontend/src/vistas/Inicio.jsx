@@ -11,6 +11,8 @@ const COLOR_ACCION = {
   ALERTA: "oro", CORRECCION: "oro", REAPERTURA: "oro",
   CREACION: "azul", AUDITORIA: "oro",
 };
+const DOT = { verde: "var(--verde)", azul: "var(--azul)",
+              oro: "var(--amarillo)", gris: "var(--grafito)" };
 
 export default function Inicio({ token, usuario, ir }) {
   const [resumen, setResumen] = useState(null);
@@ -38,22 +40,34 @@ export default function Inicio({ token, usuario, ir }) {
 
       <div className="kpis">
         <div className="kpi">
-          <small>Bodegas asignadas a usted</small>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🏬</span>
+            <small>Bodegas asignadas a usted</small>
+          </div>
           <b>{resumen?.bodegas_asignadas ?? "—"}</b>
           <i>según su perfil</i>
         </div>
         <div className="kpi">
-          <small>Referencias contadas hoy</small>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">📦</span>
+            <small>Referencias contadas hoy</small>
+          </div>
           <b>{resumen?.referencias_hoy ?? "—"}</b>
           <i>en sus sesiones de conteo</i>
         </div>
         <div className={`kpi ${resumen?.alertas_por_revisar ? "oro" : "verde"}`}>
-          <small>Alertas por revisar</small>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">{resumen?.alertas_por_revisar ? "⚠️" : "✅"}</span>
+            <small>Alertas por revisar</small>
+          </div>
           <b>{resumen?.alertas_por_revisar ?? "—"}</b>
           <i>en toda la operación</i>
         </div>
         <div className="kpi verde">
-          <small>Su exactitud del mes</small>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">📈</span>
+            <small>Su exactitud del mes</small>
+          </div>
           <b>{resumen ? `${resumen.exactitud_mes} %` : "—"}</b>
           <i>promedio de bodegas cerradas</i>
         </div>
@@ -61,9 +75,9 @@ export default function Inicio({ token, usuario, ir }) {
 
       <div className="card">
         <h3>¿Qué desea hacer?</h3>
-        <div className="grid-bodegas">
+        <div className="accesos-grid">
           {accesos.map((a) => (
-            <button key={a.d} className="tarjeta-bodega en_conteo"
+            <button key={a.d} className="acceso-rapido"
                     onClick={() => ir(a.d)}>
               <span className="icono-accion">{a.ic}</span>
               <b>{a.t}</b>
@@ -78,17 +92,21 @@ export default function Inicio({ token, usuario, ir }) {
         {actividad.length === 0 ? (
           <p className="vacio">Todavía no hay actividad registrada hoy.</p>
         ) : (
-          actividad.map((a, i) => (
-            <div className="registro" key={i}>
-              <b style={{ color: "var(--grafito)", minWidth: 46 }}>{a.hora}</b>
-              <span style={{ textTransform: "capitalize" }}>{a.persona}</span>
-              <span>{a.detalle}</span>
-              <span className={`chip ${COLOR_ACCION[a.accion] || "gris"} cant`}
-                    style={{ marginLeft: "auto" }}>
-                {a.accion.toLowerCase()}
-              </span>
-            </div>
-          ))
+          actividad.map((a, i) => {
+            const color = COLOR_ACCION[a.accion] || "gris";
+            return (
+              <div className="registro" key={i}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", flex: "none",
+                              background: DOT[color] }} />
+                <b style={{ color: "var(--grafito)", minWidth: 46 }}>{a.hora}</b>
+                <span style={{ textTransform: "capitalize" }}>{a.persona}</span>
+                <span>{a.detalle}</span>
+                <span className={`chip ${color} cant`} style={{ marginLeft: "auto" }}>
+                  {a.accion.toLowerCase()}
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
     </Marco>
