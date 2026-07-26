@@ -3,7 +3,7 @@ import { pedir } from "../api";
 import { hablar } from "../voz";
 import Marco from "../Marco";
 
-export default function Legalizacion({ token, servicioId = 1 }) {
+export default function Legalizacion({ token, servicioId = 1, ir }) {
   const [comp, setComp] = useState(null);
   const [listo, setListo] = useState(false);
   const [err, setErr] = useState("");
@@ -30,27 +30,61 @@ export default function Legalizacion({ token, servicioId = 1 }) {
   if (err) return <Marco titulo="Legalización"><p className="error">{err}</p></Marco>;
   if (!comp) return <Marco titulo="Legalización"><p className="cargando">Cargando…</p></Marco>;
 
-  const sobrante = comp.lineas.filter((l) => l.diferencia < 0).length;
-  const merma = comp.lineas.filter((l) => l.diferencia > 0).length;
+  const sobrante = comp.lineas.filter((l) => l.diferencia < 0);
+  const merma = comp.lineas.filter((l) => l.diferencia > 0);
 
-  return (
-    <Marco titulo="Legalización  ·  servicio de almuerzo"
-           chip={listo ? { texto: "LEGALIZADO", tipo: "verde" }
-                       : { texto: "MOMENTO 3 DEL RETO", tipo: "azul" }}>
-      {listo && (
+  if (listo) {
+    const kgSobrante = sobrante.reduce((a, l) => a + Math.abs(l.diferencia), 0);
+    const kgMerma = merma.reduce((a, l) => a + l.diferencia, 0);
+    return (
+      <Marco titulo="Legalización  ·  ajuste confirmado" chip={{ texto: "LEGALIZADO", tipo: "verde" }}>
         <div className="banner ok">
           <span className="ico">✓</span>
           <span>
-            <b>Legalización confirmada</b>
-            <span>El consumo real quedó registrado y el inventario ya refleja los ajustes.</span>
+            <b>Legalización confirmada — servicio del {new Date().toLocaleDateString("es-CO")}</b>
+            <span>El consumo real quedó registrado y el inventario de la cocina ya refleja los ajustes.</span>
           </span>
         </div>
-      )}
+        <div className="kpis">
+          <div className="kpi verde">
+            <small>Devuelto a bodega</small>
+            <b>{Math.round(kgSobrante * 100) / 100}</b>
+            <i>{sobrante.length} insumos con sobrante</i>
+          </div>
+          <div className="kpi oro">
+            <small>Merma registrada</small>
+            <b>{Math.round(kgMerma * 100) / 100}</b>
+            <i>{merma.length} insumos con nota del chef</i>
+          </div>
+          <div className="kpi">
+            <small>Histórico actualizado</small>
+            <b>{comp.lineas.length}</b>
+            <i>consumo real por porción</i>
+          </div>
+        </div>
+        <div className="card">
+          <h3>Qué pasa ahora con esta información</h3>
+          <div className="registro"><span className="ok">✓</span>
+            <span>El archivo de ajuste queda listo para cargarse a My Inventory con los nombres y códigos oficiales.</span></div>
+          <div className="registro"><span className="ok">✓</span>
+            <span>El consumo real alimenta el histórico: si el plato gasta siempre más de un insumo que lo que dice la receta, el sistema lo detecta.</span></div>
+          <div className="registro"><span className="ok">✓</span>
+            <span>La merma queda trazada con responsable y hora: la revisión ya no depende de la memoria de nadie.</span></div>
+          <div className="grilla-botones">
+            <button className="btn" onClick={() => ir && ir("reportes")}>Ver el reporte del servicio</button>
+          </div>
+        </div>
+      </Marco>
+    );
+  }
 
+  return (
+    <Marco titulo="Legalización  ·  servicio de almuerzo"
+           chip={{ texto: "MOMENTO 3 DEL RETO", tipo: "azul" }}>
       <div className="chips">
         <span className="chip">{comp.lineas.length} insumos</span>
-        <span className="chip verde">{sobrante} con sobrante</span>
-        <span className="chip oro">{merma} con merma</span>
+        <span className="chip verde">{sobrante.length} con sobrante</span>
+        <span className="chip oro">{merma.length} con merma</span>
       </div>
 
       <div className="card">

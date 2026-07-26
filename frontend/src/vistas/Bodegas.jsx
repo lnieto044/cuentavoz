@@ -7,12 +7,15 @@ const ETIQUETA = {
   en_auditoria: ["EN AUDITORÍA", "oro"], cerrada: ["CERRADA", "verde"],
 };
 
-export default function Bodegas({ token, ir }) {
+export default function Bodegas({ token, usuario, ir }) {
   const [lista, setLista] = useState([]);
   const [filtro, setFiltro] = useState("todas");
   const [detalle, setDetalle] = useState(null);
+  const [detalleId, setDetalleId] = useState(null);
   const [busca, setBusca] = useState("");
   const [consulta, setConsulta] = useState(null);
+  const [msg, setMsg] = useState("");
+  const esAuditor = usuario?.perfil === "auditor";
 
   useEffect(() => {
     pedir("/api/bodegas", {}, token).then(setLista).catch(() => {});
@@ -36,11 +39,24 @@ export default function Bodegas({ token, ir }) {
   const cuenta = (e) => lista.filter((b) => b.estado === e).length;
 
   async function verDetalle(id) {
+    setDetalleId(id);
     setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token));
   }
   async function buscarArticulo() {
     if (!busca.trim()) return;
     setConsulta(await pedir(`/api/articulos/consulta?q=${encodeURIComponent(busca)}`, {}, token));
+  }
+  async function reabrir() {
+    const motivo = window.prompt("Motivo para reabrir esta bodega cerrada (obligatorio):");
+    if (!motivo || !motivo.trim()) return;
+    try {
+      await pedir(`/api/bodegas/${detalleId}/reabrir`, {
+        method: "POST", body: JSON.stringify({ motivo }),
+      }, token);
+      setMsg("Bodega reabierta: queda registrada la justificación.");
+      verDetalle(detalleId);
+      pedir("/api/bodegas", {}, token).then(setLista).catch(() => {});
+    } catch (e) { setMsg(e.message); }
   }
 
   return (
@@ -83,11 +99,24 @@ export default function Bodegas({ token, ir }) {
         )}
       </div>
 
+      {msg && <p className="msg-ok">{msg}</p>}
       {detalle && (
         <div className="card">
           <h3>{detalle.bodega} · detalle</h3>
+          <div className="chips">
+            <span className="chip">{detalle.contadas} de {detalle.referencias} referencias</span>
+            {detalle.duracion_min != null && (
+              <span className="chip">Duración del conteo: {detalle.duracion_min} min</span>
+            )}
+            {detalle.ultima_toma_anterior && (
+              <span className="chip gris">
+                Última toma anterior: {detalle.ultima_toma_anterior.exactitud}% ·{" "}
+                {detalle.ultima_toma_anterior.fecha}
+              </span>
+            )}
+          </div>
           <div className="kpis">
-            <div className="kpi verde"><small>Exactitud</small><b>{detalle.exactitud}</b></div>
+            <div className="kpi verde"><small>Exactitud de esta bodega</small><b>{detalle.exactitud}</b></div>
             <div className="kpi"><small>Referencias</small><b>{detalle.referencias}</b></div>
             <div className="kpi"><small>Contadas</small><b>{detalle.contadas}</b></div>
             <div className="kpi oro"><small>Con diferencia</small><b>{detalle.diferencias.length}</b></div>
@@ -116,6 +145,10 @@ export default function Bodegas({ token, ir }) {
           )}
           <div className="grilla-botones">
             <button className="btn borde" onClick={() => setDetalle(null)}>Cerrar detalle</button>
+            {esAuditor && detalle.estado === "cerrada" && (
+              <button className="btn oro" onClick={reabrir}>Reabrir la bodega</button>
+            )}
+            <button className="btn" onClick={() => ir && ir("panel")}>Ver en el panel gerencial</button>
           </div>
         </div>
       )}

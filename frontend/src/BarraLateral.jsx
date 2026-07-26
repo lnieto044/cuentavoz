@@ -19,7 +19,7 @@ export default function BarraLateral({ activo, usuario, onNavegar }) {
             className={m.id === activo ? "sel" : ""}
             onClick={() => onNavegar(m.id)}
           >
-            <span className="punto" />
+            <span className="icono-menu">{m.icono}</span>
             <span>{m.titulo}</span>
           </li>
         ))}

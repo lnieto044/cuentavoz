@@ -7,11 +7,26 @@ export default function Pedido({ token, sesionId = 1 }) {
   const [plato, setPlato] = useState("ajiaco");
   const [porciones, setPorciones] = useState(50);
   const [lineas, setLineas] = useState(null);
+  const [receta, setReceta] = useState(null);
   const [respuesta, setRespuesta] = useState(
     "Diga el plato y las porciones: «hoy preparamos cincuenta ajiacos»."
   );
   const [estado, setEstado] = useState("listo");
   const [err, setErr] = useState("");
+
+  async function verReceta() {
+    setErr("");
+    try {
+      const r = await pedir(`/api/pedidos/receta?plato=${encodeURIComponent(plato)}`, {}, token);
+      if (!r.lineas) {
+        setErr(`No encontré una receta para «${plato}». Pruebe con ajiaco o sancocho.`);
+        return;
+      }
+      setReceta(r);
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
 
   /** La frase del chef la interpreta el agente. */
   async function dictar(texto) {
@@ -86,6 +101,7 @@ export default function Pedido({ token, sesionId = 1 }) {
                    style={{ width: 110, padding: "11px 13px",
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className="btn" onClick={calcular}>Calcular el pedido</button>
+            <button className="btn borde" onClick={verReceta}>Ver la receta</button>
           </div>
           {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
         </div>
@@ -106,6 +122,44 @@ export default function Pedido({ token, sesionId = 1 }) {
           </small>
         </div>
       </div>
+
+      {receta && (
+        <div className="card">
+          <div className="chips">
+            <span className="chip">{receta.nombre}</span>
+            <span className="chip">Rendimiento: {receta.rendimiento} porción</span>
+            <span className="chip">{receta.lineas.length} ingredientes</span>
+            <span className="chip gris">SOLO CONSULTA</span>
+          </div>
+          <h3>Catálogo de Colsubsidio</h3>
+          <table>
+            <thead>
+              <tr><th>Ingrediente</th><th>Unidad</th><th>Por porción</th>
+                  <th>Para {porciones} porciones</th></tr>
+            </thead>
+            <tbody>
+              {receta.lineas.map((l) => (
+                <tr key={l.codigo}>
+                  <td>{l.nombre}</td><td>{l.unidad}</td><td>{l.por_porcion}</td>
+                  <td className="dif">{Math.round(l.por_porcion * porciones * 1000) / 1000}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="pista" style={{ marginTop: 10 }}>
+            El prototipo consulta las recetas, no las gestiona: crear o modificar
+            recetas y menús está fuera del alcance del reto — eso lo resuelve el
+            sistema de Colsubsidio. CuentaVoz las lee para calcular pedidos y, en
+            la legalización, para comparar lo previsto contra lo consumido.
+          </p>
+          <div className="grilla-botones">
+            <button className="btn" onClick={() => { setReceta(null); calcular(); }}>
+              Usar para un pedido
+            </button>
+            <button className="btn gris" onClick={() => setReceta(null)}>Cerrar</button>
+          </div>
+        </div>
+      )}
 
       {lineas && (
         <>

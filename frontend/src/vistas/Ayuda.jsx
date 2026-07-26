@@ -25,9 +25,32 @@ const COMANDOS = [
 
 export default function Ayuda({ token }) {
   const [salud, setSalud] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [reportando, setReportando] = useState(false);
+  const [msg, setMsg] = useState("");
+
   useEffect(() => {
     pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
   }, [token]);
+
+  async function reportarProblema() {
+    const detalle = window.prompt("Describa el problema que encontró:");
+    if (!detalle || !detalle.trim()) return;
+    setReportando(true);
+    try {
+      await pedir("/api/soporte/reportar", {
+        method: "POST", body: JSON.stringify({ detalle }),
+      }, token);
+      setMsg("Reportado a la mesa de ayuda. Quedó en el registro de trazabilidad.");
+    } catch (e) { setMsg(e.message); }
+    setReportando(false);
+  }
+
+  const q = busca.trim().toLowerCase();
+  const faqFiltrado = q ? FAQ.filter(([p, r]) =>
+    p.toLowerCase().includes(q) || r.toLowerCase().includes(q)) : FAQ;
+  const comandosFiltrados = q ? COMANDOS.filter(([c, d]) =>
+    c.toLowerCase().includes(q) || d.toLowerCase().includes(q)) : COMANDOS;
 
   const servicios = [
     ["API y base de datos", salud?.api === "ok"],
@@ -37,19 +60,27 @@ export default function Ayuda({ token }) {
 
   return (
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
+      <div className="card">
+        <input value={busca} onChange={(e) => setBusca(e.target.value)}
+               placeholder="¿Qué necesita? También puede preguntarle al agente en voz alta."
+               style={{ width: "100%", padding: "12px 14px",
+                        border: "1px solid var(--borde)", borderRadius: 12 }} />
+      </div>
       <div className="conteo-cols">
         <div className="card">
           <h3>Preguntas frecuentes</h3>
-          {FAQ.map(([p, r], i) => (
+          {faqFiltrado.length === 0 && <p className="vacio">Sin resultados para «{busca}».</p>}
+          {faqFiltrado.map(([p, r], i) => (
             <div key={i} style={{ marginBottom: 12, paddingBottom: 12,
-                 borderBottom: i < FAQ.length - 1 ? "1px solid var(--borde)" : "none" }}>
+                 borderBottom: i < faqFiltrado.length - 1 ? "1px solid var(--borde)" : "none" }}>
               <b style={{ color: "var(--azul)", fontSize: ".92rem" }}>{p}</b>
               <p style={{ fontSize: ".86rem", color: "var(--grafito)", marginTop: 3 }}>{r}</p>
             </div>
           ))}
 
           <h3 style={{ marginTop: 18 }}>Guía rápida de comandos de voz</h3>
-          {COMANDOS.map(([c, d], i) => (
+          {comandosFiltrados.length === 0 && <p className="vacio">Sin resultados para «{busca}».</p>}
+          {comandosFiltrados.map(([c, d], i) => (
             <div className="registro" key={i}>
               <span style={{ color: "var(--azul)", fontWeight: 700 }}>{c}</span>
               <span className="cant">{d}</span>
@@ -79,9 +110,15 @@ export default function Ayuda({ token }) {
             </p>
           )}
 
-          <h3 style={{ marginTop: 18 }}>Soporte</h3>
+          <h3 style={{ marginTop: 18 }}>Soporte en vivo</h3>
           <p style={{ fontSize: ".88rem" }}>Administrador de bodega · disponible</p>
-          <p className="pista">Mesa de ayuda Colsubsidio · ext. 4040</p>
+          <p className="pista" style={{ marginBottom: 10 }}>Mesa de ayuda Colsubsidio · ext. 4040 · 7 por 24</p>
+          {msg && <p className="msg-ok">{msg}</p>}
+          <div className="grilla-botones">
+            <button className="btn oro" disabled={reportando} onClick={reportarProblema}>
+              {reportando ? "Enviando…" : "Reportar un problema"}
+            </button>
+          </div>
         </div>
       </div>
     </Marco>

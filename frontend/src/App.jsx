@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { borrarToken } from "./api";
+import { borrarToken, pedir } from "./api";
+import { configurarVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
 import Inicio from "./vistas/Inicio";
@@ -18,18 +19,18 @@ import CerrarSesion from "./vistas/CerrarSesion";
 /* El menú lateral. Cada entrada declara las vistas que contiene:
    este objeto es el mapa de navegación hecho código. */
 export const MENU = [
-  { id: "inicio",       titulo: "Inicio",        vistas: ["inicio"] },
-  { id: "pedidos",      titulo: "Pedidos",       vistas: ["pedido"] },
-  { id: "conteo",       titulo: "Conteo",        vistas: ["conteo"] },
-  { id: "legalizacion", titulo: "Legalización",  vistas: ["legalizacion"] },
-  { id: "bodegas",      titulo: "Bodegas",       vistas: ["bodegas"] },
-  { id: "auditoria",    titulo: "Auditoría",     vistas: ["auditoria"] },
-  { id: "reportes",     titulo: "Reportes",      vistas: ["reportes"] },
-  { id: "panel",        titulo: "Panel",         vistas: ["panel"] },
-  { id: "ajustes",      titulo: "Ajustes",       vistas: ["ajustes"] },
-  { id: "ayuda",        titulo: "Ayuda",         vistas: ["ayuda"] },
-  { id: "perfil",       titulo: "Mi perfil",     vistas: ["perfil"] },
-  { id: "salir",        titulo: "Cerrar sesión", vistas: ["salir"] },
+  { id: "inicio",       titulo: "Inicio",        icono: "🏠", vistas: ["inicio"] },
+  { id: "pedidos",      titulo: "Pedidos",       icono: "📋", vistas: ["pedido"] },
+  { id: "conteo",       titulo: "Conteo",        icono: "🎙️", vistas: ["conteo"] },
+  { id: "legalizacion", titulo: "Legalización",  icono: "🔁", vistas: ["legalizacion"] },
+  { id: "bodegas",      titulo: "Bodegas",       icono: "🏬", vistas: ["bodegas"] },
+  { id: "auditoria",    titulo: "Auditoría",     icono: "🔍", vistas: ["auditoria"] },
+  { id: "reportes",     titulo: "Reportes",      icono: "📄", vistas: ["reportes"] },
+  { id: "panel",        titulo: "Panel",         icono: "📊", vistas: ["panel"] },
+  { id: "ajustes",      titulo: "Ajustes",       icono: "⚙️", vistas: ["ajustes"] },
+  { id: "ayuda",        titulo: "Ayuda",         icono: "❓", vistas: ["ayuda"] },
+  { id: "perfil",       titulo: "Mi perfil",     icono: "👤", vistas: ["perfil"] },
+  { id: "salir",        titulo: "Cerrar sesión", icono: "🚪", vistas: ["salir"] },
 ];
 
 const VISTAS = {
@@ -64,6 +65,10 @@ export default function App() {
         alEntrar={(s) => {
           setSesion(s);
           setVista("inicio");
+          pedir("/api/usuarios/yo", {}, s.token).then((p) =>
+            configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,
+                           confirmacionHablada: p.confirmacion_hablada })
+          ).catch(() => {});
         }}
       />
     );

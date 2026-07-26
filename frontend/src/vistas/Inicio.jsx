@@ -2,39 +2,60 @@ import { useEffect, useState } from "react";
 import { pedir } from "../api";
 import Marco from "../Marco";
 
+const FECHA = new Date().toLocaleDateString("es-CO", {
+  weekday: "long", day: "numeric", month: "long", year: "numeric",
+});
+
+const COLOR_ACCION = {
+  FIRMA: "verde", CIERRE: "verde", APROBACION: "verde", REPORTE: "azul",
+  ALERTA: "oro", CORRECCION: "oro", REAPERTURA: "oro",
+  CREACION: "azul", AUDITORIA: "oro",
+};
+
 export default function Inicio({ token, usuario, ir }) {
-  const [salud, setSalud] = useState(null);
+  const [resumen, setResumen] = useState(null);
+  const [actividad, setActividad] = useState([]);
+
   useEffect(() => {
-    pedir("/api/salud", {}, token).then(setSalud).catch(() => {});
+    pedir("/api/usuarios/yo/resumen", {}, token).then(setResumen).catch(() => {});
+    pedir("/api/trazabilidad/reciente", {}, token).then(setActividad).catch(() => {});
   }, [token]);
 
   const accesos = [
-    { t: "Pedir insumos", s: "«hoy preparamos 50 ajiacos»", d: "pedido" },
-    { t: "Iniciar un conteo", s: "dicte y CuentaVoz registra", d: "conteo" },
-    { t: "Legalizar el servicio", s: "lo pedido vs. lo usado", d: "legalizacion" },
-    { t: "Ver el tablero", s: "estado de las bodegas", d: "bodegas" },
+    { t: "Iniciar un conteo", s: "dicte y CuentaVoz registra", d: "conteo", ic: "🎙️" },
+    { t: "Ver el tablero", s: "estado de las bodegas", d: "bodegas", ic: "🏬" },
+    { t: "Continuar auditoría", s: "recuento ciego y aprobaciones", d: "auditoria", ic: "🔍" },
+    { t: "Generar reporte", s: "consolidado del día", d: "reportes", ic: "📄" },
   ];
 
   return (
-    <Marco titulo={`Inicio  ·  hola, ${usuario?.nombre || ""}`}
+    <Marco titulo={`Inicio  ·  ${FECHA}`}
            chip={{ texto: "TOMA EN CURSO", tipo: "verde" }}>
+      <h2 style={{ fontSize: "1.15rem", color: "var(--azul)", marginBottom: 14 }}>
+        Buenos días, <span style={{ textTransform: "capitalize" }}>{usuario?.nombre}</span>.
+        Esto es lo que hay para hoy.
+      </h2>
+
       <div className="kpis">
         <div className="kpi">
-          <small>Bodegas en el sistema</small>
-          <b>{salud?.bodegas ?? "—"}</b><i>del extracto de Colsubsidio</i>
+          <small>Bodegas asignadas a usted</small>
+          <b>{resumen?.bodegas_asignadas ?? "—"}</b>
+          <i>según su perfil</i>
         </div>
         <div className="kpi">
-          <small>Artículos del catálogo</small>
-          <b>{salud?.articulos ?? "—"}</b><i>con nombre y unidad oficiales</i>
+          <small>Referencias contadas hoy</small>
+          <b>{resumen?.referencias_hoy ?? "—"}</b>
+          <i>en sus sesiones de conteo</i>
         </div>
-        <div className="kpi">
-          <small>Registros de stock</small>
-          <b>{salud?.stock ?? "—"}</b><i>corte cargado</i>
+        <div className={`kpi ${resumen?.alertas_por_revisar ? "oro" : "verde"}`}>
+          <small>Alertas por revisar</small>
+          <b>{resumen?.alertas_por_revisar ?? "—"}</b>
+          <i>en toda la operación</i>
         </div>
-        <div className={`kpi ${salud?.gemini ? "verde" : "oro"}`}>
-          <small>Agente de voz</small>
-          <b>{salud?.gemini ? "Gemini" : "Local"}</b>
-          <i>{salud?.gemini ? "conectado a AI Studio" : "sin llave: intérprete local"}</i>
+        <div className="kpi verde">
+          <small>Su exactitud del mes</small>
+          <b>{resumen ? `${resumen.exactitud_mes} %` : "—"}</b>
+          <i>promedio de bodegas cerradas</i>
         </div>
       </div>
 
@@ -44,6 +65,7 @@ export default function Inicio({ token, usuario, ir }) {
           {accesos.map((a) => (
             <button key={a.d} className="tarjeta-bodega en_conteo"
                     onClick={() => ir(a.d)}>
+              <span className="icono-accion">{a.ic}</span>
               <b>{a.t}</b>
               <small>{a.s}</small>
             </button>
@@ -52,20 +74,22 @@ export default function Inicio({ token, usuario, ir }) {
       </div>
 
       <div className="card">
-        <h3>Los tres momentos manuales del reto</h3>
-        <table>
-          <thead>
-            <tr><th>Momento</th><th>Dónde está en la aplicación</th><th>Qué elimina</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>1. Pedido al almacén</td><td>Menú Pedidos</td>
-                <td>El papel donde el chef anota los ingredientes</td></tr>
-            <tr><td>2. Toma física</td><td>Menú Conteo y Bodegas</td>
-                <td>La planilla que después alguien digita</td></tr>
-            <tr><td>3. Legalización</td><td>Menú Legalización</td>
-                <td>La nota de lo que sobró y lo que se perdió</td></tr>
-          </tbody>
-        </table>
+        <h3>Actividad reciente</h3>
+        {actividad.length === 0 ? (
+          <p className="vacio">Todavía no hay actividad registrada hoy.</p>
+        ) : (
+          actividad.map((a, i) => (
+            <div className="registro" key={i}>
+              <b style={{ color: "var(--grafito)", minWidth: 46 }}>{a.hora}</b>
+              <span style={{ textTransform: "capitalize" }}>{a.persona}</span>
+              <span>{a.detalle}</span>
+              <span className={`chip ${COLOR_ACCION[a.accion] || "gris"} cant`}
+                    style={{ marginLeft: "auto" }}>
+                {a.accion.toLowerCase()}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </Marco>
   );
