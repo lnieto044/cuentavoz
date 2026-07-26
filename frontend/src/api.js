@@ -52,3 +52,26 @@ export const abrirBodega = (bodega, token) =>
     method: "POST",
     body: JSON.stringify({ bodega }),
   }, token);
+
+/** Descarga un reporte generado por el backend. Un <a href> comun no sirve
+    aqui: el endpoint exige el token en la cabecera, y un enlace del
+    navegador no lo puede enviar (por eso terminaba en una pagina en blanco
+    pidiendo sesion). Se trae como blob autenticado y se dispara la
+    descarga nativa del navegador, sin salir de la aplicacion. */
+export async function descargarReporte(archivo, token) {
+  const t = token || leerToken();
+  const res = await fetch(
+    `${BASE}/api/reportes/descargar?archivo=${encodeURIComponent(archivo)}`,
+    { headers: { Authorization: `Bearer ${t}` } }
+  );
+  if (!res.ok) throw new Error("No se pudo descargar el archivo.");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = archivo.split("/").pop();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}

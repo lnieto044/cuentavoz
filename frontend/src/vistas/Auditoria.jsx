@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pedir, enviarTurno } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
 import Marco from "../Marco";
+import Dialogo from "../Dialogo";
 
 const TABS = [
   { id: "recuento", t: "Recuento ciego y cierre" },
@@ -52,6 +53,8 @@ function TabRecuento({ token, esAuditor }) {
   const [firmas, setFirmas] = useState(null);
   const [msg, setMsg] = useState("");
   const [estado, setEstado] = useState("listo");
+  const [mostrarTeclado, setMostrarTeclado] = useState(false);
+  const [opciones, setOpciones] = useState(null);
 
   function cargarBodegas() {
     pedir("/api/bodegas", {}, token).then(setBodegas).catch(() => {});
@@ -78,12 +81,13 @@ function TabRecuento({ token, esAuditor }) {
     catch (_) {}
   }
 
-  async function procesar(texto) {
+  async function procesar(texto, mostrar = texto) {
     if (!texto || !sesion) return;
-    setDicho(texto);
+    setDicho(mostrar);
     try {
       const t = await enviarTurno(texto, sesion.sesion_id, token);
       setRespuesta(t.respuesta_hablada || "");
+      setOpciones(t.opciones || null);
       hablar(t.respuesta_hablada);
     } catch (e) { setMsg(e.message); }
   }
@@ -155,12 +159,24 @@ function TabRecuento({ token, esAuditor }) {
                 <div>
                   <p className="rotulo">{dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}</p>
                   <div className="burbuja">{respuesta}</div>
+                  {opciones && (
+                    <div className="opciones" style={{ marginTop: 14 }}>
+                      {opciones.map((o, i) => (
+                        <button key={o.codigo} className="opcion"
+                                onClick={() => procesar(o.codigo, o.nombre)}>
+                          <span className="n">Opción {i + 1}</span>
+                          <h4>{o.nombre}</h4>
+                          <p>Código {o.codigo}</p>
+                          <p>{o.unidad}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="grilla-botones" style={{ marginTop: 12 }}>
                     <button className="btn verde" onClick={() => procesar("confirmo")}>Confirmar</button>
-                    <button className="btn gris" onClick={() => {
-                      const t = window.prompt("Escriba el producto y la cantidad:");
-                      if (t) procesar(t);
-                    }}>Teclado</button>
+                    <button className="btn gris" onClick={() => setMostrarTeclado(true)}>
+                      Teclado
+                    </button>
                   </div>
                 </div>
                 <div className="mic-caja">
@@ -250,6 +266,14 @@ function TabRecuento({ token, esAuditor }) {
             </div>
           )}
         </>
+      )}
+
+      {mostrarTeclado && (
+        <Dialogo titulo="Escribir en vez de hablar"
+                 mensaje="Escriba el producto y la cantidad:"
+                 conCampo placeholder="tres tablas para picar blancas"
+                 onAceptar={(t) => { setMostrarTeclado(false); if (t) procesar(t); }}
+                 onCancelar={() => setMostrarTeclado(false)} />
       )}
     </>
   );

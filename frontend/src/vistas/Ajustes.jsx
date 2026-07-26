@@ -149,6 +149,8 @@ function TabUsuarios({ token }) {
   const [bodegas, setBodegas] = useState([]);
   const [msg, setMsg] = useState("");
   const [nuevo, setNuevo] = useState(null);
+  const [asignando, setAsignando] = useState(null);   // usuario al que se le estan marcando bodegas
+  const [marcadas, setMarcadas] = useState(new Set());
 
   function cargar() {
     pedir("/api/usuarios", {}, token).then(setUsuarios).catch(() => {});
@@ -170,13 +172,18 @@ function TabUsuarios({ token }) {
     } catch (e) { setMsg(e.message); }
   }
 
-  async function asignar(u) {
-    const disponibles = bodegas.map((b) => b.bodega).join(", ");
-    const texto = window.prompt(
-      `Escriba, separadas por coma, las bodegas para ${u.nombre}:\n\n${disponibles}`);
-    if (texto === null) return;
-    const nombres = texto.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
-    const ids = bodegas.filter((b) => nombres.some((n) => b.bodega.includes(n))).map((b) => b.id);
+  function alternarBodega(id) {
+    setMarcadas((prev) => {
+      const nueva = new Set(prev);
+      nueva.has(id) ? nueva.delete(id) : nueva.add(id);
+      return nueva;
+    });
+  }
+
+  async function guardarAsignacion() {
+    const u = asignando;
+    const ids = [...marcadas];
+    setAsignando(null);
     try {
       await pedir(`/api/usuarios/${u.id}/bodegas`, {
         method: "PUT", body: JSON.stringify({ bodega_ids: ids }),
@@ -206,7 +213,9 @@ function TabUsuarios({ token }) {
               <td>
                 {u.perfil === "auxiliar" && (
                   <button className="btn borde" style={{ padding: "4px 10px", minHeight: 0 }}
-                          onClick={() => asignar(u)}>Asignar bodegas</button>
+                          onClick={() => { setAsignando(u); setMarcadas(new Set()); }}>
+                    Asignar bodegas
+                  </button>
                 )}
               </td>
             </tr>
@@ -239,6 +248,32 @@ function TabUsuarios({ token }) {
       <p className="pista" style={{ marginTop: 10 }}>
         El auxiliar cuenta y crea; solo el administrador aprueba, audita y cierra.
       </p>
+
+      {asignando && (
+        <div className="overlay" onClick={() => setAsignando(null)}>
+          <div className="modal" style={{ maxWidth: 520, textAlign: "left" }}
+               onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ textTransform: "capitalize" }}>Bodegas para {asignando.nombre}</h2>
+            <p className="pista">Marque las bodegas que va a poder contar esta persona.</p>
+            <div style={{ maxHeight: 320, overflowY: "auto", margin: "12px 0",
+                          border: "1px solid var(--borde)", borderRadius: 10, padding: 8 }}>
+              {bodegas.map((b) => (
+                <label key={b.id} style={{ display: "flex", alignItems: "center", gap: 10,
+                                            padding: "7px 6px", fontSize: ".9rem" }}>
+                  <input type="checkbox" checked={marcadas.has(b.id)}
+                         onChange={() => alternarBodega(b.id)} />
+                  {b.bodega}
+                </label>
+              ))}
+            </div>
+            <p className="pista">{marcadas.size} bodegas marcadas</p>
+            <div className="botones">
+              <button className="btn borde" onClick={() => setAsignando(null)}>Cancelar</button>
+              <button className="btn" onClick={guardarAsignacion}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

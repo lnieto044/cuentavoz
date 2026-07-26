@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pedir } from "../api";
 import Marco from "../Marco";
+import Dialogo from "../Dialogo";
 
 const FAQ = [
   ["¿Cómo corrijo un conteo ya confirmado?",
@@ -28,13 +29,14 @@ export default function Ayuda({ token }) {
   const [busca, setBusca] = useState("");
   const [reportando, setReportando] = useState(false);
   const [msg, setMsg] = useState("");
+  const [pedirDetalle, setPedirDetalle] = useState(false);
 
   useEffect(() => {
     pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
   }, [token]);
 
-  async function reportarProblema() {
-    const detalle = window.prompt("Describa el problema que encontró:");
+  async function reportarProblema(detalle) {
+    setPedirDetalle(false);
     if (!detalle || !detalle.trim()) return;
     setReportando(true);
     try {
@@ -115,12 +117,21 @@ export default function Ayuda({ token }) {
           <p className="pista" style={{ marginBottom: 10 }}>Mesa de ayuda Colsubsidio · ext. 4040 · 7 por 24</p>
           {msg && <p className="msg-ok">{msg}</p>}
           <div className="grilla-botones">
-            <button className="btn oro" disabled={reportando} onClick={reportarProblema}>
+            <button className="btn oro" disabled={reportando} onClick={() => setPedirDetalle(true)}>
               {reportando ? "Enviando…" : "Reportar un problema"}
             </button>
           </div>
         </div>
       </div>
+
+      {pedirDetalle && (
+        <Dialogo titulo="Reportar un problema"
+                 mensaje="Describa el problema que encontró:"
+                 conCampo multilinea placeholder="Se cayó el micrófono al confirmar un conteo…"
+                 textoAceptar="Enviar"
+                 onAceptar={reportarProblema}
+                 onCancelar={() => setPedirDetalle(false)} />
+      )}
     </Marco>
   );
 }

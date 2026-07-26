@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pedir, BASE, leerToken } from "../api";
 import Marco from "../Marco";
+import Dialogo from "../Dialogo";
 
 const ETIQUETA = {
   pendiente: ["PENDIENTE", "gris"], en_conteo: ["EN CONTEO", "azul"],
@@ -15,6 +16,7 @@ export default function Bodegas({ token, usuario, ir }) {
   const [busca, setBusca] = useState("");
   const [consulta, setConsulta] = useState(null);
   const [msg, setMsg] = useState("");
+  const [pedirMotivo, setPedirMotivo] = useState(false);
   const esAuditor = usuario?.perfil === "auditor";
 
   useEffect(() => {
@@ -42,12 +44,13 @@ export default function Bodegas({ token, usuario, ir }) {
     setDetalleId(id);
     setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token));
   }
-  async function buscarArticulo() {
+  async function buscarArticulo(codigo = "") {
     if (!busca.trim()) return;
-    setConsulta(await pedir(`/api/articulos/consulta?q=${encodeURIComponent(busca)}`, {}, token));
+    setConsulta(await pedir(
+      `/api/articulos/consulta?q=${encodeURIComponent(busca)}&codigo=${codigo}`, {}, token));
   }
-  async function reabrir() {
-    const motivo = window.prompt("Motivo para reabrir esta bodega cerrada (obligatorio):");
+  async function reabrir(motivo) {
+    setPedirMotivo(false);
     if (!motivo || !motivo.trim()) return;
     try {
       await pedir(`/api/bodegas/${detalleId}/reabrir`, {
@@ -80,11 +83,22 @@ export default function Bodegas({ token, usuario, ir }) {
                  placeholder="arroz, aceite, cazuela…"
                  style={{ flex: 1, minWidth: 200, padding: "11px 13px",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
-          <button className="btn" onClick={buscarArticulo}>Buscar</button>
+          <button className="btn" onClick={() => buscarArticulo()}>Buscar</button>
         </div>
         {consulta && (
           <>
             <p className="burbuja" style={{ marginTop: 12 }}>{consulta.resumen}</p>
+            {consulta.ambiguo && consulta.alternativas?.length > 0 && (
+              <div className="chips" style={{ marginTop: 10 }}>
+                <span className="pista" style={{ width: "100%" }}>¿Era este otro?</span>
+                {consulta.alternativas.map((a) => (
+                  <button key={a.codigo} className="chip oro"
+                          onClick={() => buscarArticulo(a.codigo)}>
+                    {a.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
             {consulta.bodegas?.length > 0 && (
               <table style={{ marginTop: 12 }}>
                 <thead><tr><th>Bodega</th><th>Cantidad</th><th>Estado</th></tr></thead>
@@ -146,7 +160,7 @@ export default function Bodegas({ token, usuario, ir }) {
           <div className="grilla-botones">
             <button className="btn borde" onClick={() => setDetalle(null)}>Cerrar detalle</button>
             {esAuditor && detalle.estado === "cerrada" && (
-              <button className="btn oro" onClick={reabrir}>Reabrir la bodega</button>
+              <button className="btn oro" onClick={() => setPedirMotivo(true)}>Reabrir la bodega</button>
             )}
             <button className="btn" onClick={() => ir && ir("panel")}>Ver en el panel gerencial</button>
           </div>
@@ -169,6 +183,15 @@ export default function Bodegas({ token, usuario, ir }) {
       <p className="pista" style={{ marginTop: 12 }}>
         Cada tarjeta se actualiza al instante por WebSocket. Toque una para ver su detalle.
       </p>
+
+      {pedirMotivo && (
+        <Dialogo titulo="Reabrir bodega cerrada"
+                 mensaje="Esta acción exige una justificación escrita y queda registrada en el historial. Motivo:"
+                 conCampo multilinea placeholder="revisión solicitada por el chef"
+                 textoAceptar="Reabrir" peligro
+                 onAceptar={reabrir}
+                 onCancelar={() => setPedirMotivo(false)} />
+      )}
     </Marco>
   );
 }

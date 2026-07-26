@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pedir, BASE, leerToken } from "../api";
+import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
 
 export default function Reportes({ token }) {
@@ -48,11 +48,10 @@ export default function Reportes({ token }) {
             <span className="ok">✓</span>
             <span>{a.ruta.split("/").pop()}</span>
             <span className="cant">{a.formato.toUpperCase()} · {a.hora}</span>
-            <a className="btn borde" style={{ padding: "6px 12px", minHeight: 0,
-               textDecoration: "none" }}
-               href={`${BASE}/api/reportes/descargar?archivo=${encodeURIComponent(a.ruta)}`}>
+            <button className="btn borde" style={{ padding: "6px 12px", minHeight: 0 }}
+                    onClick={() => descargarReporte(a.ruta, token).catch((e) => setErr(e.message))}>
               Descargar
-            </a>
+            </button>
           </div>
         ))}
       </div>

@@ -120,6 +120,15 @@ input  { font-family: inherit; font-size: 1rem; }
 
 /* ── Conversación y micrófono ── */
 .conteo-cols { display: grid; grid-template-columns: 1fr 300px; gap: 14px; }
+.dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.perfil-cols { display: grid; grid-template-columns: 260px 1fr; gap: 14px; align-items: start; }
+.campos-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.avatar-grande {
+  width: 110px; height: 110px; border-radius: 50%; border: 3px solid var(--azul);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.6rem; font-weight: 700; color: var(--azul); background: var(--azul-claro);
+  margin: 0 auto;
+}
 .rotulo { font-size: .74rem; color: var(--grafito); font-style: italic; margin-bottom: 4px; }
 .cita {
   background: var(--fondo); border: 1px solid var(--borde); border-radius: 10px;
@@ -298,6 +307,9 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
     white-space: nowrap; padding: 8px 12px; font-size: .8rem; border-radius: 8px; }
   .sidebar li.sel { border-left: none; border-bottom-color: var(--amarillo); }
   .conteo-cols { grid-template-columns: 1fr; }
+  .dos-columnas { grid-template-columns: 1fr; }
+  .perfil-cols { grid-template-columns: 1fr; }
+  .campos-2col { grid-template-columns: 1fr; }
   .mic-btn { width: min(64vw, 200px); height: min(64vw, 200px); font-size: 3.4rem;
     margin: 6px auto; }
   .opciones { grid-template-columns: 1fr; }

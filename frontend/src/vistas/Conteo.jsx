@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { enviarTurno, abrirBodega, pedir } from "../api";
+import { enviarTurno, abrirBodega, pedir, descargarReporte } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
 import Marco from "../Marco";
+import Dialogo from "../Dialogo";
 
 const UNIDADES = ["Unidad", "Kilogram", "Liter", "Portion"];
 const CLAVE_COLA = (sesionId) => `cv_offline_${sesionId}`;
@@ -29,6 +30,8 @@ export default function Conteo({ token, sesionId = 1, ir }) {
   const [estado, setEstado] = useState("listo");
   const [err, setErr] = useState("");
   const [crear, setCrear] = useState(null);       // {nombre, unidad_medida, cantidad_inicial}
+  const [archivo, setArchivo] = useState(null);
+  const [mostrarTeclado, setMostrarTeclado] = useState(false);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [cola, setCola] = useState(() => leerCola(sesionId));
   const rec = useRef(null);
@@ -84,10 +87,15 @@ export default function Conteo({ token, sesionId = 1, ir }) {
     return e instanceof TypeError || /failed to fetch|networkerror/i.test(e.message || "");
   }
 
-  /** Un turno de conversación: el ciclo completo del agente. */
-  async function procesar(texto) {
+  /** Un turno de conversación: el ciclo completo del agente.
+      «mostrar» es lo que se ve como «Usted dijo»; «texto» es lo que de
+      verdad se le manda al backend. Al tocar una tarjeta de opción se
+      manda el código exacto (nunca falla), no el nombre: si un nombre
+      está contenido dentro del otro (ARROZ dentro de ARROZ BASMATI), el
+      agente no tiene con qué distinguirlos por palabra. */
+  async function procesar(texto, mostrar = texto) {
     if (!texto) return;
-    setDicho(texto);
+    setDicho(mostrar);
     setErr("");
     try {
       const t = await enviarTurno(texto, sesionId, token);
@@ -96,6 +104,7 @@ export default function Conteo({ token, sesionId = 1, ir }) {
       setAlerta(t.alerta || null);
       setAlertaEsperado(t.alerta === "desviacion" ? (t.pendiente?.cantidad ?? null) : null);
       setPendiente(t.pendiente || null);
+      setArchivo(t.archivo || null);
       hablar(t.respuesta_hablada);
       if (t.guardado || t.corregido || t.bodega) refrescar();
       if (t.bodega) setBodega({ bodega: t.bodega.nombre, referencias: t.bodega.referencias });
@@ -247,12 +256,20 @@ export default function Conteo({ token, sesionId = 1, ir }) {
                   {dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}
                 </p>
                 <div className="burbuja">{respuesta}</div>
+                {archivo && (
+                  <div className="grilla-botones" style={{ marginTop: 10 }}>
+                    <button className="btn verde"
+                            onClick={() => descargarReporte(archivo, token).catch((e) => setErr(e.message))}>
+                      Descargar archivo generado
+                    </button>
+                  </div>
+                )}
 
                 {opciones && (
                   <div className="opciones" style={{ marginTop: 14 }}>
                     {opciones.map((o, i) => (
                       <button key={o.codigo} className="opcion"
-                              onClick={() => procesar(o.nombre)}>
+                              onClick={() => procesar(o.codigo, o.nombre)}>
                         <span className="n">Opción {i + 1}</span>
                         <h4>{o.nombre}</h4>
                         <p>Código {o.codigo}</p>
@@ -313,10 +330,7 @@ export default function Conteo({ token, sesionId = 1, ir }) {
               <button className="btn borde" onClick={() => procesar("corregir")}>
                 Corregir
               </button>
-              <button className="btn gris" onClick={() => {
-                const t = window.prompt("Escriba lo que diría en voz alta:");
-                if (t) procesar(t);
-              }}>
+              <button className="btn gris" onClick={() => setMostrarTeclado(true)}>
                 Teclado
               </button>
               <button className="btn oro" onClick={() => ir("ayuda")}>
@@ -328,6 +342,14 @@ export default function Conteo({ token, sesionId = 1, ir }) {
             La voz es el camino rápido; el teclado siempre queda como respaldo.
           </p>
         </>
+      )}
+
+      {mostrarTeclado && (
+        <Dialogo titulo="Escribir en vez de hablar"
+                 mensaje="Escriba lo que diría en voz alta:"
+                 conCampo placeholder="tres tablas para picar blancas"
+                 onAceptar={(t) => { setMostrarTeclado(false); if (t) procesar(t); }}
+                 onCancelar={() => setMostrarTeclado(false)} />
       )}
     </Marco>
   );
