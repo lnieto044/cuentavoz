@@ -41,10 +41,18 @@ export async function ingresar(usuario, clave) {
   return res.json();
 }
 
-export const enviarTurno = (texto, sesionId, token) =>
+// «respaldo» son las opciones que la pantalla ya tiene mostradas en
+// pantalla ({ opciones, opcionesPara }); si el backend se reinició y
+// perdió la memoria de la conversación, las recupera de ahí en vez de
+// preguntar «¿cuál de los dos?» otra vez sin recordar nada.
+export const enviarTurno = (texto, sesionId, token, respaldo = {}) =>
   pedir("/api/agente/turno", {
     method: "POST",
-    body: JSON.stringify({ texto, sesion_id: sesionId }),
+    body: JSON.stringify({
+      texto, sesion_id: sesionId,
+      opciones_pendientes: respaldo.opciones || null,
+      opciones_para: respaldo.opcionesPara || null,
+    }),
   }, token);
 
 export const abrirBodega = (bodega, token) =>

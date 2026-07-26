@@ -30,6 +30,7 @@ export default function Pedido({ token, usuario }) {
   const [pedirPorciones, setPedirPorciones] = useState(false);
   const [avisos, setAvisos] = useState(null);
   const [opciones, setOpciones] = useState(null);
+  const [opcionesPara, setOpcionesPara] = useState(null);
   const [productoConsultado, setProductoConsultado] = useState(null);
   const [bodegas, setBodegas] = useState([]);
   const [bodegaId, setBodegaId] = useState(null);
@@ -92,12 +93,16 @@ export default function Pedido({ token, usuario }) {
     }
 
     try {
-      const t = await enviarTurno(texto, sesionId, token);
+      const t = await enviarTurno(texto, sesionId, token, { opciones, opcionesPara });
+      // un plato nuevo es un tema distinto: la última consulta de producto
+      // ya no aplica y solo estorbaría junto al pedido que se está armando.
+      if (t.preparacion && t.porciones) setProductoConsultado(null);
       if (t.preparacion) setPlato(t.preparacion);
       if (t.porciones) setPorciones(t.porciones);
       setRespuesta(t.respuesta_hablada || "");
       setArchivo(t.archivo || null);
       setOpciones(t.opciones || null);
+      setOpcionesPara(t.opciones_para || null);
       if (t.producto_consultado) setProductoConsultado(t.producto_consultado);
       hablar(t.respuesta_hablada);
     } catch (e) {
@@ -154,7 +159,7 @@ export default function Pedido({ token, usuario }) {
     try {
       await pedir("/api/pedidos/enviar", {
         method: "POST",
-        body: JSON.stringify({ lineas, servicio_id: 1 }),
+        body: JSON.stringify({ lineas, servicio_id: 1, plato, porciones }),
       }, token);
       const msg = "Pedido enviado al almacén.";
       setRespuesta(msg);
@@ -197,27 +202,29 @@ export default function Pedido({ token, usuario }) {
           </p>
 
           <h3 style={{ marginTop: 18 }}>Lo que entendió CuentaVoz</h3>
-          {productoConsultado && (
-            <table style={{ marginBottom: plato ? 10 : 0 }}>
-              <tbody>
-                <tr><td>Último producto consultado</td><td><b style={{ color: "var(--azul)" }}>
-                  {productoConsultado.nombre}</b></td></tr>
-                <tr><td>Código · unidad</td><td><b style={{ color: "var(--azul)" }}>
-                  {productoConsultado.codigo} · {productoConsultado.unidad}</b></td></tr>
-              </tbody>
-            </table>
-          )}
-          {plato ? (
+          {(productoConsultado || (plato && porciones)) ? (
             <table>
               <tbody>
-                <tr><td>Preparación</td><td><b style={{ color: "var(--azul)" }}>
-                  {plato.toUpperCase()}</b></td></tr>
-                <tr><td>Porciones</td><td><b style={{ color: "var(--azul)" }}>
-                  {porciones ?? "—"}</b></td></tr>
-                <tr><td>Receta aplicada</td><td><b style={{ color: "var(--azul)" }}>
-                  estándar de Colsubsidio</b></td></tr>
-                <tr><td>Momento</td><td><b style={{ color: "var(--azul)" }}>
-                  pedido al almacén</b></td></tr>
+                {productoConsultado && (
+                  <>
+                    <tr><td>Último producto consultado</td><td><b style={{ color: "var(--azul)" }}>
+                      {productoConsultado.nombre}</b></td></tr>
+                    <tr><td>Código · unidad</td><td><b style={{ color: "var(--azul)" }}>
+                      {productoConsultado.codigo} · {productoConsultado.unidad}</b></td></tr>
+                  </>
+                )}
+                {plato && porciones && (
+                  <>
+                    <tr><td>Preparación</td><td><b style={{ color: "var(--azul)" }}>
+                      {plato.toUpperCase()}</b></td></tr>
+                    <tr><td>Porciones</td><td><b style={{ color: "var(--azul)" }}>
+                      {porciones}</b></td></tr>
+                    <tr><td>Receta aplicada</td><td><b style={{ color: "var(--azul)" }}>
+                      estándar de Colsubsidio</b></td></tr>
+                    <tr><td>Momento</td><td><b style={{ color: "var(--azul)" }}>
+                      pedido al almacén</b></td></tr>
+                  </>
+                )}
               </tbody>
             </table>
           ) : (

@@ -55,6 +55,7 @@ function TabRecuento({ token, esAuditor }) {
   const [estado, setEstado] = useState("listo");
   const [mostrarTeclado, setMostrarTeclado] = useState(false);
   const [opciones, setOpciones] = useState(null);
+  const [opcionesPara, setOpcionesPara] = useState(null);
 
   function cargarBodegas() {
     pedir("/api/bodegas", {}, token).then(setBodegas).catch(() => {});
@@ -85,9 +86,10 @@ function TabRecuento({ token, esAuditor }) {
     if (!texto || !sesion) return;
     setDicho(mostrar);
     try {
-      const t = await enviarTurno(texto, sesion.sesion_id, token);
+      const t = await enviarTurno(texto, sesion.sesion_id, token, { opciones, opcionesPara });
       setRespuesta(t.respuesta_hablada || "");
       setOpciones(t.opciones || null);
+      setOpcionesPara(t.opciones_para || null);
       hablar(t.respuesta_hablada);
     } catch (e) { setMsg(e.message); }
   }

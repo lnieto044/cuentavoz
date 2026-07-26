@@ -6,6 +6,7 @@ import Dialogo from "../Dialogo";
 
 const UNIDADES = ["Unidad", "Kilogram", "Liter", "Portion"];
 const CLAVE_COLA = (sesionId) => `cv_offline_${sesionId}`;
+const CLAVE_CATALOGO = "cv_catalogo_ligero";
 
 function leerCola(sesionId) {
   try { return JSON.parse(localStorage.getItem(CLAVE_COLA(sesionId)) || "[]"); }
@@ -13,6 +14,32 @@ function leerCola(sesionId) {
 }
 function guardarCola(sesionId, cola) {
   localStorage.setItem(CLAVE_COLA(sesionId), JSON.stringify(cola));
+}
+
+function leerCatalogo() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_CATALOGO) || "[]"); }
+  catch (_) { return []; }
+}
+function guardarCatalogo(lista) {
+  try { localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(lista)); } catch (_) {}
+}
+function normalizarLocal(t) {
+  return (t || "").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+/** Sugerencia sin internet: coincidencia de palabras contra el catálogo
+    que ya se guardó en el equipo mientras había señal. */
+function sugerirDeCatalogo(texto, catalogo) {
+  const q = normalizarLocal(texto);
+  const palabras = q.split(/\s+/).filter((p) => p.length >= 3);
+  if (!palabras.length || !catalogo.length) return null;
+  let mejor = null, mejorPuntaje = 0;
+  for (const a of catalogo) {
+    const nombre = normalizarLocal(a.nombre);
+    const aciertos = palabras.filter((p) => nombre.includes(p)).length;
+    const puntaje = aciertos / palabras.length;
+    if (puntaje > mejorPuntaje) { mejorPuntaje = puntaje; mejor = a; }
+  }
+  return mejorPuntaje >= 0.5 ? mejor : null;
 }
 
 export default function Conteo({ token, sesionId = 1, ir }) {
@@ -23,8 +50,10 @@ export default function Conteo({ token, sesionId = 1, ir }) {
     "Abra una bodega para empezar a contar."
   );
   const [opciones, setOpciones] = useState(null);
+  const [opcionesPara, setOpcionesPara] = useState(null);
   const [alerta, setAlerta] = useState(null);
   const [alertaEsperado, setAlertaEsperado] = useState(null);
+  const [contextoAlerta, setContextoAlerta] = useState(null);
   const [pendiente, setPendiente] = useState(null);
   const [avance, setAvance] = useState({ hechas: 0, total: 0, alertas: 0, ultimos: [] });
   const [estado, setEstado] = useState("listo");
@@ -35,6 +64,14 @@ export default function Conteo({ token, sesionId = 1, ir }) {
   const [offline, setOffline] = useState(!navigator.onLine);
   const [cola, setCola] = useState(() => leerCola(sesionId));
   const rec = useRef(null);
+
+  // guarda el catalogo liviano en el equipo mientras hay señal, para que
+  // el modo sin conexión pueda seguir sugiriendo nombres oficiales.
+  useEffect(() => {
+    if (navigator.onLine && token) {
+      pedir("/api/articulos/catalogo-ligero", {}, token).then(guardarCatalogo).catch(() => {});
+    }
+  }, [token]);
 
   async function refrescar() {
     try {
@@ -98,11 +135,13 @@ export default function Conteo({ token, sesionId = 1, ir }) {
     setDicho(mostrar);
     setErr("");
     try {
-      const t = await enviarTurno(texto, sesionId, token);
+      const t = await enviarTurno(texto, sesionId, token, { opciones, opcionesPara });
       setRespuesta(t.respuesta_hablada || "");
       setOpciones(t.opciones || null);
+      setOpcionesPara(t.opciones_para || null);
       setAlerta(t.alerta || null);
       setAlertaEsperado(t.alerta === "desviacion" ? (t.pendiente?.cantidad ?? null) : null);
+      setContextoAlerta(t.contexto_alerta || null);
       setPendiente(t.pendiente || null);
       setArchivo(t.archivo || null);
       hablar(t.respuesta_hablada);
@@ -129,6 +168,7 @@ export default function Conteo({ token, sesionId = 1, ir }) {
   function recontar() {
     setAlerta(null);
     setAlertaEsperado(null);
+    setContextoAlerta(null);
     setPendiente(null);
     setDicho("");
     const msg = "¿La contamos otra vez? Dígame el nuevo valor.";
@@ -218,27 +258,26 @@ export default function Conteo({ token, sesionId = 1, ir }) {
             )}
           </div>
 
-          {alerta && !crear && (
+          {alerta && alerta !== "desviacion" && !crear && (
             <div className="banner">
               <span className="ico">!</span>
               <span style={{ flex: 1 }}>
                 <b>
-                  {alerta === "desviacion" ? "Cantidad fuera de lo esperado"
-                    : alerta === "negativo" ? "Cantidad imposible"
+                  {alerta === "negativo" ? "Cantidad imposible"
                     : alerta === "unidad" ? "Unidad de medida distinta"
                     : "Artículo fuera del catálogo"}
                 </b>
                 <span>{respuesta}</span>
-                {alerta === "desviacion" && (
-                  <div className="grilla-botones" style={{ marginTop: 10 }}>
-                    <button className="btn" onClick={recontar}>Recontar</button>
-                    <button className="btn oro" onClick={() => procesar("confirmo")}>
-                      Confirmar {alertaEsperado != null ? alertaEsperado : ""}
-                    </button>
-                  </div>
-                )}
               </span>
             </div>
+          )}
+
+          {alerta === "desviacion" && !crear && (
+            <AlertaDesviacion
+              contexto={contextoAlerta} respuesta={respuesta}
+              onRecontar={recontar}
+              onConfirmar={() => procesar("confirmo")}
+            />
           )}
 
           {crear && (
@@ -249,7 +288,7 @@ export default function Conteo({ token, sesionId = 1, ir }) {
             />
           )}
 
-          {!crear && (
+          {!crear && alerta !== "desviacion" && (
             <div className="conteo-cols">
               <div className="card">
                 <p className="rotulo">
@@ -322,25 +361,27 @@ export default function Conteo({ token, sesionId = 1, ir }) {
             </div>
           )}
 
-          {!crear && (
-            <div className="grilla-botones">
-              <button className="btn verde" onClick={() => procesar("confirmo")}>
-                Confirmar
-              </button>
-              <button className="btn borde" onClick={() => procesar("corregir")}>
-                Corregir
-              </button>
-              <button className="btn gris" onClick={() => setMostrarTeclado(true)}>
-                Teclado
-              </button>
-              <button className="btn oro" onClick={() => ir("ayuda")}>
-                Pedir ayuda
-              </button>
-            </div>
+          {!crear && alerta !== "desviacion" && (
+            <>
+              <div className="grilla-botones">
+                <button className="btn verde" onClick={() => procesar("confirmo")}>
+                  Confirmar
+                </button>
+                <button className="btn borde" onClick={() => procesar("corregir")}>
+                  Corregir
+                </button>
+                <button className="btn gris" onClick={() => setMostrarTeclado(true)}>
+                  Teclado
+                </button>
+                <button className="btn oro" onClick={() => ir("ayuda")}>
+                  Pedir ayuda
+                </button>
+              </div>
+              <p className="pista" style={{ marginTop: 10 }}>
+                La voz es el camino rápido; el teclado siempre queda como respaldo.
+              </p>
+            </>
           )}
-          <p className="pista" style={{ marginTop: 10 }}>
-            La voz es el camino rápido; el teclado siempre queda como respaldo.
-          </p>
         </>
       )}
 
@@ -355,6 +396,65 @@ export default function Conteo({ token, sesionId = 1, ir }) {
   );
 }
 
+const fmt = (n) => Number(n).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+
+function AlertaDesviacion({ contexto, respuesta, onRecontar, onConfirmar }) {
+  return (
+    <>
+      <div className="banner">
+        <span className="ico">!</span>
+        <span>
+          <b>Cantidad fuera de lo esperado</b>
+          <span>
+            {contexto
+              ? `El sistema espera alrededor de ${fmt(contexto.esperado)} · usted dijo `
+                + `${fmt(contexto.dicho)}  (${contexto.articulo})`
+              : respuesta}
+          </span>
+        </span>
+      </div>
+
+      <div className="card">
+        <p className="rotulo">CuentaVoz responde</p>
+        <div className="burbuja">{respuesta}</div>
+      </div>
+
+      <div className="conteo-cols">
+        {contexto ? (
+          <div className="card">
+            <h3>Contexto de la validación</h3>
+            <table>
+              <tbody>
+                <tr><td>Stock del sistema</td><td><b style={{ color: "var(--azul)" }}>
+                  {fmt(contexto.esperado)} {contexto.unidad}</b></td></tr>
+                <tr><td>Su conteo</td><td><b style={{ color: "var(--azul)" }}>
+                  {fmt(contexto.dicho)} {contexto.unidad}</b></td></tr>
+                <tr><td>Desviación</td><td className="dif">
+                  {contexto.desviacion_pct != null
+                    ? `${contexto.desviacion_pct > 0 ? "+" : ""}${contexto.desviacion_pct}%`
+                    : "—"}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        ) : <div />}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <button className="btn" onClick={onRecontar}>RECONTAR</button>
+          <button className="btn oro" onClick={onConfirmar}>
+            CONFIRMAR {contexto ? fmt(contexto.dicho) : ""}
+          </button>
+        </div>
+      </div>
+
+      <p className="pista">
+        Si confirma, el registro se guarda marcado para revisión del administrador de bodega.
+      </p>
+      <p className="pista" style={{ color: "var(--azul)" }}>
+        Ninguna cantidad con alerta se guarda sin una confirmación explícita de la persona.
+      </p>
+    </>
+  );
+}
+
 function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega, err }) {
   return (
     <div className="card">
@@ -363,38 +463,55 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
         No encontré «{crear.nombre}» en el catálogo. Lo creamos y queda pendiente
         del administrador.
       </div>
-      <div style={{ marginTop: 16 }}>
-        <label className="pista">Nombre tal como lo dictó</label>
-        <input value={crear.nombre}
-               onChange={(e) => setCrear({ ...crear, nombre: e.target.value })}
-               style={{ width: "100%", padding: "11px 13px", marginBottom: 12,
-                        border: "1px solid var(--borde)", borderRadius: 12,
-                        textTransform: "uppercase" }} />
 
-        <label className="pista">Unidad de medida</label>
-        <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 12 }}>
-          {UNIDADES.map((u) => (
-            <button key={u}
-                    className={`btn ${crear.unidad_medida === u ? "" : "borde"}`}
-                    onClick={() => setCrear({ ...crear, unidad_medida: u })}>
-              {u}
-            </button>
-          ))}
+      <div className="conteo-cols" style={{ marginTop: 16 }}>
+        <div>
+          <label className="pista">Nombre tal como lo dictó</label>
+          <input value={crear.nombre}
+                 onChange={(e) => setCrear({ ...crear, nombre: e.target.value })}
+                 style={{ width: "100%", padding: "11px 13px", marginTop: 6,
+                          border: "1px solid var(--borde)", borderRadius: 12,
+                          textTransform: "uppercase" }} />
         </div>
-
-        <label className="pista">Cantidad inicial contada en {bodega}</label>
-        <input type="number" min="0" value={crear.cantidad_inicial}
-               onChange={(e) => setCrear({ ...crear, cantidad_inicial: Number(e.target.value) })}
-               style={{ width: 160, padding: "11px 13px",
-                        border: "1px solid var(--borde)", borderRadius: 12 }} />
+        <div>
+          <label className="pista">Estado del registro</label>
+          <div style={{ marginTop: 6 }}>
+            <span className="chip oro">PENDIENTE DE APROBACIÓN</span>
+          </div>
+        </div>
       </div>
-      {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+
+      <div className="dos-columnas" style={{ marginTop: 16 }}>
+        <div>
+          <label className="pista">Unidad de medida</label>
+          <div className="grilla-botones" style={{ marginTop: 6 }}>
+            {UNIDADES.map((u) => (
+              <button key={u}
+                      className={`btn ${crear.unidad_medida === u ? "" : "borde"}`}
+                      onClick={() => setCrear({ ...crear, unidad_medida: u })}>
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="pista">Cantidad inicial contada en {bodega}</label>
+          <input type="number" min="0" value={crear.cantidad_inicial}
+                 onChange={(e) => setCrear({ ...crear, cantidad_inicial: Number(e.target.value) })}
+                 style={{ width: "100%", padding: "11px 13px", marginTop: 6,
+                          border: "1px solid var(--borde)", borderRadius: 12 }} />
+        </div>
+      </div>
+
+      <p className="pista" style={{ marginTop: 12 }}>
+        No entra al catálogo oficial hasta la firma del administrador de bodega.
+      </p>
+      {err && <p className="error" style={{ marginTop: 6 }}>{err}</p>}
       <div className="grilla-botones">
         <button className="btn" onClick={onCrear}>Crear pendiente</button>
         <button className="btn gris" onClick={onCancelar}>Cancelar</button>
       </div>
       <p className="pista" style={{ marginTop: 10 }}>
-        No entra al catálogo oficial hasta la firma del administrador de bodega.
         El conteo continúa sin interrupción: la aprobación ocurre en paralelo.
       </p>
     </div>
@@ -405,6 +522,18 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
   const [articulo, setArticulo] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const [unidad, setUnidad] = useState("Unidad");
+  const [catalogo] = useState(() => leerCatalogo());
+
+  const sugerencia = sugerirDeCatalogo(articulo, catalogo);
+
+  function usarSugerencia() {
+    setArticulo(sugerencia.nombre);
+    setUnidad(sugerencia.unidad);
+  }
+
+  function ciclarUnidad() {
+    setUnidad(UNIDADES[(UNIDADES.indexOf(unidad) + 1) % UNIDADES.length]);
+  }
 
   function guardar() {
     if (!articulo.trim()) return;
@@ -427,18 +556,30 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
         <label className="pista">Artículo</label>
         <input value={articulo} onChange={(e) => setArticulo(e.target.value)}
                placeholder="tabla acril…"
-               style={{ width: "100%", padding: "11px 13px", marginBottom: 12,
+               style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                         border: "1px solid var(--borde)", borderRadius: 12 }} />
+        {sugerencia && (
+          <button className="chip azul" onClick={usarSugerencia}
+                  style={{ display: "block", width: "100%", textAlign: "left",
+                           marginBottom: 6 }}>
+            {sugerencia.nombre} {sugerencia.codigo}
+          </button>
+        )}
+        <p className="pista" style={{ marginBottom: 12 }}>
+          El catálogo local sigue sugiriendo nombres oficiales sin internet.
+        </p>
         <label className="pista">Cantidad</label>
-        <div style={{ display: "flex", gap: 10, marginBottom: 4 }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 6, marginBottom: 4,
+                      alignItems: "center" }}>
+          <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
+                  onClick={() => setCantidad((c) => Math.max(0, Number(c) - 1))}>−</button>
           <input type="number" value={cantidad}
                  onChange={(e) => setCantidad(e.target.value)}
-                 style={{ width: 100, padding: "11px 13px",
+                 style={{ width: 90, padding: "11px 13px", textAlign: "center",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
-          {UNIDADES.map((u) => (
-            <button key={u} className={`chip ${unidad === u ? "azul" : ""}`}
-                    onClick={() => setUnidad(u)}>{u}</button>
-          ))}
+          <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
+                  onClick={() => setCantidad((c) => Number(c) + 1)}>+</button>
+          <button className="chip azul" onClick={ciclarUnidad}>{unidad}</button>
         </div>
         <div className="grilla-botones">
           <button className="btn" onClick={guardar}>Guardar</button>
