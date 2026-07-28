@@ -8,6 +8,22 @@ const ESTADO_COLOR = { cerrada: "var(--verde)", en_conteo: "var(--azul)",
 const ESTADO_ETQ = { cerrada: "Cerrada", en_conteo: "En conteo",
                       en_auditoria: "En auditoría", pendiente: "Pendiente" };
 
+// Nombre oficial de bodega (como en el catálogo) -> version corta para
+// que quepa en el eje del gráfico. Solo cambia como se muestra, el
+// nombre real que se manda al backend sigue siendo el oficial.
+const PREFIJOS_CORTOS = { RESTAURANTE: "Rest.", ALMACEN: "Almacén",
+                           ZOOLOGICO: "Zoológico", KIOSCO: "Kiosco" };
+function nombreCorto(nombre) {
+  return (nombre || "").split(" ").map((p, i) => {
+    if (i === 0 && PREFIJOS_CORTOS[p]) return PREFIJOS_CORTOS[p];
+    if (p === "AYB") return "AyB";
+    return p.charAt(0) + p.slice(1).toLowerCase();
+  }).join(" ");
+}
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const mesCorto = (fechaISO) => MESES[Number(fechaISO.slice(5, 7)) - 1];
+
 export default function Panel({ token }) {
   const [tab, setTab] = useState("resumen");
   const [resumen, setResumen] = useState(null);
@@ -74,12 +90,12 @@ function TabResumen({ r, urlPBI }) {
           {r.diferencia_por_bodega.length === 0 ? (
             <p className="vacio">Sin diferencias registradas todavía.</p>
           ) : (
-            r.diferencia_por_bodega.map((d) => (
+            r.diferencia_por_bodega.map((d, i) => (
               <div className="barra-fila" key={d.bodega}>
-                <span className="etq">{d.bodega}</span>
+                <span className="etq">{nombreCorto(d.bodega)}</span>
                 <div className="pista">
                   <div className="rellena" style={{ width: `${d.diferencia / maxDif * 100}%`,
-                                                     background: "var(--serie-1)" }} />
+                                                     background: i === 0 ? "var(--serie-2)" : "var(--serie-1)" }} />
                 </div>
                 <span className="val">{d.diferencia}</span>
               </div>
@@ -263,22 +279,33 @@ function Linea({ puntos }) {
   const coords = puntos.map((p, i) => [pad + i * paso, y(p.exactitud)]);
   const linea = coords.map(([x, yy], i) => `${i === 0 ? "M" : "L"}${x},${yy}`).join(" ");
 
+  const mejora = valores[valores.length - 1] >= valores[0];
+  const color = mejora ? "var(--verde)" : "var(--serie-1)";
+
   return (
-    <svg width="100%" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tendencia de exactitud">
-      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--borde)" strokeWidth="1" />
-      <path d={linea} fill="none" stroke="var(--serie-1)" strokeWidth="2" />
-      {coords.map(([x, yy], i) => (
-        <circle key={i} cx={x} cy={yy} r="4" fill="var(--serie-1)" />
-      ))}
-      {puntos.map((p, i) => (
-        <text key={i} x={coords[i][0]} y={h - 4} fontSize="9" textAnchor="middle" fill="var(--grafito)">
-          {p.fecha.slice(5)}
+    <>
+      {puntos.length > 1 && (
+        <p style={{ textAlign: "right", fontSize: ".78rem", fontWeight: 700,
+                    color: mejora ? "var(--verde)" : "var(--grafito)", marginBottom: 4 }}>
+          {mejora ? "▲ mejora sostenida" : "▼ en descenso"}
+        </p>
+      )}
+      <svg width="100%" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tendencia de exactitud">
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--borde)" strokeWidth="1" />
+        <path d={linea} fill="none" stroke={color} strokeWidth="2" />
+        {coords.map(([x, yy], i) => (
+          <circle key={i} cx={x} cy={yy} r="4" fill={color} />
+        ))}
+        {puntos.map((p, i) => (
+          <text key={i} x={coords[i][0]} y={h - 4} fontSize="9" textAnchor="middle" fill="var(--grafito)">
+            {mesCorto(p.fecha)}
+          </text>
+        ))}
+        <text x={coords[coords.length - 1][0]} y={coords[coords.length - 1][1] - 10}
+              fontSize="11" fontWeight="700" textAnchor="middle" fill={color}>
+          {valores[valores.length - 1]}%
         </text>
-      ))}
-      <text x={coords[coords.length - 1][0]} y={coords[coords.length - 1][1] - 10}
-            fontSize="11" fontWeight="700" textAnchor="middle" fill="var(--serie-1)">
-        {valores[valores.length - 1]}%
-      </text>
-    </svg>
+      </svg>
+    </>
   );
 }
