@@ -29,3 +29,27 @@ Sesion = sessionmaker(bind=motor, expire_on_commit=False)
 def iniciar_bd():
     import modelos  # noqa: F401  (registra todas las tablas)
     Base.metadata.create_all(motor)
+    _migrar_columnas_faltantes()
+
+
+def _migrar_columnas_faltantes():
+    """create_all() solo crea tablas nuevas, nunca agrega columnas a una
+    tabla que ya existe. Sin esto, una columna agregada al modelo (como
+    Usuario.foto) se ve localmente porque cuentavoz.db se recrea facil,
+    pero nunca llega a la base de Postgres ya desplegada en Render - hay
+    que agregarla a mano en la tabla que ya esta viva. Corre en cada
+    arranque y no hace nada si ya esta al dia."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(motor)
+    with motor.begin() as conexion:
+        for tabla in Base.metadata.sorted_tables:
+            if not inspector.has_table(tabla.name):
+                continue
+            existentes = {c["name"] for c in inspector.get_columns(tabla.name)}
+            for columna in tabla.columns:
+                if columna.name in existentes:
+                    continue
+                tipo = columna.type.compile(dialect=motor.dialect)
+                conexion.execute(text(
+                    f'ALTER TABLE {tabla.name} ADD COLUMN {columna.name} {tipo}'))
+                print(f"[bd] columna agregada: {tabla.name}.{columna.name}")

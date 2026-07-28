@@ -8,6 +8,5 @@ node_modules/
 dist/
 **/reportes/*.xlsx
 **/reportes/*.csv
-backend/fotos/*.jpg
 *.db
 .DS_Store

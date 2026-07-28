@@ -1,6 +1,6 @@
 """Las tablas del sistema: el diagrama de clases hecho código."""
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, LargeBinary
 from bd import Base
 
 
@@ -21,6 +21,10 @@ class Usuario(Base):
     idioma_voz = Column(String, default="es-MX")
     velocidad_voz = Column(String, default="normal")     # lenta | normal | rapida
     confirmacion_hablada = Column(Integer, default=1)
+    # la foto va en la misma base (no en disco): el disco del Web Service
+    # en Render es efimero y se borra en cada deploy/reinicio, la base no.
+    foto = Column(LargeBinary, nullable=True)
+    foto_tipo = Column(String, nullable=True)         # ej. "image/jpeg"
 
 
 class AsignacionBodega(Base):

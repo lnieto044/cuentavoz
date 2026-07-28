@@ -1822,18 +1822,24 @@ def cambiar_pin(body: dict, u: Usuario = Depends(usuario_actual)):
 @app.post("/api/usuarios/yo/foto")
 async def subir_foto(foto: UploadFile = File(...),
                      u: Usuario = Depends(usuario_actual)):
-    os.makedirs("fotos", exist_ok=True)
-    with open(f"fotos/{u.id}.jpg", "wb") as f:
-        f.write(await foto.read())
+    contenido = await foto.read()
+    if len(contenido) > 3 * 1024 * 1024:
+        raise HTTPException(400, "La foto no puede pesar mas de 3 MB.")
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        usr.foto = contenido
+        usr.foto_tipo = foto.content_type or "image/jpeg"
+        s.commit()
     return {"ok": True}
 
 
 @app.get("/api/usuarios/yo/foto")
 def ver_foto(u: Usuario = Depends(usuario_actual)):
-    ruta = f"fotos/{u.id}.jpg"
-    if not os.path.exists(ruta):
-        raise HTTPException(404, "Sin foto.")
-    return FileResponse(ruta)
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        if not usr.foto:
+            raise HTTPException(404, "Sin foto.")
+        return Response(content=usr.foto, media_type=usr.foto_tipo or "image/jpeg")
 
 
 @app.get("/api/voz/voces")
