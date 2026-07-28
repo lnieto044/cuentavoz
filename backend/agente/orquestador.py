@@ -354,6 +354,13 @@ def _dejar_pendiente(est, art, cantidad, texto, turno):
             }
         if v["tipo"] in ("negativo", "unidad", "inexistente"):
             est["pendiente"] = None          # no se puede guardar: hay que repetir
+            # el intento no se guarda como conteo, pero si queda como alerta
+            # de gestion - antes se perdia sin dejar rastro para el panel
+            bodega = est.get("bodega_nombre") or "sin bodega"
+            with Sesion() as s:
+                s.add(Alerta(conteo_id=None, tipo=v["tipo"],
+                             detalle=f"{bodega} · {art['nombre']}: {v['mensaje']}"))
+                s.commit()
     turno["pendiente"] = est.get("pendiente") and {
         "nombre": art["nombre"], "cantidad": cantidad, "unidad": art["unidad"]}
     return turno
