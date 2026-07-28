@@ -80,6 +80,7 @@ export default function App() {
       <BarraLateral
         activo={salir ? "salir" : menuDe(vista)}
         usuario={sesion.usuario}
+        token={sesion.token}
         onNavegar={(id) => {
           if (id === "salir") {
             setSalir(true);

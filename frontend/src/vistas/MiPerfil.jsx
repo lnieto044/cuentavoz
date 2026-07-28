@@ -72,6 +72,7 @@ export default function MiPerfil({ token }) {
       });
       if (!r.ok) throw new Error("No se pudo subir la foto.");
       cargarFoto();
+      window.dispatchEvent(new Event("cuentavoz:foto-actualizada"));
       setMsg("Foto actualizada.");
     } catch (e2) {
       setErr(e2.message);
