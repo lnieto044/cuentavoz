@@ -274,7 +274,7 @@ function Dona({ datos }) {
     de cada punto (ya es informacion real y distinta punto a punto) en
     vez de repetir el mismo mes una y otra vez. */
 function Linea({ puntos }) {
-  const w = 460, h = 168, pad = 24, padInferior = 52;
+  const w = 460, h = 128, pad = 20, padInferior = 34;
   const valores = puntos.map((p) => p.exactitud);
   const min = Math.min(...valores) - 2, max = Math.max(...valores) + 2;
   const paso = (w - pad * 2) / (puntos.length - 1);
@@ -283,7 +283,7 @@ function Linea({ puntos }) {
   const linea = coords.map(([x, yy], i) => `${i === 0 ? "M" : "L"}${x},${yy}`).join(" ");
 
   const mejora = valores[valores.length - 1] >= valores[0];
-  const color = mejora ? "var(--verde)" : "var(--serie-1)";
+  const color = "var(--serie-1)";
 
   return (
     <>
@@ -297,12 +297,12 @@ function Linea({ puntos }) {
         <line x1={pad} y1={h - padInferior} x2={w - pad} y2={h - padInferior} stroke="var(--borde)" strokeWidth="1" />
         <path d={linea} fill="none" stroke={color} strokeWidth="2" />
         {coords.map(([x, yy], i) => (
-          <circle key={i} cx={x} cy={yy} r="4" fill={color} />
+          <circle key={i} cx={x} cy={yy} r="3.5" fill={color} />
         ))}
         {puntos.map((p, i) => (
-          <text key={i} x={coords[i][0]} y={h - padInferior + 14} fontSize="8" textAnchor="end"
-                fill="var(--grafito)" transform={`rotate(-45 ${coords[i][0]} ${h - padInferior + 14})`}>
-            {nombreCorto(p.bodega).slice(0, 14)}
+          <text key={i} x={coords[i][0]} y={h - padInferior + 11} fontSize="6.5" textAnchor="end"
+                fill="var(--grafito)" transform={`rotate(-40 ${coords[i][0]} ${h - padInferior + 11})`}>
+            {nombreCorto(p.bodega).slice(0, 10)}
           </text>
         ))}
         <text x={coords[coords.length - 1][0]} y={coords[coords.length - 1][1] - 10}
