@@ -147,6 +147,18 @@ Alineado con la Ley 1581 de 2012.
 | 🌐 **Demo** | `https://cuentavoz.onrender.com` *(disponible al completar el despliegue)* |
 | 🎥 **Video** | *Próximamente* |
 
+### 🔑 Acceso de prueba
+
+La aplicación crea estos usuarios sola la primera vez que arranca (ver
+`backend/main.py: arranque()`):
+
+| Usuario | Código de empleado | PIN | Perfil |
+|---|---|---|---|
+| `luis` | `CS-48127` | `StockXperts` | Auxiliar de inventarios |
+| `diana` | `CS-48200` | `StockXperts` | Administradora de bodega |
+
+Se puede entrar con el usuario o con el código de empleado, indistintamente.
+
 ---
 
 ## 👥 Equipo – StockXperts

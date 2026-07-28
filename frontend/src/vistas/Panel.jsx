@@ -42,13 +42,29 @@ function TabResumen({ r, urlPBI }) {
   return (
     <>
       <div className="kpis">
-        <div className="kpi verde"><small>Exactitud primera pasada</small>
+        <div className="kpi verde">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🎯</span>
+            <small>Exactitud primera pasada</small>
+          </div>
           <b>{r.exactitud_primera_pasada} %</b><i>promedio de cierres</i></div>
-        <div className="kpi"><small>Referencias contadas</small>
+        <div className="kpi">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">📦</span>
+            <small>Referencias contadas</small>
+          </div>
           <b>{r.referencias_contadas}</b><i>en toda la operación</i></div>
-        <div className="kpi oro"><small>Alertas gestionadas</small>
+        <div className="kpi oro">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">⚠️</span>
+            <small>Alertas gestionadas</small>
+          </div>
           <b>{r.alertas_gestionadas} / {r.alertas_total}</b><i>resueltas del total</i></div>
-        <div className="kpi"><small>Bodegas cerradas</small>
+        <div className="kpi">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🔒</span>
+            <small>Bodegas cerradas</small>
+          </div>
           <b>{r.bodegas_cerradas} / {r.bodegas_total}</b><i>con doble firma digital</i></div>
       </div>
 
@@ -126,12 +142,24 @@ function TabAlertas({ a }) {
   return (
     <>
       <div className="kpis">
-        <div className="kpi verde"><small>Negativos detectados en el sistema</small>
+        <div className="kpi verde">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">📉</span>
+            <small>Negativos detectados en el sistema</small>
+          </div>
           <b>{a.negativos_iniciales} → {a.negativos_actuales}</b>
           <i>corregidos durante la toma</i></div>
-        <div className="kpi"><small>Tiempo promedio por bodega</small>
+        <div className="kpi">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">⏱️</span>
+            <small>Tiempo promedio por bodega</small>
+          </div>
           <b>{a.tiempo_promedio_min || "—"} min</b><i>conteos ya cerrados</i></div>
-        <div className="kpi verde"><small>Alias aprendidos por el agente</small>
+        <div className="kpi verde">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🗣️</span>
+            <small>Alias aprendidos por el agente</small>
+          </div>
           <b>{a.alias_aprendidos}</b><i>el agente habla como el equipo</i></div>
       </div>
 
@@ -208,13 +236,26 @@ function Dona({ datos }) {
     acumulado += d.pct;
     return `${d.color} ${inicio}% ${acumulado}%`;
   });
+  const total = datos.reduce((s, d) => s + d.valor, 0);
   return (
     <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-      <div style={{
-        width: 140, height: 140, borderRadius: "50%", flex: "none",
-        background: `conic-gradient(${segmentos.join(",")})`,
-        boxShadow: "inset 0 0 0 22px #fff",
-      }} />
+      <div style={{ position: "relative", width: 140, height: 140, flex: "none" }}>
+        <div style={{
+          width: 140, height: 140, borderRadius: "50%",
+          background: `conic-gradient(${segmentos.join(",")})`,
+        }} />
+        <div style={{
+          position: "absolute", inset: 22, borderRadius: "50%", background: "#fff",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          boxShadow: "0 0 0 1px rgba(11,27,51,.04)",
+        }}>
+          <b style={{ fontSize: "1.05rem", color: "var(--azul)" }}>
+            {total.toLocaleString("es-CO")}
+          </b>
+          <span style={{ fontSize: ".68rem", color: "var(--grafito)" }}>referencias</span>
+        </div>
+      </div>
       <div>
         {datos.map((d) => (
           <div key={d.etq} style={{ marginBottom: 6, fontSize: ".85rem" }}>
