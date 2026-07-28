@@ -54,6 +54,7 @@ function TablaVistaPrevia({ filas }) {
   if (!filas || filas.length === 0) return <p className="vacio">Este archivo no tiene filas.</p>;
   const columnas = Object.keys(filas[0]);
   return (
+    <div className="tabla-scroll">
     <table>
       <thead><tr>{columnas.map((c) => <th key={c}>{c}</th>)}</tr></thead>
       <tbody>
@@ -68,6 +69,7 @@ function TablaVistaPrevia({ filas }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -117,7 +119,7 @@ function TabConsolidado({ token }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 }}>
+    <div className="reportes-cols">
       <div className="card">
         <h3>Archivos generados con los códigos oficiales de la base</h3>
         {msg && <p className="msg-ok">{msg}</p>}
@@ -253,7 +255,7 @@ function TabAnalisis({ token }) {
           </p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
+        <div className="reportes-cols">
           <div className="card">
             <h3>📉 Sobrepedido frente a la receta</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

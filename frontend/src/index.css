@@ -347,6 +347,9 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .vacio { color: var(--grafito); font-style: italic; padding: 20px 0; }
 .cargando { color: var(--grafito); padding: 24px; }
 
+.reportes-cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+.tabla-scroll { overflow-x: auto; }
+
 /* ══ Móvil: una columna, micrófono grande ══ */
 @media (max-width: 860px) {
   .app-root { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -358,6 +361,7 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
   .sidebar li.sel { border-left: none; border-bottom-color: var(--amarillo); }
   .conteo-cols { grid-template-columns: 1fr; }
   .dos-columnas { grid-template-columns: 1fr; }
+  .reportes-cols { grid-template-columns: 1fr; }
   .perfil-cols { grid-template-columns: 1fr; }
   .campos-2col { grid-template-columns: 1fr; }
   .mic-btn { width: min(64vw, 200px); height: min(64vw, 200px); font-size: 3.4rem;

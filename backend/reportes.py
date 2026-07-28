@@ -26,6 +26,7 @@ def consolidado(formato: str = "xlsx") -> tuple[str, int, list[dict]]:
     # y aqui significa lo mismo que en el resto de la app: no hay dato,
     # se trata como 0.
     df["sistema"] = df["sistema"].fillna(0)
+    df["diferencia"] = df["diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/consolidado_{marca}.{formato}"
@@ -41,6 +42,7 @@ def diferencias_archivo(formato: str = "xlsx") -> tuple[str, int, int]:
     """«Diferencias por bodega» descargable: solo las filas donde el
     conteo no cuadro con el sistema, no el consolidado completo."""
     df = pd.read_sql(CONSULTA, motor)
+    df["diferencia"] = df["diferencia"].round(2)
     df = df[df["diferencia"] != 0]
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
@@ -56,6 +58,7 @@ def detalle_bodega(bodega_id: int, formato: str = "xlsx") -> str:
     """«Descargar detalle»: el conteo completo de una sola bodega."""
     df = pd.read_sql(CONSULTA + " AND b.id = :bodega_id",
                      motor, params={"bodega_id": bodega_id})
+    df["diferencia"] = df["diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/bodega_{bodega_id}_{marca}.{formato}"
