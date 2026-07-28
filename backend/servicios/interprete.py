@@ -67,6 +67,22 @@ def _unidad(texto: str):
     return None
 
 
+CANONICAS = {"Kilogram", "Liter", "Unidad", "Portion"}
+
+
+def normalizar_unidad(dicha):
+    """Lo que sea que devuelva el agente (humano o IA) para la unidad,
+    lo lleva a uno de los 4 valores canonicos de la base de datos.
+    Gemini a veces repite la palabra tal cual la dijo la persona
+    ("kilos") en vez de traducirla ("Kilogram"); esto lo corrige aqui,
+    sin depender de que el modelo obedezca el prompt al pie de la letra."""
+    if not dicha:
+        return dicha
+    if dicha in CANONICAS:
+        return dicha
+    return UNIDADES.get(str(dicha).strip().lower(), dicha)
+
+
 def interpretar_local(frase: str) -> dict:
     f = frase.lower().strip()
     cant = _numero(f)

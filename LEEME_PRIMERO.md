@@ -94,7 +94,7 @@ npm run dev
 Abra **http://localhost:5173** en **Chrome o Edge** (Firefox no reconoce voz).
 
 **Usuarios de prueba:** `luis` (auxiliar) y `diana` (administradora).
-**PIN:** `123456`
+**PIN:** `StockXperts`
 
 ---
 

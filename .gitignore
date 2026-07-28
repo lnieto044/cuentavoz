@@ -1,12 +1,13 @@
 .env
 .venv/
+.venv-*/
 venv/
 __pycache__/
 *.pyc
 node_modules/
 dist/
-reportes/*.xlsx
-reportes/*.csv
+**/reportes/*.xlsx
+**/reportes/*.csv
 backend/fotos/*.jpg
 *.db
 .DS_Store

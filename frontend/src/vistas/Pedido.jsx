@@ -5,61 +5,167 @@ import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 
 const DIA = new Date().toLocaleDateString("es-CO", { weekday: "long" });
-const AFIRMACIONES = ["confirmo", "confirmar", "si", "sí", "claro", "listo", "dale", "correcto"];
+// Palabras sueltas que valen como "sí" a lo que se le esté preguntando
+// (confirmar un guardado, o enviar el pedido calculado).
+const AFIRMACIONES = ["confirmo", "confirmar", "si", "sí", "claro", "listo", "dale",
+                      "correcto", "hazlo", "adelante", "procede"];
+// Frases de varias palabras que tambien confirman, tal como las dice una
+// persona real ("así es", "va, mándalo") y no calzarian con el chequeo por
+// palabra exacta de arriba.
+const FRASES_AFIRMATIVAS = ["así es", "asi es", "eso es", "va pues", "de una"];
 
-export default function Pedido({ token, usuario }) {
+function quitarTildes(t) {
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function esConfirmacion(texto) {
+  const t = quitarTildes(texto.toLowerCase()).replace(/[.,!¿?]/g, "");
+  const palabras = t.split(/\s+/);
+  if (palabras.includes("no")) return false;          // "no lo envíes" no es un sí
+  if (palabras.some((p) => AFIRMACIONES.includes(quitarTildes(p)))) return true;
+  if (FRASES_AFIRMATIVAS.some((f) => t.includes(quitarTildes(f)))) return true;
+  // cualquier conjugación de "enviar"/"mandar" cuenta como un sí a la
+  // pregunta de mandar el pedido ("envíalo", "envíelo", "envíenmelo",
+  // "mándalo", "mándemelo"...) - enumerar cada forma verbal a mano es
+  // interminable y siempre se queda corto; sin esto, decir la forma
+  // "usted" en vez de la forma "tú" hacía que la pantalla repitiera el
+  // mismo mensaje en vez de entender que la persona ya dijo que sí.
+  return /envi|mand/.test(t);
+}
+
+/** Un "no" limpio a lo que se le está preguntando (¿prepara otro plato?,
+    ¿lo enviamos?), sin que además mencione un plato nuevo - si mencionara
+    uno, no es un cierre sino un cambio de tema, y eso lo debe interpretar
+    Gemini como corresponde, no cerrarse en seco aquí. */
+function esNegacionSimple(texto, platosConocidos) {
+  const t = quitarTildes(texto.toLowerCase()).replace(/[.,!¿?]/g, "");
+  const palabras = t.split(/\s+/);
+  if (!palabras.includes("no")) return false;
+  const mencionaOtroPlato = platosConocidos.some(
+    (nombre) => t.includes(quitarTildes(nombre.toLowerCase()))
+  );
+  return !mencionaOtroPlato;
+}
+
+// Pedidos se sale y se vuelve a entrar todo el tiempo (a mirar otra pantalla
+// a mitad de un pedido, por ejemplo): sin guardar esto, cada regreso mostraba
+// la pantalla en blanco como si la conversación nunca hubiera pasado, aunque
+// el chef ya llevara todo un plato armado. Se guarda en sessionStorage (no
+// sobrevive a cerrar la pestaña) y por persona, para que dos sesiones en el
+// mismo navegador no se mezclen.
+function claveEstadoPedido(sesionId) {
+  return `cv_pedido_estado_${sesionId}`;
+}
+function cargarEstadoPedido(sesionId) {
+  try { return JSON.parse(sessionStorage.getItem(claveEstadoPedido(sesionId)) || "{}"); }
+  catch { return {}; }
+}
+
+export default function Pedido({ token, usuario, ir }) {
+  const esAuditor = usuario?.perfil === "auditor";
   // Pedidos tiene su propia conversación con el agente, aislada de la del
   // conteo físico: usa un numero de sesion negativo (unico por persona) para
   // que nunca choque con una sesion real de bodega (esas siempre son >= 1).
   const sesionId = -1000 - (usuario?.id || 0);
+  const guardado = cargarEstadoPedido(sesionId);
   // Vacío hasta que de verdad se dicte algo: mostrar «ajiaco/50» desde el
   // arranque hacía parecer que ya se había entendido un pedido que nadie
   // dictó todavía, y esos datos no cambiaban con nada más que se dijera.
-  const [plato, setPlato] = useState("");
-  const [porciones, setPorciones] = useState(null);
-  const [dicho, setDicho] = useState("");
-  const [lineas, setLineas] = useState(null);
+  const [plato, setPlato] = useState(guardado.plato || "");
+  const [porciones, setPorciones] = useState(guardado.porciones ?? null);
+  const [dicho, setDicho] = useState(guardado.dicho || "");
+  const [lineas, setLineas] = useState(guardado.lineas ?? null);
   const [receta, setReceta] = useState(null);
-  const [enviado, setEnviado] = useState(false);
+  const [enviado, setEnviado] = useState(guardado.enviado || false);
+  const [recibo, setRecibo] = useState(guardado.recibo ?? null);
   const [respuesta, setRespuesta] = useState(
-    "Diga el plato y las porciones: «hoy preparamos cincuenta ajiacos»."
+    guardado.respuesta || "Diga el plato y las porciones: «hoy preparamos cincuenta ajiacos»."
   );
   const [estado, setEstado] = useState("listo");
   const [err, setErr] = useState("");
-  const [archivo, setArchivo] = useState(null);
+  const [archivo, setArchivo] = useState(guardado.archivo ?? null);
   const [pedirPorciones, setPedirPorciones] = useState(false);
-  const [avisos, setAvisos] = useState(null);
-  const [opciones, setOpciones] = useState(null);
-  const [opcionesPara, setOpcionesPara] = useState(null);
-  const [productoConsultado, setProductoConsultado] = useState(null);
+  const [avisos, setAvisos] = useState(guardado.avisos ?? null);
+  const [opciones, setOpciones] = useState(guardado.opciones ?? null);
+  const [opcionesPara, setOpcionesPara] = useState(guardado.opcionesPara ?? null);
+  const [productoConsultado, setProductoConsultado] = useState(guardado.productoConsultado ?? null);
   const [bodegas, setBodegas] = useState([]);
-  const [bodegaId, setBodegaId] = useState(null);
+  const [bodegaId, setBodegaId] = useState(guardado.bodegaId ?? null);
+  const [platos, setPlatos] = useState([]);
+
+  // Guarda una foto de la conversación en cada cambio relevante, para que
+  // salir y volver a esta pantalla la deje tal cual como quedó.
+  useEffect(() => {
+    const foto = { plato, porciones, dicho, lineas, enviado, recibo, respuesta,
+                   archivo, avisos, opciones, opcionesPara, productoConsultado, bodegaId };
+    sessionStorage.setItem(claveEstadoPedido(sesionId), JSON.stringify(foto));
+  }, [plato, porciones, dicho, lineas, enviado, recibo, respuesta,
+      archivo, avisos, opciones, opcionesPara, productoConsultado, bodegaId, sesionId]);
+
+  // para que el chef sepa que puede pedir sin tener que adivinar el nombre
+  // exacto de una receta que quiza no existe todavia.
+  useEffect(() => {
+    pedir("/api/recetas", {}, token).then(setPlatos).catch(() => {});
+  }, [token]);
+
+  function elegirPlato(nombre) {
+    setErr("");
+    setDicho(`«${nombre}» (elegido de la lista de recetas)`);
+    setPlato(nombre);
+    setLineas(null);
+    setReceta(null);
+    setEnviado(false);
+    setRecibo(null);
+    setProductoConsultado(null);
+    const msg = `Listo, ${nombre.toLowerCase()}. ¿Para cuántas porciones?`;
+    setRespuesta(msg);
+    hablar(msg);
+    setPedirPorciones(true);
+  }
+
+  // el agente saluda primero en vez de esperar a que el chef adivine que
+  // hay que hablar: sin esto el mensaje de bienvenida solo se veia en la
+  // pantalla, nunca se oia, y no parecia un asistente por voz de verdad.
+  // Ahora que la conversación se guarda (ver arriba), esto ya no necesita
+  // adivinar por tiempo: si ya hay un plato en curso (porque se restauró de
+  // una visita anterior), es un pedido que sigue abierto y no se interrumpe;
+  // si no hay nada, es un pedido nuevo de verdad y sí saluda.
+  useEffect(() => {
+    if (!plato) {
+      hablar("Dígame por favor qué va a preparar y para cuántas porciones.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Con qué bodega se descuenta el pedido: por defecto el almacén de
   // Alimentos y Bebidas (donde de verdad están los ingredientes de cocina),
   // no una bodega al azar - antes quedaba fijo en la primera de la lista
   // (una oficina administrativa sin ningún stock) y todo salía en cero.
+  // Si ya habia una bodega elegida de una visita anterior, se respeta esa.
   useEffect(() => {
     pedir("/api/bodegas", {}, token).then((bs) => {
       setBodegas(bs);
+      if (bodegaId) return;
       const conStock = bs.find((b) => /ALMACEN\s*AYB/i.test(b.bodega))
         || bs.find((b) => b.referencias > 0) || bs[0];
       if (conStock) setBodegaId(conStock.id);
     }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  async function verReceta() {
+  async function verReceta(platoForzado) {
     setErr("");
-    if (!plato) {
+    const pl = platoForzado ?? plato;
+    if (!pl) {
       const msg = "Primero dígame qué va a preparar.";
       setRespuesta(msg);
       hablar(msg);
       return;
     }
     try {
-      const r = await pedir(`/api/pedidos/receta?plato=${encodeURIComponent(plato)}`, {}, token);
+      const r = await pedir(`/api/pedidos/receta?plato=${encodeURIComponent(pl)}`, {}, token);
       if (!r.lineas) {
-        setErr(`No encontré una receta para «${plato}». Pruebe con ajiaco o sancocho.`);
+        setErr(`No encontré una receta para «${pl}». Pruebe con ajiaco o sancocho.`);
         return;
       }
       setReceta(r);
@@ -82,29 +188,76 @@ export default function Pedido({ token, usuario }) {
     setEstado("listo");
 
     // «confirmo» aqui no es del conteo fisico: es seguir con el pedido.
-    const palabras = texto.toLowerCase().replace(/[.,!¿?]/g, "").split(/\s+/);
-    if (palabras.some((p) => AFIRMACIONES.includes(p))) {
+    if (esConfirmacion(texto)) {
+      if (lineas && !enviado && porPedir === 0) {
+        // igual que el botón, que se oculta en este caso: no hay nada que
+        // enviar, así que "envíalo" no debe crear un pedido vacío.
+        const msg = "No hay nada que enviar: ya tiene todo en la bodega. ¿Prepara otro plato?";
+        setRespuesta(msg);
+        hablar(msg);
+        return;
+      }
       if (lineas && !enviado) return enviar();
       if (!lineas) return calcular();
-      const msg = "Este pedido ya se envió al almacén.";
+      const msg = "Este pedido ya se envió al almacén. ¿Desea armar otro pedido?";
+      setRespuesta(msg);
+      hablar(msg);
+      return;
+    }
+
+    // un "no" limpio (sin mencionar otro plato) cierra la conversación en
+    // vez de caer en Gemini, que sin una intención propia para "declinar"
+    // terminaba repitiendo el mismo mensaje una y otra vez.
+    if (esNegacionSimple(texto, platos.map((p) => p.nombre))) {
+      // si ya le habíamos contestado con la misma frase de cierre (porque
+      // ya dijo "no" antes, a "¿lo enviamos?" o a "¿algo más?"), un segundo
+      // "no" no debe repetirla - hay que dar el cierre final de una vez,
+      // no seguir insistiendo con la misma pregunta.
+      const yaSeDespidio = respuesta.includes("¿Algo más en que le ayude?")
+        || respuesta.includes("estaré pendiente");
+      const msg = yaSeDespidio
+        ? "Listo, gracias. Quedo pendiente si requiere consultar otro pedido. Que tenga un buen día."
+        : (lineas && !enviado && porPedir > 0)
+          ? "Está bien, no lo envío por ahora; el pedido queda calculado aquí y lo puede enviar cuando usted quiera. ¿Algo más en que le ayude?"
+          : "Listo, gracias. Que tenga un buen día — aquí estaré pendiente si desea consultar otro pedido.";
       setRespuesta(msg);
       hablar(msg);
       return;
     }
 
     try {
-      const t = await enviarTurno(texto, sesionId, token, { opciones, opcionesPara });
+      const t = await enviarTurno(texto, sesionId, token,
+        { opciones, opcionesPara, preparacion: plato, porciones });
       // un plato nuevo es un tema distinto: la última consulta de producto
       // ya no aplica y solo estorbaría junto al pedido que se está armando.
       if (t.preparacion && t.porciones) setProductoConsultado(null);
-      if (t.preparacion) setPlato(t.preparacion);
-      if (t.porciones) setPorciones(t.porciones);
+      if (t.preparacion && t.preparacion !== plato) {
+        // cambio de plato: las porciones y lo ya calculado eran del plato
+        // anterior, no de este - si no vienen porciones nuevas, se limpian
+        // en vez de dejar el numero viejo puesto como si ya se hubiera dicho.
+        setPlato(t.preparacion);
+        setPorciones(t.porciones || null);
+        setLineas(null);
+        setReceta(null);
+        setEnviado(false);
+        setRecibo(null);
+      } else if (t.porciones) {
+        setPorciones(t.porciones);
+      }
       setRespuesta(t.respuesta_hablada || "");
       setArchivo(t.archivo || null);
       setOpciones(t.opciones || null);
       setOpcionesPara(t.opciones_para || null);
       if (t.producto_consultado) setProductoConsultado(t.producto_consultado);
+      if (t.receta) setReceta(t.receta);
       hablar(t.respuesta_hablada);
+      // el chef ya dijo plato Y porciones en la misma frase: el agente dice
+      // "voy a consultar la receta y los insumos" en su respuesta, asi que
+      // hay que calcular de una - si no, la pantalla se queda sin nada
+      // mientras el mensaje hablado ya prometió que se iba a hacer.
+      if (t.preparacion && t.porciones) {
+        calcular(t.porciones, t.preparacion);
+      }
     } catch (e) {
       setErr(e.message);
     }
@@ -117,15 +270,25 @@ export default function Pedido({ token, usuario }) {
   function confirmarPorciones(v) {
     setPedirPorciones(false);
     if (v && !isNaN(Number(v))) {
-      setPorciones(Number(v));
+      const p = Number(v);
+      setPorciones(p);
       setLineas(null);
+      // sin esto, tras elegir un plato de la lista y poner las porciones no
+      // pasaba nada visible hasta darle aparte a "Calcular el pedido" - se
+      // sentía como si el numero no hubiera servido de nada.
+      calcular(p);
     }
   }
 
-  /** El backend explota la receta y descuenta el stock. */
-  async function calcular() {
+  /** El backend explota la receta y descuenta el stock.
+      porcionesForzadas/platoForzado: para poder calcular con el valor recien
+      confirmado sin esperar al proximo render (si no, calcular() veria el
+      plato o las porciones viejas por el cierre de la funcion). */
+  async function calcular(porcionesForzadas, platoForzado) {
     setErr("");
-    if (!plato || !porciones) {
+    const p = porcionesForzadas ?? porciones;
+    const pl = platoForzado ?? plato;
+    if (!pl || !p) {
       const msg = "Primero dígame qué va a preparar y para cuántas porciones.";
       setRespuesta(msg);
       hablar(msg);
@@ -133,13 +296,22 @@ export default function Pedido({ token, usuario }) {
     }
     setEnviado(false);
     setAvisos(null);
+    setRecibo(null);
     try {
       const r = await pedir("/api/pedidos/calcular", {
         method: "POST",
-        body: JSON.stringify({ plato, porciones: Number(porciones), bodega_id: bodegaId }),
+        body: JSON.stringify({ plato: pl, porciones: Number(p), bodega_id: bodegaId }),
       }, token);
       if (!r.receta_encontrada) {
-        setErr(`No encontré una receta para «${plato}». Pruebe con ajiaco o sancocho.`);
+        // no se queda solo con el texto rojo en silencio: cierra la
+        // conversación con una salida clara en vez de dejar la pantalla
+        // varada con un plato que no tiene receta y ningún paso siguiente.
+        const msg = `No encontré una receta para «${pl}». Elija uno de los platos de la lista o dígame otro nombre.`;
+        setErr(msg);
+        setRespuesta(msg);
+        hablar(msg);
+        setPlato("");
+        setPorciones(null);
         return;
       }
       setLineas(r.lineas);
@@ -147,9 +319,14 @@ export default function Pedido({ token, usuario }) {
         setAvisos({ faltantes: r.faltantes_catalogo, sinRegistro: r.sin_registro_bodega });
       }
       const faltan = r.lineas.filter((l) => l.falta > 0).length;
-      const msg = `Necesita ${r.lineas.length} insumos. Hay que pedir ${faltan} al almacén; el resto ya está en la bodega.`;
+      const msg = faltan === 0
+        ? `Ya tiene los ${r.lineas.length} insumos que necesita en la bodega; no hace falta pedir nada al almacén. ¿Prepara otro plato?`
+        : `Necesita ${r.lineas.length} insumos. Hay que pedir ${faltan} al almacén; el resto ya está en la bodega. ¿Lo enviamos?`;
       setRespuesta(msg);
       hablar(msg);
+      // ya se calculó el pedido con esta receta: de una se muestra tambien,
+      // sin que la persona tenga que pedirla aparte con "Ver la receta".
+      verReceta(pl);
     } catch (e) {
       setErr(e.message);
     }
@@ -157,14 +334,24 @@ export default function Pedido({ token, usuario }) {
 
   async function enviar() {
     try {
-      await pedir("/api/pedidos/enviar", {
+      const r = await pedir("/api/pedidos/enviar", {
         method: "POST",
-        body: JSON.stringify({ lineas, servicio_id: 1, plato, porciones }),
+        body: JSON.stringify({ lineas, servicio_id: 1, plato, porciones, bodega_id: bodegaId }),
       }, token);
-      const msg = "Pedido enviado al almacén.";
+      if (r.duplicado) {
+        const msg = "Este pedido ya se había enviado antes; no lo mandé dos veces. ¿Desea armar otro pedido?";
+        setRespuesta(msg);
+        hablar(msg);
+        setEnviado(true);
+        return;
+      }
+      const msg = r.estado === "pendiente_aprobacion"
+        ? `Pedido ${r.numero_pedido} registrado. Queda pendiente de que el administrador lo apruebe antes de salir del almacén. ¿Desea armar otro pedido?`
+        : `Pedido ${r.numero_pedido} registrado y enviado a ${r.bodega || "el almacén"}. ¿Desea armar otro pedido?`;
       setRespuesta(msg);
       hablar(msg);
       setEnviado(true);
+      setRecibo(r);
     } catch (e) {
       setErr(e.message);
     }
@@ -178,8 +365,10 @@ export default function Pedido({ token, usuario }) {
       <div className="chips">
         <span className="chip">{DIA[0].toUpperCase() + DIA.slice(1)} · almuerzo</span>
         <span className="chip">Cocina Piscilago</span>
-        <span className={`chip ${enviado ? "verde" : "oro"}`}>
-          {enviado ? "Pedido enviado" : "Pedido sin enviar"}
+        <span className={`chip ${!enviado ? "oro" : recibo?.estado === "pendiente_aprobacion" ? "oro" : "verde"}`}>
+          {!enviado ? "Pedido sin enviar"
+            : recibo?.estado === "pendiente_aprobacion" ? "Pendiente de aprobación"
+            : "Pedido enviado"}
         </span>
         {bodegas.length > 0 && (
           <select value={bodegaId || ""}
@@ -249,6 +438,25 @@ export default function Pedido({ token, usuario }) {
         </div>
       </div>
 
+      {platos.length > 0 && (
+        <div className="card">
+          <h3>🍲 Platos con receta registrada</h3>
+          <p className="pista" style={{ marginBottom: 10 }}>
+            Estos son los únicos platos que CuentaVoz sabe calcular por ahora. Toque uno
+            para armar el pedido sin dictarlo, o dígalo tal cual suena aquí.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {platos.map((r) => (
+              <button key={r.id}
+                      className={`chip ${plato.toUpperCase() === r.nombre.toUpperCase() ? "azul" : ""}`}
+                      onClick={() => elegirPlato(r.nombre)}>
+                {r.nombre}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <p className="rotulo">CuentaVoz responde</p>
         <div className="burbuja">{respuesta}</div>
@@ -274,9 +482,11 @@ export default function Pedido({ token, usuario }) {
         )}
         {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
         <div className="grilla-botones">
-          <button className="btn" onClick={calcular}>Calcular el pedido</button>
+          <button className="btn" onClick={() => calcular()}>Calcular el pedido</button>
           <button className="btn borde" onClick={corregirCantidad}>Corregir cantidad</button>
-          <button className="btn oro" onClick={verReceta}>Ver la receta</button>
+          {!receta && (
+            <button className="btn oro" onClick={() => verReceta()}>Ver la receta</button>
+          )}
         </div>
       </div>
 
@@ -308,7 +518,9 @@ export default function Pedido({ token, usuario }) {
             <span className="chip">{receta.nombre}</span>
             <span className="chip">Rendimiento: {receta.rendimiento} porción</span>
             <span className="chip">{receta.lineas.length} ingredientes</span>
-            <span className="chip gris">SOLO CONSULTA</span>
+            <span className={`chip ${esAuditor ? "azul" : "gris"}`}>
+              {esAuditor ? "ADMINISTRA ESTA RECETA" : "SOLO CONSULTA"}
+            </span>
           </div>
           <h3>Catálogo de Colsubsidio</h3>
           <table>
@@ -325,16 +537,32 @@ export default function Pedido({ token, usuario }) {
               ))}
             </tbody>
           </table>
+          {receta.preparacion ? (
+            <>
+              <h3 style={{ marginTop: 18 }}>Preparación paso a paso</h3>
+              <p style={{ whiteSpace: "pre-line", fontSize: ".92rem" }}>{receta.preparacion}</p>
+            </>
+          ) : (
+            <p className="pista" style={{ marginTop: 18 }}>
+              Esta receta todavía no tiene preparación paso a paso cargada.
+              {esAuditor && " Agréguela desde Ajustes → Recetas."}
+            </p>
+          )}
           <p className="pista" style={{ marginTop: 10 }}>
-            El prototipo consulta las recetas, no las gestiona: crear o modificar
-            recetas y menús está fuera del alcance del reto — eso lo resuelve el
-            sistema de Colsubsidio. CuentaVoz las lee para calcular pedidos y, en
-            la legalización, para comparar lo previsto contra lo consumido.
+            {esAuditor
+              ? "Como administradora puede editar cantidades, agregar o quitar ingredientes, o crear un plato nuevo desde Ajustes → Recetas."
+              : "Esta receta la mantiene el administrador; si algo está desactualizado, avísele desde Reportes."}
           </p>
           <div className="grilla-botones">
             <button className="btn" onClick={() => { setReceta(null); calcular(); }}>
               Usar para un pedido
             </button>
+            {esAuditor && (
+              <button className="btn borde"
+                      onClick={() => ir && ir("ajustes", { tabInicial: "recetas", recetaId: receta.id })}>
+                Editar receta
+              </button>
+            )}
             <button className="btn gris" onClick={() => setReceta(null)}>Cerrar</button>
           </div>
         </div>
@@ -395,7 +623,11 @@ export default function Pedido({ token, usuario }) {
               La cantidad necesaria sale de la receta por porción; el faltante es
               lo necesario menos lo que ya hay en la bodega.
             </p>
-            {!enviado && (
+            {porPedir === 0 ? (
+              <p className="msg-ok" style={{ marginTop: 10 }}>
+                ✅ Ya tiene todo en la bodega: no hace falta enviar nada al almacén.
+              </p>
+            ) : !enviado && (
               <div className="grilla-botones">
                 <button className="btn verde" onClick={enviar}>
                   Enviar pedido al almacén
@@ -406,10 +638,57 @@ export default function Pedido({ token, usuario }) {
         </>
       )}
 
+      {recibo && (
+        <div className="card" style={{ border: `1px solid var(--${recibo.estado === "pendiente_aprobacion" ? "amarillo" : "verde"})` }}>
+          <div className="chips">
+            {recibo.estado === "pendiente_aprobacion" ? (
+              <span className="chip oro">⏳ PENDIENTE DE APROBACIÓN</span>
+            ) : (
+              <span className="chip verde">✅ PEDIDO REGISTRADO</span>
+            )}
+            <span className="chip">{recibo.numero_pedido}</span>
+          </div>
+          <h3 style={{ marginTop: 12 }}>Recibo de pedido</h3>
+          <table>
+            <tbody>
+              <tr><td>Número de pedido</td><td><b style={{ color: "var(--verde)" }}>
+                {recibo.numero_pedido}</b></td></tr>
+              <tr><td>Plato</td><td><b>{plato.toUpperCase()}</b> · {porciones} porciones</td></tr>
+              <tr><td>Bodega de descuento</td><td><b>{recibo.bodega || "—"}</b></td></tr>
+              <tr><td>Registrado por</td><td style={{ textTransform: "capitalize" }}>{recibo.persona}</td></tr>
+              <tr><td>Hora</td><td>{recibo.hora}</td></tr>
+              <tr><td>Insumos solicitados</td><td>{recibo.total_lineas}</td></tr>
+            </tbody>
+          </table>
+          {recibo.items?.length > 0 && (
+            <>
+              <h3 style={{ marginTop: 16 }}>Detalle enviado al almacén</h3>
+              <table>
+                <thead><tr><th>Insumo</th><th>Cantidad</th><th>Unidad</th></tr></thead>
+                <tbody>
+                  {recibo.items.map((it, i) => (
+                    <tr key={i}><td>{it.nombre}</td><td>{it.cantidad}</td><td>{it.unidad}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+          <p className="pista" style={{ marginTop: 10 }}>
+            {recibo.estado === "pendiente_aprobacion"
+              ? "El administrador de bodega debe aprobar este pedido en Auditoría antes de que cuente como enviado de verdad al almacén."
+              : "Este pedido queda guardado en el sistema y aparecerá tal cual en la legalización del servicio, comparando lo pedido contra lo consumido."}
+          </p>
+          <div className="grilla-botones">
+            <button className="btn gris" onClick={() => window.print()}>Imprimir recibo</button>
+          </div>
+        </div>
+      )}
+
       {pedirPorciones && (
-        <Dialogo titulo="Corregir cantidad"
-                 mensaje="¿Cuántas porciones son en realidad?"
-                 conCampo tipo="number" valorInicial={porciones}
+        <Dialogo titulo={porciones ? "Corregir cantidad" : "Porciones"}
+                 mensaje={porciones ? "¿Cuántas porciones son en realidad?"
+                                    : `¿Para cuántas porciones prepara ${plato.toLowerCase()}?`}
+                 conCampo tipo="number" valorInicial={porciones ?? ""}
                  onAceptar={confirmarPorciones}
                  onCancelar={() => setPedirPorciones(false)} />
       )}

@@ -1,6 +1,9 @@
 import { MENU } from "./App";
+import Icono from "./Iconos";
 
 export default function BarraLateral({ activo, usuario, onNavegar }) {
+  const esAuditor = usuario?.perfil === "auditor";
+  const items = MENU.filter((m) => !m.soloAuditor || esAuditor);
   return (
     <nav className="sidebar">
       <div className="marca">
@@ -13,13 +16,15 @@ export default function BarraLateral({ activo, usuario, onNavegar }) {
       <hr />
 
       <ul>
-        {MENU.map((m) => (
+        {items.map((m) => (
           <li
             key={m.id}
             className={m.id === activo ? "sel" : ""}
             onClick={() => onNavegar(m.id)}
           >
-            <span className="icono-menu">{m.icono}</span>
+            <span className="icono-menu">
+              <Icono nombre={m.id} tam={19} />
+            </span>
             <span>{m.titulo}</span>
           </li>
         ))}

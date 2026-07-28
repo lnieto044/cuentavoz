@@ -54,11 +54,14 @@ def cargar_inventario():
         nombre_b = re.sub(r"\s+", " ", hoja.replace("STOCK", "", 1).strip().upper())
         clave = _norm(nombre_b)
         b = listadas.get(clave)
-        if b is None:                       # coincidencia parcial
-            for k, v in listadas.items():
-                if clave and (clave in k or k in clave):
-                    b = v
-                    break
+        if b is None and clave:
+            # coincidencia parcial: solo si es inequivoca (un unico candidato).
+            # con dos candidatos ambiguos (p.ej. "ZOOLOGICO" hoja suelta vs
+            # "ZOOLOGICO SUMINISTROS" y "ZOOLOGICO PISCILAGO" en el listado)
+            # es mejor crear una bodega nueva que adivinar mal y mezclar stock.
+            candidatos = [v for k, v in listadas.items() if clave in k or k in clave]
+            if len(candidatos) == 1:
+                b = candidatos[0]
         if b is None:                       # bodega que solo existe como hoja
             b = Bodega(nombre_oficial=nombre_b)
             s.add(b)

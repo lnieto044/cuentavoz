@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import { pedir, BASE, leerToken, guardarToken } from "../api";
 import { configurarVoz, hablar } from "../voz";
+import { hayAutenticadorDisponible, registrarHuellaDispositivo } from "../webauthn";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+
+function formatoAcceso(fechaStr) {
+  if (!fechaStr) return "—";
+  const [fecha, hora] = fechaStr.split(" ");
+  const hoy = new Date().toISOString().slice(0, 10);
+  return fecha === hoy ? `hoy ${hora}` : `${fecha.slice(5).replace("-", "/")} ${hora}`;
+}
 
 export default function MiPerfil({ token }) {
   const [datos, setDatos] = useState(null);
@@ -14,15 +22,24 @@ export default function MiPerfil({ token }) {
   const [v, setV] = useState(Date.now());
   const [fotoOk, setFotoOk] = useState(true);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
+  const [hayLector, setHayLector] = useState(false);
 
   useEffect(() => {
     pedir("/api/usuarios/yo", {}, token).then(setDatos).catch(() => {});
     pedir("/api/usuarios/yo/bodegas", {}, token).then(setBodegas).catch(() => {});
+    hayAutenticadorDisponible().then(setHayLector);
   }, [token]);
 
   async function guardar() {
+    setErr(""); setMsg("");
     try {
       await pedir("/api/usuarios/yo", { method: "PUT", body: JSON.stringify(datos) }, token);
+      await pedir("/api/usuarios/yo/preferencias", {
+        method: "PUT", body: JSON.stringify({
+          idioma_voz: datos.idioma_voz, velocidad_voz: datos.velocidad_voz,
+          confirmacion_hablada: datos.confirmacion_hablada,
+        }),
+      }, token);
       setMsg("Cambios guardados correctamente.");
     } catch (e) { setErr(e.message); }
   }
@@ -53,10 +70,23 @@ export default function MiPerfil({ token }) {
     } catch (e) { setErr(e.message); }
   }
   async function registrarHuella() {
+    setErr(""); setMsg("");
     try {
-      await pedir("/api/usuarios/yo/huella", { method: "POST" }, token);
+      await registrarHuellaDispositivo(token);
       setDatos({ ...datos, huella_registrada: true });
-      setMsg("Huella registrada (simulada: esta tableta no tiene lector real).");
+      setMsg("Huella registrada en este dispositivo.");
+    } catch (e) {
+      setErr(e.name === "NotAllowedError"
+        ? "Se canceló el registro de la huella."
+        : e.message);
+    }
+  }
+  async function eliminarHuella() {
+    setErr(""); setMsg("");
+    try {
+      await pedir("/api/usuarios/yo/huella", { method: "DELETE" }, token);
+      setDatos({ ...datos, huella_registrada: false });
+      setMsg("Huella eliminada de este dispositivo.");
     } catch (e) { setErr(e.message); }
   }
   async function cerrarTodas() {
@@ -70,16 +100,15 @@ export default function MiPerfil({ token }) {
     hablar("Hola, soy CuentaVoz. Así voy a sonar de ahora en adelante.", { forzar: true });
   }
 
-  async function guardarPreferencias(cambios) {
+  // Solo actualiza en memoria (para que "Probar voz" suene distinto de una
+  // vez): el guardado real de estas preferencias queda para "Guardar
+  // cambios", junto con los datos personales - un solo botón, un solo
+  // guardado, como el resto de la pantalla.
+  function elegirPreferencia(cambios) {
     const nuevos = { ...datos, ...cambios };
     setDatos(nuevos);
     configurarVoz({ idioma: nuevos.idioma_voz, velocidad: nuevos.velocidad_voz,
                     confirmacionHablada: nuevos.confirmacion_hablada });
-    try {
-      await pedir("/api/usuarios/yo/preferencias", {
-        method: "PUT", body: JSON.stringify(cambios),
-      }, token);
-    } catch (e) { setErr(e.message); }
   }
 
   if (!datos) return <Marco titulo="Mi perfil"><p className="cargando">Cargando…</p></Marco>;
@@ -109,8 +138,8 @@ export default function MiPerfil({ token }) {
         <div className="card">
           <h3>Datos personales</h3>
           <div className="campos-2col">
-            {[["Nombre", "nombre"], ["Correo corporativo", "correo"],
-              ["Teléfono", "telefono"], ["Código de empleado", "codigo"]].map(([l, k]) => (
+            {[["Nombre completo", "nombre"], ["Correo corporativo", "correo"],
+              ["Teléfono de contacto", "telefono"], ["Código de empleado", "codigo"]].map(([l, k]) => (
               <div key={k} style={{ marginBottom: 10 }}>
                 <label className="pista">{l}</label>
                 <input value={datos[k] || ""}
@@ -126,12 +155,6 @@ export default function MiPerfil({ token }) {
               <span className="pista">Sin bodegas asignadas todavía.</span>
             ) : bodegas.map((b) => <span key={b.id} className="chip">{b.bodega}</span>)}
           </div>
-          <div className="grilla-botones">
-            <button className="btn" onClick={guardar}>Guardar cambios</button>
-          </div>
-
-          {err && <p className="error">{err}</p>}
-          {msg && <p className="msg-ok">{msg}</p>}
         </div>
       </div>
 
@@ -139,7 +162,7 @@ export default function MiPerfil({ token }) {
         <div className="card">
           <h3>Seguridad de la cuenta</h3>
           <p style={{ fontSize: ".87rem", marginBottom: 4 }}>
-            Último acceso: <b>{datos.ultimo_acceso || "—"}</b>
+            Último acceso: <b>{formatoAcceso(datos.ultimo_acceso)}</b>
           </p>
           <p style={{ fontSize: ".87rem", marginBottom: 14 }}>
             Su PIN vence en <b>{datos.pin_vence_en_dias} días</b>
@@ -158,25 +181,35 @@ export default function MiPerfil({ token }) {
           </div>
 
           <div className="grilla-botones" style={{ marginTop: 10 }}>
-            <button className={`btn ${datos.huella_registrada ? "verde" : "borde"}`}
-                    onClick={registrarHuella} disabled={datos.huella_registrada}>
-              {datos.huella_registrada ? "✓ Huella registrada" : "Registrar huella"}
-            </button>
+            {datos.huella_registrada ? (
+              <button className="btn gris" onClick={eliminarHuella}>
+                ✓ Huella registrada — quitar de este dispositivo
+              </button>
+            ) : (
+              <button className="btn borde" onClick={registrarHuella} disabled={!hayLector}>
+                Registrar huella de este dispositivo
+              </button>
+            )}
             <button className="btn gris" onClick={() => setConfirmarCierre(true)}>
               Cerrar sesión en todos los dispositivos
             </button>
           </div>
           <p className="pista" style={{ marginTop: 8 }}>
-            El PIN se guarda cifrado (bcrypt); la huella es simulada porque esta
-            tableta web no tiene lector biométrico real.
+            {hayLector
+              ? "El PIN se guarda cifrado (bcrypt); la huella usa el lector o " +
+                "Windows Hello de este equipo (WebAuthn) y solo sirve para " +
+                "ingresar desde este mismo dispositivo."
+              : "El PIN se guarda cifrado (bcrypt); este equipo o navegador no " +
+                "tiene un lector de huella / Windows Hello configurado, así " +
+                "que el ingreso con huella no está disponible aquí."}
           </p>
         </div>
 
         <div className="card">
           <h3>Preferencias de voz</h3>
-          <label className="pista">Acento de la voz que le habla (CuentaVoz)</label>
+          <label className="pista">Idioma del reconocimiento</label>
           <select value={datos.idioma_voz}
-                  onChange={(e) => guardarPreferencias({ idioma_voz: e.target.value })}
+                  onChange={(e) => elegirPreferencia({ idioma_voz: e.target.value })}
                   style={{ width: "100%", marginTop: 6, marginBottom: 8, padding: "10px 12px",
                            border: "1px solid var(--borde)", borderRadius: 10 }}>
             <option value="es-MX">Español (México) — recomendado</option>
@@ -198,23 +231,29 @@ export default function MiPerfil({ token }) {
             {["lenta", "normal", "rapida"].map((v2) => (
               <button key={v2}
                       className={`btn ${datos.velocidad_voz === v2 ? "" : "borde"}`}
-                      onClick={() => guardarPreferencias({ velocidad_voz: v2 })}>
+                      onClick={() => elegirPreferencia({ velocidad_voz: v2 })}>
                 {v2[0].toUpperCase() + v2.slice(1)}
               </button>
             ))}
           </div>
 
           <label className="pista">Confirmación hablada</label>
-          <div className="grilla-botones" style={{ marginTop: 6 }}>
+          <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 18 }}>
             <button className={`btn ${datos.confirmacion_hablada ? "" : "borde"}`}
-                    onClick={() => guardarPreferencias({ confirmacion_hablada: true })}>
+                    onClick={() => elegirPreferencia({ confirmacion_hablada: true })}>
               Activada
             </button>
             <button className={`btn ${!datos.confirmacion_hablada ? "" : "borde"}`}
-                    onClick={() => guardarPreferencias({ confirmacion_hablada: false })}>
+                    onClick={() => elegirPreferencia({ confirmacion_hablada: false })}>
               Desactivada
             </button>
           </div>
+
+          {err && <p className="error">{err}</p>}
+          {msg && <p className="msg-ok">{msg}</p>}
+          <button className="btn" style={{ width: "100%" }} onClick={guardar}>
+            Guardar cambios
+          </button>
         </div>
       </div>
 

@@ -42,9 +42,17 @@ function sugerirDeCatalogo(texto, catalogo) {
   return mejorPuntaje >= 0.5 ? mejor : null;
 }
 
-export default function Conteo({ token, sesionId = 1, ir }) {
+const ETIQUETA_BODEGA = {
+  pendiente: ["PENDIENTE", "gris"], en_conteo: ["EN CONTEO", "azul"],
+  en_auditoria: ["EN AUDITORÍA", "oro"], cerrada: ["CERRADA", "verde"],
+};
+
+export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   const [bodega, setBodega] = useState(null);
-  const [textoBodega, setTextoBodega] = useState("almacen suministros");
+  const [asignadas, setAsignadas] = useState(null);
+  const [todas, setTodas] = useState(null);
+  const [textoBodega, setTextoBodega] = useState("");
+  const [buscarOtra, setBuscarOtra] = useState(false);
   const [dicho, setDicho] = useState("");
   const [respuesta, setRespuesta] = useState(
     "Abra una bodega para empezar a contar."
@@ -75,10 +83,25 @@ export default function Conteo({ token, sesionId = 1, ir }) {
 
   async function refrescar() {
     try {
-      setAvance(await pedir(`/api/sesiones/${sesionId}/avance`, {}, token));
+      const bid = bodega?.bodega_id ? `?bodega_id_respaldo=${bodega.bodega_id}` : "";
+      setAvance(await pedir(`/api/sesiones/${sesionId}/avance${bid}`, {}, token));
     } catch (_) {}
   }
-  useEffect(() => { refrescar(); }, []);
+  useEffect(() => { refrescar(); }, [bodega]);
+
+  useEffect(() => {
+    pedir("/api/usuarios/yo/bodegas", {}, token).then((r) => {
+      setAsignadas(r);
+      // sin bodegas propias (el caso tipico del administrador, que audita
+      // en vez de contar rutinariamente) se necesita el listado completo
+      // de una vez - si no, la unica opcion es escribir el nombre a mano.
+      if (r.length === 0) cargarTodas();
+    }).catch(() => setAsignadas([]));
+  }, [token]);
+
+  function cargarTodas() {
+    pedir("/api/bodegas", {}, token).then(setTodas).catch(() => setTodas([]));
+  }
 
   useEffect(() => {
     const alVolver = () => { setOffline(false); sincronizar(); };
@@ -106,10 +129,10 @@ export default function Conteo({ token, sesionId = 1, ir }) {
     refrescar();
   }
 
-  async function abrir() {
+  async function abrir(nombre = textoBodega) {
     setErr("");
     try {
-      const r = await abrirBodega(textoBodega, token);
+      const r = await abrirBodega(nombre, token);
       setBodega(r);
       const saludo = `Listo, ${r.bodega.toLowerCase()} abierta con ${r.referencias} referencias. Dícteme el primer producto.`;
       setRespuesta(saludo);
@@ -135,7 +158,10 @@ export default function Conteo({ token, sesionId = 1, ir }) {
     setDicho(mostrar);
     setErr("");
     try {
-      const t = await enviarTurno(texto, sesionId, token, { opciones, opcionesPara });
+      const t = await enviarTurno(texto, sesionId, token, {
+        opciones, opcionesPara,
+        bodegaId: bodega?.bodega_id, bodegaNombre: bodega?.bodega,
+      });
       setRespuesta(t.respuesta_hablada || "");
       setOpciones(t.opciones || null);
       setOpcionesPara(t.opciones_para || null);
@@ -146,7 +172,9 @@ export default function Conteo({ token, sesionId = 1, ir }) {
       setArchivo(t.archivo || null);
       hablar(t.respuesta_hablada);
       if (t.guardado || t.corregido || t.bodega) refrescar();
-      if (t.bodega) setBodega({ bodega: t.bodega.nombre, referencias: t.bodega.referencias });
+      if (t.bodega) {
+        setBodega({ bodega: t.bodega.nombre, referencias: t.bodega.referencias, bodega_id: t.bodega.id });
+      }
       if (t.intencion === "crear") {
         setCrear({ nombre: t.articulo_texto || texto, unidad_medida: "Unidad",
                    cantidad_inicial: t.cantidad || 0 });
@@ -224,20 +252,106 @@ export default function Conteo({ token, sesionId = 1, ir }) {
       {!bodega ? (
         <div className="card">
           <h3>¿Qué bodega va a contar?</h3>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input
-              style={{ flex: 1, minWidth: 240, padding: "12px 14px",
-                       border: "1px solid var(--borde)", borderRadius: 12 }}
-              value={textoBodega}
-              onChange={(e) => setTextoBodega(e.target.value)}
-              placeholder="almacen suministros"
-            />
-            <button className="btn" onClick={abrir}>Abrir bodega</button>
-          </div>
-          {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
-          <p className="pista" style={{ marginTop: 10 }}>
-            Sugerencias: almacen suministros · almacen ayb · restaurante fuentes ayb
-          </p>
+          {asignadas === null ? (
+            <p className="cargando">Cargando sus bodegas asignadas…</p>
+          ) : asignadas.length > 0 && !buscarOtra ? (
+            <>
+              <div className="grid-bodegas">
+                {asignadas.map((b) => {
+                  const [txt, cls] = ETIQUETA_BODEGA[b.estado] || ["?", "gris"];
+                  const esOtraPersona = b.estado === "en_conteo" && b.persona
+                    && b.persona.toLowerCase() !== (usuario?.nombre || "").toLowerCase();
+                  let detalleLinea;
+                  if (b.estado === "en_conteo" && b.persona) {
+                    detalleLinea = esOtraPersona
+                      ? `${b.persona} ya la está contando · ${b.avance_pct ?? 0}%`
+                      : `usted la dejó a medias · ${b.avance_pct ?? 0}%`;
+                  } else if (b.estado === "en_auditoria" && b.persona) {
+                    detalleLinea = `${b.persona} auditando · ${b.diferencias ?? 0} dif.`;
+                  } else if (b.estado === "cerrada" && b.hora_cierre) {
+                    detalleLinea = `cerrada ${b.hora_cierre}`;
+                  } else if (b.estado === "pendiente") {
+                    detalleLinea = "sin iniciar · disponible";
+                  } else {
+                    detalleLinea = `${b.referencias} referencias`;
+                  }
+                  return (
+                    <button key={b.id} className={`tarjeta-bodega ${b.estado}`}
+                            onClick={() => abrir(b.bodega)}
+                            title={esOtraPersona
+                              ? "Ya la está contando otra persona; puede intentar de todas formas."
+                              : ""}>
+                      <b>{b.bodega}</b>
+                      <span className={`chip ${cls} est`}>{txt}</span>
+                      <small>{detalleLinea}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+              <div className="grilla-botones" style={{ marginTop: 14 }}>
+                <button className="btn borde"
+                        onClick={() => { setBuscarOtra(true); if (!todas) cargarTodas(); }}>
+                  Buscar otra bodega
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {asignadas.length > 0 && (
+                <p className="pista" style={{ marginBottom: 10 }}>
+                  Buscando fuera de sus bodegas asignadas.
+                </p>
+              )}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <input
+                  style={{ flex: 1, minWidth: 240, padding: "12px 14px",
+                           border: "1px solid var(--borde)", borderRadius: 12 }}
+                  value={textoBodega}
+                  onChange={(e) => setTextoBodega(e.target.value)}
+                  placeholder="escriba para buscar…"
+                  autoFocus
+                />
+                <button className="btn" onClick={() => abrir()}>Abrir por nombre exacto</button>
+              </div>
+              {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+
+              {todas === null ? (
+                <p className="cargando" style={{ marginTop: 10 }}>Cargando bodegas…</p>
+              ) : (
+                <div className="grid-bodegas" style={{ marginTop: 14 }}>
+                  {(textoBodega.trim()
+                    ? todas.filter((b) => b.bodega.toLowerCase()
+                                          .includes(textoBodega.trim().toLowerCase()))
+                    : todas
+                  ).slice(0, 24).map((b) => {
+                    const [txt, cls] = ETIQUETA_BODEGA[b.estado] || ["?", "gris"];
+                    return (
+                      <button key={b.id} className={`tarjeta-bodega ${b.estado}`}
+                              onClick={() => abrir(b.bodega)}>
+                        <b>{b.bodega}</b>
+                        <span className={`chip ${cls} est`}>{txt}</span>
+                        <small>{b.referencias} referencias</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {todas && !textoBodega.trim() && todas.length > 24 && (
+                <p className="pista" style={{ marginTop: 8 }}>
+                  Mostrando 24 de {todas.length} — escriba para filtrar.
+                </p>
+              )}
+
+              <div className="grilla-botones" style={{ marginTop: 10 }}>
+                {asignadas.length > 0 && (
+                  <button className="btn gris" onClick={() => setBuscarOtra(false)}>
+                    Volver a sus bodegas asignadas
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       ) : offline ? (
         <FormularioOffline

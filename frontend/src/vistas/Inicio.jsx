@@ -99,9 +99,8 @@ export default function Inicio({ token, usuario, ir }) {
                 <span style={{ width: 9, height: 9, borderRadius: "50%", flex: "none",
                               background: DOT[color] }} />
                 <b style={{ color: "var(--grafito)", minWidth: 46 }}>{a.hora}</b>
-                <span style={{ textTransform: "capitalize" }}>{a.persona}</span>
                 <span>{a.detalle}</span>
-                <span className={`chip ${color} cant`} style={{ marginLeft: "auto" }}>
+                <span className={`etiqueta-actividad ${color}`}>
                   {a.accion.toLowerCase()}
                 </span>
               </div>

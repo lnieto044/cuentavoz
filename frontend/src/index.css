@@ -75,11 +75,11 @@ input  { font-family: inherit; font-size: 1rem; }
   border-left-color: var(--amarillo);
 }
 .sidebar li .icono-menu {
-  width: 26px; height: 26px; border-radius: 8px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 1rem; background: rgba(255,255,255,.06);
+  flex: none; color: #8194B3;
 }
-.sidebar li.sel .icono-menu { background: rgba(255,255,255,.18); }
+.sidebar li:hover .icono-menu { color: #fff; }
+.sidebar li.sel .icono-menu { color: var(--amarillo); }
 .sidebar footer { padding: 12px 18px 0; border-top: 1px solid #2A4573; }
 .sidebar footer .avatar {
   width: 32px; height: 32px; border-radius: 50%; background: var(--amarillo);
@@ -104,6 +104,8 @@ input  { font-family: inherit; font-size: 1rem; }
 .chip.oro    { background: var(--amarillo-bg); color: var(--amarillo-tx); }
 .chip.gris   { background: #EFEFEF; color: var(--grafito); }
 .chip.azul   { background: var(--azul); color: #fff; }
+.chip.borde  { background: #fff; border: 1.5px solid currentColor; }
+.chip.borde.azul { color: var(--azul); }
 
 .btn {
   border-radius: var(--radio); font-weight: 700; padding: 13px 20px;
@@ -128,6 +130,11 @@ input  { font-family: inherit; font-size: 1rem; }
   display: flex; align-items: center; justify-content: center;
   font-size: 2.6rem; font-weight: 700; color: var(--azul); background: var(--azul-claro);
   margin: 0 auto;
+}
+.avatar-chico {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 700; color: var(--azul); background: var(--azul-claro);
 }
 .rotulo { font-size: .74rem; color: var(--grafito); font-style: italic; margin-bottom: 4px; }
 .cita {
@@ -160,6 +167,12 @@ input  { font-family: inherit; font-size: 1rem; }
   color: #fff; display: inline-flex; align-items: center; justify-content: center;
   font-size: .7rem; flex: none; }
 .registro .cant { margin-left: auto; color: var(--grafito); font-size: .82rem; }
+
+.etiqueta-actividad { margin-left: auto; font-weight: 700; font-size: .8rem; flex: none; }
+.etiqueta-actividad.azul  { color: var(--azul); }
+.etiqueta-actividad.verde { color: var(--verde); }
+.etiqueta-actividad.oro   { color: var(--amarillo-tx); }
+.etiqueta-actividad.gris  { color: var(--grafito); }
 
 .banner {
   display: flex; gap: 14px; align-items: flex-start;
@@ -219,7 +232,8 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .tarjeta-bodega { background: #fff; border: 1px solid var(--borde);
   border-left: 5px solid var(--grafito); border-radius: 10px; padding: 12px 14px;
   text-align: left; width: 100%; }
-.tarjeta-bodega b { display: block; font-size: .87rem; margin-bottom: 6px; }
+.tarjeta-bodega b { display: flex; align-items: center; gap: 8px;
+  font-size: .87rem; margin-bottom: 6px; }
 .tarjeta-bodega .est { font-size: .72rem; font-weight: 700; padding: 3px 8px;
   border-radius: 9px; }
 .tarjeta-bodega.cerrada     { border-left-color: var(--verde); }
@@ -227,6 +241,12 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .tarjeta-bodega.en_auditoria{ border-left-color: var(--amarillo); }
 .tarjeta-bodega small { display: block; color: var(--grafito); font-size: .72rem;
   margin-top: 6px; }
+.icono-tarjeta { width: 26px; height: 26px; border-radius: 8px; flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: .85rem;
+  background: #EFEFEF; }
+.tarjeta-bodega.cerrada .icono-tarjeta      { background: var(--verde-bg); }
+.tarjeta-bodega.en_conteo .icono-tarjeta    { background: var(--azul-claro); }
+.tarjeta-bodega.en_auditoria .icono-tarjeta { background: var(--amarillo-bg); }
 .icono-accion { width: 42px; height: 42px; border-radius: 50%; background: var(--azul-claro);
   display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
   margin-bottom: 10px; }
@@ -241,7 +261,11 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .acceso-rapido small { color: var(--grafito); font-size: .8rem; }
 
 /* ── Ingreso ── */
-.ingreso { display: grid; grid-template-columns: 1fr 1fr; height: 100dvh; }
+.ingreso-fondo { min-height: 100dvh; display: flex; align-items: center;
+  justify-content: center; background: var(--fondo); padding: 24px; }
+.ingreso { display: grid; grid-template-columns: 1fr 1fr; width: 100%;
+  max-width: 960px; min-height: 560px; background: #fff; border-radius: 22px;
+  overflow: hidden; box-shadow: 0 24px 60px -16px rgba(11, 27, 51, .28); }
 .ingreso .marca-lado { background: var(--azul-prof); color: #fff;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 8px; padding: 30px; }
@@ -252,16 +276,42 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
   margin: 12px 0; }
 .ingreso .marca-lado p { color: #C6D2E6; text-align: center; max-width: 300px;
   font-size: .95rem; }
-.ingreso .marca-lado img.cs { height: 22px; margin-top: 26px; }
+.ingreso .marca-lado img.cs { height: 22px; margin-top: 22px; }
+.ingreso .marca-lado .hackathon { color: #7C93BC; font-size: .78rem;
+  margin-top: 6px; letter-spacing: .02em; }
 .ingreso .form { display: flex; flex-direction: column; justify-content: center;
-  padding: 40px 12%; gap: 14px; }
+  gap: 14px; padding: 40px 12%; }
 .ingreso .form h2 { color: var(--azul); font-size: 1.7rem; }
 .ingreso .form label { font-size: .8rem; color: var(--grafito); }
-.ingreso .form input { padding: 13px 14px; border: 1px solid var(--borde);
-  border-radius: var(--radio); }
+.ingreso .campo-icono { position: relative; display: flex; align-items: center; }
+.ingreso .campo-icono svg { position: absolute; left: 14px; color: #9AA7BC; }
+.ingreso .form input { width: 100%; padding: 13px 14px 13px 42px;
+  border: 1px solid var(--borde); border-radius: var(--radio); }
 .ingreso .form input:focus { outline: 2px solid var(--azul); border-color: var(--azul); }
-.ingreso .perfiles { display: flex; gap: 10px; }
-.ingreso .perfiles button { flex: 1; }
+.ingreso .perfiles { display: flex; gap: 10px; margin-top: 4px; }
+.ingreso .perfiles span { flex: 1; text-align: center; padding: 12px 8px;
+  border-radius: var(--radio); font-weight: 700; font-size: .88rem;
+  border: 2px solid var(--azul); color: var(--azul); background: #fff;
+  transition: background .15s, color .15s; }
+.ingreso .perfiles span.sel { background: var(--azul); color: #fff; }
+.ingreso .form .btn { margin-top: 6px; }
+.ingreso .form .pista-huella { text-align: center; margin-top: 4px; }
+
+/* En pantallas angostas el card apilado puede quedar más alto que la
+   pantalla; centrarlo verticalmente ahí recorta el logo por arriba y obliga
+   a subir el scroll para verlo. Mejor anclarlo arriba y dejar que crezca
+   hacia abajo - así siempre se ve completo desde el primer momento. */
+@media (max-width: 860px) {
+  .ingreso-fondo { align-items: flex-start; padding: 20px 14px; }
+  .ingreso { grid-template-columns: 1fr; max-width: 440px; min-height: auto; }
+  .ingreso .marca-lado { padding: 26px 24px 18px; gap: 6px; }
+  .ingreso .marca-lado img.app { width: 64px; }
+  .ingreso .marca-lado h1 { font-size: 1.7rem; }
+  .ingreso .marca-lado hr { margin: 8px 0; }
+  .ingreso .marca-lado p { font-size: .82rem; }
+  .ingreso .marca-lado img.cs { margin-top: 14px; }
+  .ingreso .form { padding: 24px; gap: 12px; }
+}
 .pista { font-size: .78rem; color: var(--grafito); font-style: italic; }
 .error { color: #B3261E; font-size: .85rem; }
 .msg-ok { color: var(--verde); font-size: .85rem; }
@@ -314,11 +364,6 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
     margin: 6px auto; }
   .opciones { grid-template-columns: 1fr; }
   .accesos-grid { grid-template-columns: repeat(2, 1fr); }
-  .ingreso { grid-template-columns: 1fr; }
-  .ingreso .marca-lado { padding: 22px; }
-  .ingreso .marca-lado h1 { font-size: 1.9rem; }
-  .ingreso .marca-lado img.app { width: 74px; }
-  .ingreso .form { padding: 24px; }
   .grilla-botones { display: grid; grid-template-columns: 1fr 1fr; }
   .grilla-botones .btn { min-height: 54px; }
   .area { padding: 14px; }

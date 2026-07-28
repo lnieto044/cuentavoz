@@ -30,9 +30,11 @@ export default function Ayuda({ token }) {
   const [reportando, setReportando] = useState(false);
   const [msg, setMsg] = useState("");
   const [pedirDetalle, setPedirDetalle] = useState(false);
+  const [admin, setAdmin] = useState(null);
 
   useEffect(() => {
     pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
+    pedir("/api/soporte/administrador", {}, token).then(setAdmin).catch(() => {});
   }, [token]);
 
   async function reportarProblema(detalle) {
@@ -90,36 +92,66 @@ export default function Ayuda({ token }) {
           ))}
         </div>
 
-        <div className="card">
-          <h3>Estado del sistema</h3>
-          {servicios.map(([t, ok], i) => (
-            <div className="registro" key={i}>
-              <span className="ok" style={{ background: ok ? "var(--verde)" : "#B3261E" }}>
-                {ok ? "✓" : "!"}
-              </span>
-              <span>{t}</span>
-              <span className="cant" style={{ color: ok ? "var(--verde)" : "#B3261E",
-                    fontWeight: 700 }}>
-                {ok ? "operativo" : "revisar"}
-              </span>
-            </div>
-          ))}
-          {!salud?.gemini && (
-            <p className="pista" style={{ marginTop: 10 }}>
-              Sin la llave de Gemini el agente usa el intérprete local: el flujo
-              funciona igual, pero entiende menos variantes de frase. Ponga
-              GOOGLE_API_KEY en el archivo .env para activarlo.
+        <div>
+          <div className="card">
+            <h3>Soporte en vivo</h3>
+            {admin?.nombre ? (
+              <>
+                <p style={{ fontSize: ".88rem" }}>
+                  Administrador de bodega · <span style={{ textTransform: "capitalize" }}>{admin.nombre}</span>
+                  <span style={{ color: "var(--verde)", fontWeight: 700 }}> · disponible</span>
+                </p>
+                <div className="grilla-botones">
+                  <button className="btn"
+                          onClick={() => { window.location.href = `mailto:${admin.correo}`; }}>
+                    Escribirle al administrador
+                  </button>
+                </div>
+              </>
+            ) : admin?.es_usted ? (
+              <p style={{ fontSize: ".88rem" }}>
+                Usted es la administradora de turno: los auxiliares le escriben a
+                usted. Para algo que se salga de su alcance, use la mesa de ayuda
+                de Colsubsidio.
+              </p>
+            ) : (
+              <p style={{ fontSize: ".88rem" }}>
+                No hay otro administrador registrado por ahora. Use la mesa de
+                ayuda de Colsubsidio.
+              </p>
+            )}
+            {msg && <p className="msg-ok">{msg}</p>}
+            <p className="pista" style={{ margin: "10px 0" }}>
+              Mesa de ayuda Colsubsidio · ext. 4040 · 7 por 24
             </p>
-          )}
+            <div className="grilla-botones">
+              <button className="btn oro" disabled={reportando} onClick={() => setPedirDetalle(true)}>
+                {reportando ? "Enviando…" : "Reportar un problema"}
+              </button>
+            </div>
+          </div>
 
-          <h3 style={{ marginTop: 18 }}>Soporte en vivo</h3>
-          <p style={{ fontSize: ".88rem" }}>Administrador de bodega · disponible</p>
-          <p className="pista" style={{ marginBottom: 10 }}>Mesa de ayuda Colsubsidio · ext. 4040 · 7 por 24</p>
-          {msg && <p className="msg-ok">{msg}</p>}
-          <div className="grilla-botones">
-            <button className="btn oro" disabled={reportando} onClick={() => setPedirDetalle(true)}>
-              {reportando ? "Enviando…" : "Reportar un problema"}
-            </button>
+          <div className="card" style={{ marginTop: 16 }}>
+            <h3>Estado del sistema</h3>
+            {servicios.map(([t, ok], i) => (
+              <div className="registro" key={i}>
+                <span className="ok" style={{ background: ok ? "var(--verde)" : "#B3261E" }}>
+                  {ok ? "✓" : "!"}
+                </span>
+                <span>{t}</span>
+                <span className="cant" style={{ color: ok ? "var(--verde)" : "#B3261E",
+                      fontWeight: 700 }}>
+                  {ok ? "operativo" : "revisar"}
+                </span>
+              </div>
+            ))}
+            {!salud?.gemini && (
+              <p className="pista" style={{ marginTop: 10 }}>
+                Sin la llave de Gemini el agente usa el intérprete local: el flujo
+                funciona igual, pero entiende menos variantes de frase. Ponga
+                GOOGLE_API_KEY en el archivo .env para activarlo.
+              </p>
+            )}
           </div>
         </div>
       </div>

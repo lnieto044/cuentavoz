@@ -52,6 +52,10 @@ export const enviarTurno = (texto, sesionId, token, respaldo = {}) =>
       texto, sesion_id: sesionId,
       opciones_pendientes: respaldo.opciones || null,
       opciones_para: respaldo.opcionesPara || null,
+      bodega_id_respaldo: respaldo.bodegaId || null,
+      bodega_nombre_respaldo: respaldo.bodegaNombre || null,
+      preparacion_respaldo: respaldo.preparacion || null,
+      porciones_respaldo: respaldo.porciones || null,
     }),
   }, token);
 

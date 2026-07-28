@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { pedir } from "../api";
+import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
 
-export default function Ajustes({ token, usuario }) {
-  const [tab, setTab] = useState("config");
+export default function Ajustes({ token, usuario, tabInicial, recetaId }) {
+  const [tab, setTab] = useState(tabInicial || "config");
   const esAuditor = usuario?.perfil === "auditor";
 
   return (
@@ -17,6 +17,8 @@ export default function Ajustes({ token, usuario }) {
           <>
             <button className={`chip ${tab === "usuarios" ? "azul" : ""}`}
                     onClick={() => setTab("usuarios")}>Gestión de usuarios</button>
+            <button className={`chip ${tab === "recetas" ? "azul" : ""}`}
+                    onClick={() => setTab("recetas")}>Recetas</button>
             <button className={`chip ${tab === "traza" ? "azul" : ""}`}
                     onClick={() => setTab("traza")}>Registro de trazabilidad</button>
           </>
@@ -24,7 +26,8 @@ export default function Ajustes({ token, usuario }) {
       </div>
 
       {tab === "config" && <TabConfig token={token} esAuditor={esAuditor} />}
-      {tab === "usuarios" && esAuditor && <TabUsuarios token={token} />}
+      {tab === "usuarios" && esAuditor && <TabUsuarios token={token} usuario={usuario} />}
+      {tab === "recetas" && esAuditor && <TabRecetas token={token} recetaInicial={recetaId} />}
       {tab === "traza" && esAuditor && <TabTraza token={token} />}
     </Marco>
   );
@@ -75,88 +78,107 @@ function TabConfig({ token, esAuditor }) {
 
   return (
     <>
-      <div className="card">
-        <h3>Validación de datos</h3>
-        <table>
-          <tbody>
-            <tr>
-              <td>Umbral de anomalía (el «9 contra 90»)</td>
-              <td style={{ width: 140 }}>
-                {esAuditor ? (
-                  <input type="number" min="1" max="500" value={umbral}
-                         onChange={(e) => setUmbral(Number(e.target.value))}
-                         style={{ width: 80, padding: "6px 10px",
-                                  border: "1px solid var(--borde)", borderRadius: 8 }} />
-                ) : <b>{cfg.umbral} %</b>}
-                {esAuditor && " %"}
-              </td>
-            </tr>
-            <tr><td>Bloquear cantidades negativas</td>
-              <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
-            <tr><td>Exigir confirmación en alertas</td>
-              <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
-            <tr><td>Permitir crear productos pendientes</td>
-              <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
-          </tbody>
-        </table>
-        <p className="pista" style={{ marginTop: 8 }}>
-          Las reglas fijas del reto (bloquear negativos, exigir confirmación) no se
-          pueden desactivar: son la garantía de integridad de la toma.
-        </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="card">
+          <h3>Validación de datos</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>Umbral de anomalía</td>
+                <td style={{ width: 140 }}>
+                  {esAuditor ? (
+                    <input type="number" min="1" max="500" value={umbral}
+                           onChange={(e) => setUmbral(Number(e.target.value))}
+                           style={{ width: 80, padding: "6px 10px",
+                                    border: "1px solid var(--borde)", borderRadius: 8 }} />
+                  ) : <b>{cfg.umbral} %</b>}
+                  {esAuditor && " %"}
+                </td>
+              </tr>
+              <tr><td>Bloquear cantidades negativas</td>
+                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+              <tr><td>Exigir confirmación en alertas</td>
+                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+              <tr><td>Permitir crear productos pendientes</td>
+                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+            </tbody>
+          </table>
+          <p className="pista" style={{ marginTop: 8 }}>
+            Las reglas fijas del reto (bloquear negativos, exigir confirmación) no se
+            pueden desactivar: son la garantía de integridad de la toma.
+          </p>
+        </div>
+
+        <div className="card">
+          <h3>Conexión y sincronización</h3>
+          <table>
+            <tbody>
+              <tr><td>Modo sin conexión</td>
+                <td><Interruptor activo={offline} onChange={setOffline} disabled={!esAuditor} /></td></tr>
+              <tr><td>Refresco del tablero</td><td><b>tiempo real</b></td></tr>
+              <tr><td>Refresco de Power BI</td><td><b>{cfg.refresco_pbi}</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Administración</h3>
+          <table>
+            <tbody>
+              <tr><td>Usuarios activos</td><td><b>{cfg.usuarios_activos}</b></td></tr>
+              <tr><td>Aprobaciones pendientes</td>
+                <td><b style={{ color: cfg.aprobaciones_pendientes > 0 ? "var(--amarillo-tx)" : "var(--verde)" }}>
+                  {cfg.aprobaciones_pendientes}</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <h3>Acerca de CuentaVoz</h3>
+          <table>
+            <tbody>
+              <tr><td>Versión</td><td><b>{cfg.version}</b></td></tr>
+              <tr><td>Modelo del agente</td><td><b>{cfg.modelo}</b></td></tr>
+              <tr><td>Base de datos</td><td><b>{cfg.base_datos}</b></td></tr>
+              <tr><td>Idioma del reconocimiento</td><td><b>{cfg.idioma_voz}</b></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="card">
-        <h3>Conexión y sincronización</h3>
-        <table>
-          <tbody>
-            <tr><td>Modo sin conexión</td>
-              <td><Interruptor activo={offline} onChange={setOffline} disabled={!esAuditor} /></td></tr>
-            <tr><td>Refresco del tablero</td><td><b>tiempo real</b></td></tr>
-            <tr><td>Refresco de Power BI</td><td><b>{cfg.refresco_pbi}</b></td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card">
-        <h3>Administración</h3>
-        <table>
-          <tbody>
-            <tr><td>Usuarios activos</td><td><b>{cfg.usuarios_activos}</b></td></tr>
-          </tbody>
-        </table>
-        <h3 style={{ marginTop: 18 }}>Acerca de CuentaVoz</h3>
-        <table>
-          <tbody>
-            <tr><td>Versión</td><td><b>{cfg.version}</b></td></tr>
-            <tr><td>Modelo del agente</td><td><b>{cfg.modelo}</b></td></tr>
-            <tr><td>Idioma del reconocimiento</td><td><b>{cfg.idioma_voz}</b></td></tr>
-          </tbody>
-        </table>
-        {esAuditor && (
-          <div className="grilla-botones">
-            <button className="btn" onClick={guardar}>Guardar configuración</button>
-            <button className="btn borde" onClick={cargar}>Restaurar valores</button>
-          </div>
-        )}
-        {msg && <p className="msg-ok">{msg}</p>}
-      </div>
+      {esAuditor && (
+        <div className="grilla-botones" style={{ marginTop: 4 }}>
+          <button className="btn" onClick={guardar}>Guardar configuración</button>
+          <button className="btn borde" onClick={cargar}>Restaurar valores</button>
+        </div>
+      )}
+      {msg && <p className="msg-ok">{msg}</p>}
     </>
   );
 }
 
-function TabUsuarios({ token }) {
+function TabUsuarios({ token, usuario }) {
   const [usuarios, setUsuarios] = useState([]);
   const [bodegas, setBodegas] = useState([]);
   const [msg, setMsg] = useState("");
   const [nuevo, setNuevo] = useState(null);
   const [asignando, setAsignando] = useState(null);   // usuario al que se le estan marcando bodegas
   const [marcadas, setMarcadas] = useState(new Set());
+  const [cobertura, setCobertura] = useState(null);
+  const [verCobertura, setVerCobertura] = useState(false);
+  const [editando, setEditando] = useState(null);     // usuario que se esta editando (correo/rol)
+  const [filtro, setFiltro] = useState("todos");
 
   function cargar() {
     pedir("/api/usuarios", {}, token).then(setUsuarios).catch(() => {});
     pedir("/api/bodegas", {}, token).then(setBodegas).catch(() => {});
+    if (verCobertura) cargarCobertura();
   }
   useEffect(cargar, [token]);
+
+  function cargarCobertura() {
+    pedir("/api/bodegas/asignaciones", {}, token).then(setCobertura).catch(() => {});
+  }
 
   async function crear() {
     if (!nuevo?.nombre?.trim()) return;
@@ -166,7 +188,7 @@ function TabUsuarios({ token }) {
         body: JSON.stringify({ nombre: nuevo.nombre, perfil: nuevo.perfil || "auxiliar",
                                correo: nuevo.correo || "" }),
       }, token);
-      setMsg(`Usuario ${nuevo.nombre} creado con PIN 123456.`);
+      setMsg(`Usuario ${nuevo.nombre} creado con PIN StockXperts.`);
       setNuevo(null);
       cargar();
     } catch (e) { setMsg(e.message); }
@@ -193,30 +215,98 @@ function TabUsuarios({ token }) {
     } catch (e) { setMsg(e.message); }
   }
 
+  async function guardarEdicion() {
+    const u = editando;
+    setEditando(null);
+    try {
+      await pedir(`/api/usuarios/${u.id}`, {
+        method: "PUT", body: JSON.stringify({ correo: u.correo, perfil: u.perfil }),
+      }, token);
+      setMsg(`${u.nombre} actualizado.`);
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function alternarActivo(persona) {
+    try {
+      await pedir(`/api/usuarios/${persona.id}`, {
+        method: "PUT", body: JSON.stringify({ activo: !persona.activo }),
+      }, token);
+      setMsg(`${persona.nombre} ${persona.activo ? "desactivado" : "activado"}.`);
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  const nAux = usuarios.filter((u) => u.perfil === "auxiliar").length;
+  const nAdmin = usuarios.filter((u) => u.perfil === "auditor").length;
+  const nInactivos = usuarios.filter((u) => !u.activo).length;
+  const usuariosFiltrados = usuarios.filter((u) => {
+    if (filtro === "auxiliar") return u.perfil === "auxiliar";
+    if (filtro === "auditor") return u.perfil === "auditor";
+    if (filtro === "inactivo") return !u.activo;
+    return true;
+  });
+
   return (
     <div className="card">
-      <h3>Gestión de usuarios ({usuarios.length})</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                    marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+        <div className="chips" style={{ marginBottom: 0 }}>
+          <button className={`chip ${filtro === "auxiliar" ? "azul" : ""}`}
+                  onClick={() => setFiltro(filtro === "auxiliar" ? "todos" : "auxiliar")}>
+            {nAux} auxiliares
+          </button>
+          <button className={`chip ${filtro === "auditor" ? "azul" : ""}`}
+                  onClick={() => setFiltro(filtro === "auditor" ? "todos" : "auditor")}>
+            {nAdmin} administradores
+          </button>
+          <button className={`chip ${filtro === "inactivo" ? "azul" : ""}`}
+                  onClick={() => setFiltro(filtro === "inactivo" ? "todos" : "inactivo")}>
+            {nInactivos} inactivos
+          </button>
+        </div>
+        {!nuevo && (
+          <button className="btn" onClick={() => setNuevo({})}>+ Nuevo usuario</button>
+        )}
+      </div>
       {msg && <p className="msg-ok">{msg}</p>}
       <table>
         <thead><tr><th>Persona</th><th>Perfil</th><th>Bodegas asignadas</th>
-                    <th>Correo</th><th>Estado</th><th></th></tr></thead>
+                    <th>Último acceso</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          {usuarios.map((u) => (
+          {usuariosFiltrados.map((u) => (
             <tr key={u.id}>
-              <td style={{ textTransform: "capitalize" }}>{u.nombre}</td>
+              <td style={{ textTransform: "capitalize", display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="avatar-chico">{u.nombre[0]?.toUpperCase()}</span>
+                {u.nombre}
+              </td>
               <td>{u.perfil === "auditor" ? "Administrador" : "Auxiliar"}</td>
               <td>{u.bodegas_asignadas}</td>
-              <td>{u.correo || "—"}</td>
+              <td>{u.ultimo_acceso ? u.ultimo_acceso.slice(5).replace("-", "/") : "nunca"}</td>
               <td style={{ color: u.activo ? "var(--verde)" : "var(--grafito)", fontWeight: 700 }}>
                 {u.activo ? "Activo" : "Inactivo"}
               </td>
-              <td>
-                {u.perfil === "auxiliar" && (
-                  <button className="btn borde" style={{ padding: "4px 10px", minHeight: 0 }}
-                          onClick={() => { setAsignando(u); setMarcadas(new Set()); }}>
-                    Asignar bodegas
-                  </button>
-                )}
+              <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button className="btn borde" style={{ padding: "4px 10px", minHeight: 0 }}
+                        onClick={async () => {
+                          setAsignando(u);
+                          const propias = await pedir(`/api/usuarios/${u.id}/bodegas`, {}, token).catch(() => []);
+                          setMarcadas(new Set(propias));
+                        }}>
+                  Asignar bodegas
+                </button>
+                <button className="btn borde" style={{ padding: "4px 10px", minHeight: 0 }}
+                        onClick={() => setEditando({ id: u.id, nombre: u.nombre,
+                                                     correo: u.correo, perfil: u.perfil })}>
+                  Editar
+                </button>
+                <button className={`btn ${u.activo ? "gris" : "verde"}`}
+                        style={{ padding: "4px 10px", minHeight: 0 }}
+                        disabled={u.id === usuario?.id}
+                        title={u.id === usuario?.id ? "No puede desactivar su propia cuenta" : ""}
+                        onClick={() => alternarActivo(u)}>
+                  {u.activo ? "Desactivar" : "Activar"}
+                </button>
               </td>
             </tr>
           ))}
@@ -237,24 +327,134 @@ function TabUsuarios({ token }) {
             <option value="auxiliar">Auxiliar</option>
             <option value="auditor">Administrador</option>
           </select>
-          <button className="btn" onClick={crear}>Crear (PIN 123456)</button>
+          <button className="btn" onClick={crear}>Crear (PIN StockXperts)</button>
           <button className="btn gris" onClick={() => setNuevo(null)}>Cancelar</button>
         </div>
-      ) : (
-        <div className="grilla-botones">
-          <button className="btn" onClick={() => setNuevo({})}>+ Nuevo usuario</button>
+      ) : null}
+
+      <div className="grilla-botones" style={{ marginTop: 14 }}>
+        <button className="btn borde"
+                onClick={() => {
+                  const abrir = !verCobertura;
+                  setVerCobertura(abrir);
+                  if (abrir && !cobertura) cargarCobertura();
+                }}>
+          {verCobertura ? "Ocultar asignación por bodega" : "Ver asignación por bodega"}
+        </button>
+      </div>
+
+      {verCobertura && (
+        <div style={{ marginTop: 14 }}>
+          <h3>Quién tiene cada bodega</h3>
+          <p className="pista" style={{ marginBottom: 10 }}>
+            Para repartir 54 bodegas entre varios auxiliares sin dejar ninguna sin dueño
+            ni asignarla dos veces por error.
+          </p>
+          {cobertura === null ? (
+            <p className="cargando">Cargando…</p>
+          ) : (
+            <div style={{ maxHeight: 420, overflowY: "auto" }}>
+              <table>
+                <thead><tr><th>Bodega</th><th>Asignada a</th></tr></thead>
+                <tbody>
+                  {cobertura.map((b) => (
+                    <tr key={b.id}>
+                      <td>{b.bodega}</td>
+                      <td>
+                        {b.asignados.length === 0 ? (
+                          <span className="chip oro">Sin asignar</span>
+                        ) : (
+                          b.asignados.map((p) => (
+                            <span key={p.id} className={`chip ${p.perfil === "auditor" ? "azul" : "gris"}`}
+                                  style={{ marginRight: 6, textTransform: "capitalize" }}>
+                              {p.nombre}
+                            </span>
+                          ))
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
-      <p className="pista" style={{ marginTop: 10 }}>
-        El auxiliar cuenta y crea; solo el administrador aprueba, audita y cierra.
-      </p>
+
+      <div className="card" style={{ background: "var(--fondo)", marginTop: 14 }}>
+        <h3>Qué puede hacer cada perfil</h3>
+        <table>
+          <tbody>
+            <tr>
+              <td>✅ Contar por voz y corregir sus propios registros</td>
+              <td style={{ textAlign: "right", color: "var(--verde)", fontWeight: 700 }}>
+                Auxiliar y administrador
+              </td>
+            </tr>
+            <tr>
+              <td>✅ Crear productos y bodegas (quedan pendientes)</td>
+              <td style={{ textAlign: "right", color: "var(--verde)", fontWeight: 700 }}>
+                Auxiliar y administrador
+              </td>
+            </tr>
+            <tr>
+              <td>✅ Aprobar creaciones, auditar y cerrar bodegas</td>
+              <td style={{ textAlign: "right", color: "var(--azul)", fontWeight: 700 }}>
+                Solo administrador
+              </td>
+            </tr>
+            <tr>
+              <td>✅ Gestionar usuarios y cambiar los ajustes del sistema</td>
+              <td style={{ textAlign: "right", color: "var(--azul)", fontWeight: 700 }}>
+                Solo administrador
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {editando && (
+        <div className="overlay" onClick={() => setEditando(null)}>
+          <div className="modal" style={{ maxWidth: 420, textAlign: "left" }}
+               onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ textTransform: "capitalize" }}>Editar a {editando.nombre}</h2>
+            <label className="pista">Correo</label>
+            <input value={editando.correo || ""}
+                   onChange={(e) => setEditando({ ...editando, correo: e.target.value })}
+                   style={{ width: "100%", padding: "10px 12px", marginTop: 6, marginBottom: 14,
+                            border: "1px solid var(--borde)", borderRadius: 10 }} />
+            <label className="pista">Perfil</label>
+            <select value={editando.perfil}
+                    onChange={(e) => setEditando({ ...editando, perfil: e.target.value })}
+                    style={{ width: "100%", padding: "10px 12px", marginTop: 6,
+                             border: "1px solid var(--borde)", borderRadius: 10 }}
+                    disabled={editando.id === usuario?.id}>
+              <option value="auxiliar">Auxiliar</option>
+              <option value="auditor">Administrador</option>
+            </select>
+            {editando.id === usuario?.id && (
+              <p className="pista" style={{ marginTop: 6 }}>
+                No puede cambiar su propio rol desde aquí.
+              </p>
+            )}
+            <div className="botones" style={{ marginTop: 18 }}>
+              <button className="btn borde" onClick={() => setEditando(null)}>Cancelar</button>
+              <button className="btn" onClick={guardarEdicion}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {asignando && (
         <div className="overlay" onClick={() => setAsignando(null)}>
           <div className="modal" style={{ maxWidth: 520, textAlign: "left" }}
                onClick={(e) => e.stopPropagation()}>
             <h2 style={{ textTransform: "capitalize" }}>Bodegas para {asignando.nombre}</h2>
-            <p className="pista">Marque las bodegas que va a poder contar esta persona.</p>
+            <p className="pista">
+              {asignando.perfil === "auditor"
+                ? "Marque las bodegas de las que esta persona es responsable como administradora (recuento ciego, cierre)."
+                : "Marque las bodegas que va a poder contar esta persona."}
+            </p>
             <div style={{ maxHeight: 320, overflowY: "auto", margin: "12px 0",
                           border: "1px solid var(--borde)", borderRadius: 10, padding: 8 }}>
               {bodegas.map((b) => (
@@ -278,39 +478,281 @@ function TabUsuarios({ token }) {
   );
 }
 
+function TabRecetas({ token, recetaInicial }) {
+  const [recetas, setRecetas] = useState([]);
+  const [catalogo, setCatalogo] = useState([]);
+  const [msg, setMsg] = useState("");
+  const [editando, setEditando] = useState(null);
+  // { id: null|number, nombre, rendimiento, lineas: [{articulo_codigo, cantidad_por_porcion}] }
+  const abrioInicial = useState(false);
+
+  function cargar() {
+    pedir("/api/recetas", {}, token).then(setRecetas).catch(() => {});
+    pedir("/api/articulos/catalogo-ligero", {}, token).then(setCatalogo).catch(() => {});
+  }
+  useEffect(cargar, [token]);
+
+  useEffect(() => {
+    if (recetaInicial && recetas.length && !abrioInicial[0]) {
+      abrioInicial[1](true);
+      abrir(recetaInicial);
+    }
+  }, [recetaInicial, recetas]);
+
+  async function abrir(id) {
+    try {
+      const r = await pedir(`/api/recetas/${id}`, {}, token);
+      setEditando({
+        id: r.id, nombre: r.nombre, rendimiento: r.rendimiento,
+        preparacion: r.preparacion || "",
+        lineas: r.lineas.map((l) => ({ articulo_codigo: l.articulo_codigo,
+                                       cantidad_por_porcion: l.cantidad_por_porcion })),
+      });
+    } catch (e) { setMsg(e.message); }
+  }
+
+  function nueva() {
+    setEditando({ id: null, nombre: "", rendimiento: 1, preparacion: "",
+                 lineas: [{ articulo_codigo: "", cantidad_por_porcion: "" }] });
+  }
+
+  function actualizarLinea(i, campo, valor) {
+    setEditando((e) => {
+      const lineas = e.lineas.map((l, idx) => idx === i ? { ...l, [campo]: valor } : l);
+      return { ...e, lineas };
+    });
+  }
+
+  function agregarLinea() {
+    setEditando((e) => ({ ...e, lineas: [...e.lineas, { articulo_codigo: "", cantidad_por_porcion: "" }] }));
+  }
+
+  function quitarLinea(i) {
+    setEditando((e) => ({ ...e, lineas: e.lineas.filter((_, idx) => idx !== i) }));
+  }
+
+  async function guardar() {
+    const cuerpo = {
+      nombre: editando.nombre.trim(),
+      rendimiento: Number(editando.rendimiento) || 1,
+      preparacion: (editando.preparacion || "").trim(),
+      ingredientes: editando.lineas
+        .filter((l) => l.articulo_codigo && l.cantidad_por_porcion)
+        .map((l) => ({ articulo_codigo: l.articulo_codigo,
+                       cantidad_por_porcion: Number(l.cantidad_por_porcion) })),
+    };
+    if (!cuerpo.nombre) { setMsg("Póngale un nombre a la receta."); return; }
+    try {
+      if (editando.id) {
+        await pedir(`/api/recetas/${editando.id}`, { method: "PUT", body: JSON.stringify(cuerpo) }, token);
+        setMsg(`Receta «${cuerpo.nombre}» actualizada.`);
+      } else {
+        await pedir("/api/recetas", { method: "POST", body: JSON.stringify(cuerpo) }, token);
+        setMsg(`Receta «${cuerpo.nombre}» creada.`);
+      }
+      setEditando(null);
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function eliminar(r) {
+    if (!window.confirm(`¿Eliminar la receta «${r.nombre}»? Esta acción no se puede deshacer.`)) return;
+    try {
+      await pedir(`/api/recetas/${r.id}`, { method: "DELETE" }, token);
+      setMsg(`Receta «${r.nombre}» eliminada.`);
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  return (
+    <div className="card">
+      <h3>
+        <span className="icono-kpi" style={{ marginRight: 8 }}>🍲</span>
+        Recetas ({recetas.length})
+      </h3>
+      <p className="pista">
+        Las porciones que dicte el chef se calculan sobre estas recetas: cantidad por
+        porción × porciones, menos lo que ya haya en la bodega. Aquí se crean, editan
+        y borran — CuentaVoz sí gestiona el catálogo de recetas y menús.
+      </p>
+      {msg && <p className="msg-ok">{msg}</p>}
+      {recetas.length === 0 ? (
+        <p className="vacio">Todavía no hay recetas creadas.</p>
+      ) : (
+        <table>
+          <thead><tr><th>Receta</th><th>Rendimiento</th><th>Ingredientes</th><th></th></tr></thead>
+          <tbody>
+            {recetas.map((r) => (
+              <tr key={r.id}>
+                <td style={{ textTransform: "capitalize" }}>{r.nombre}</td>
+                <td>{r.rendimiento} porción</td>
+                <td>{r.ingredientes}</td>
+                <td style={{ display: "flex", gap: 6 }}>
+                  <button className="btn borde" style={{ padding: "4px 10px", minHeight: 0 }}
+                          onClick={() => abrir(r.id)}>Editar</button>
+                  <button className="btn gris" style={{ padding: "4px 10px", minHeight: 0 }}
+                          onClick={() => eliminar(r)}>Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="grilla-botones" style={{ marginTop: 14 }}>
+        <button className="btn" onClick={nueva}>+ Nueva receta</button>
+      </div>
+
+      {editando && (
+        <div className="overlay" onClick={() => setEditando(null)}>
+          <div className="modal" style={{ maxWidth: 660, textAlign: "left", maxHeight: "88vh",
+                                          overflowY: "auto" }}
+               onClick={(e) => e.stopPropagation()}>
+            <h2>{editando.id ? `Editar ${editando.nombre}` : "Nueva receta"}</h2>
+            <p className="pista" style={{ marginTop: -6, marginBottom: 18 }}>
+              Cada campo queda disponible de inmediato para calcular pedidos por voz.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 20 }}>
+              <div>
+                <label className="pista" style={{ display: "block", marginBottom: 6 }}>
+                  Nombre del plato
+                </label>
+                <input value={editando.nombre}
+                       onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
+                       placeholder="ej. ajiaco"
+                       style={{ width: "100%", padding: "10px 12px",
+                                border: "1px solid var(--borde)", borderRadius: 10 }} />
+              </div>
+              <div>
+                <label className="pista" style={{ display: "block", marginBottom: 6 }}>
+                  Rendimiento (porciones)
+                </label>
+                <input type="number" min="1" value={editando.rendimiento}
+                       onChange={(e) => setEditando({ ...editando, rendimiento: e.target.value })}
+                       style={{ width: "100%", padding: "10px 12px",
+                                border: "1px solid var(--borde)", borderRadius: 10 }} />
+              </div>
+            </div>
+
+            <div style={{ background: "var(--fondo)", borderRadius: 12, padding: 16, marginBottom: 18 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: ".95rem", color: "var(--azul)" }}>
+                🧂 Ingredientes
+              </h3>
+              <p className="pista" style={{ marginBottom: 12 }}>Cantidad por cada porción de la receta.</p>
+              <div style={{ maxHeight: 280, overflowY: "auto" }}>
+                {editando.lineas.map((l, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <select value={l.articulo_codigo}
+                            onChange={(e) => actualizarLinea(i, "articulo_codigo", e.target.value)}
+                            style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--borde)",
+                                     borderRadius: 8, background: "#fff" }}>
+                      <option value="">— elija un artículo del catálogo —</option>
+                      {catalogo.map((a) => (
+                        <option key={a.codigo} value={a.codigo}>{a.nombre} ({a.unidad})</option>
+                      ))}
+                    </select>
+                    <input type="number" step="0.001" min="0" placeholder="cantidad"
+                           value={l.cantidad_por_porcion}
+                           onChange={(e) => actualizarLinea(i, "cantidad_por_porcion", e.target.value)}
+                           style={{ width: 100, padding: "8px 10px", border: "1px solid var(--borde)",
+                                    borderRadius: 8, background: "#fff" }} />
+                    <button className="btn gris" style={{ padding: "6px 10px", minHeight: 0, flex: "none" }}
+                            onClick={() => quitarLinea(i)}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <button className="btn borde" style={{ marginTop: 4 }} onClick={agregarLinea}>
+                + Agregar ingrediente
+              </button>
+            </div>
+
+            <div style={{ background: "var(--fondo)", borderRadius: 12, padding: 16, marginBottom: 4 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: ".95rem", color: "var(--azul)" }}>
+                📋 Preparación paso a paso
+              </h3>
+              <p className="pista" style={{ marginBottom: 12 }}>
+                Opcional: lo que ve el auxiliar al consultar esta receta desde Pedidos.
+              </p>
+              <textarea value={editando.preparacion}
+                        onChange={(e) => setEditando({ ...editando, preparacion: e.target.value })}
+                        placeholder="1. Pele y pique las papas...&#10;2. Sofría la cebolla...&#10;3. ..."
+                        rows={5}
+                        style={{ width: "100%", padding: "10px 12px",
+                                 border: "1px solid var(--borde)", borderRadius: 10,
+                                 fontFamily: "inherit", resize: "vertical", background: "#fff" }} />
+            </div>
+
+            <div className="botones" style={{ marginTop: 20 }}>
+              <button className="btn borde" onClick={() => setEditando(null)}>Cancelar</button>
+              <button className="btn" onClick={guardar}>Guardar receta</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabTraza({ token }) {
   const [traza, setTraza] = useState([]);
   const [persona, setPersona] = useState("");
   const [accion, setAccion] = useState("");
+  const [rango, setRango] = useState("hoy");
+  const [msg, setMsg] = useState("");
 
   function cargar() {
     const q = new URLSearchParams();
     if (persona) q.set("persona", persona);
     if (accion) q.set("accion", accion);
+    if (rango) q.set("rango", rango);
     pedir(`/api/trazabilidad?${q}`, {}, token).then(setTraza).catch(() => {});
   }
-  useEffect(cargar, [token, persona, accion]);
+  useEffect(cargar, [token, persona, accion, rango]);
 
   const acciones = ["", "INGRESO", "APERTURA", "CONTEO", "CORRECCION", "FIRMA",
                     "AUDITORIA", "CIERRE", "REAPERTURA", "APROBACION", "ALERTA",
-                    "REPORTE", "PEDIDO", "LEGALIZACION", "AJUSTE", "USUARIO",
+                    "REPORTE", "PEDIDO", "RECETA", "LEGALIZACION", "AJUSTE", "USUARIO",
                     "ASIGNACION", "SEGURIDAD", "PERFIL", "SOPORTE"];
+  const personas = [...new Set(traza.map((t) => t.persona))].sort();
+
+  async function exportar() {
+    setMsg("");
+    try {
+      const q = new URLSearchParams();
+      if (persona) q.set("persona", persona);
+      if (accion) q.set("accion", accion);
+      if (rango) q.set("rango", rango);
+      const d = await pedir(`/api/trazabilidad/exportar?${q}`, { method: "GET" }, token);
+      await descargarReporte(d.archivo, token);
+      setMsg(`Exportado: ${d.filas} filas.`);
+    } catch (e) { setMsg(e.message); }
+  }
 
   return (
     <div className="card">
       <h3>Registro de trazabilidad ({traza.length} acciones)</h3>
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <input placeholder="filtrar por persona…" value={persona}
-               onChange={(e) => setPersona(e.target.value)}
-               style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }} />
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <select value={rango} onChange={(e) => setRango(e.target.value)}
+                style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
+          <option value="hoy">Hoy</option>
+          <option value="semana">Última semana</option>
+          <option value="mes">Último mes</option>
+          <option value="">Todo</option>
+        </select>
+        <select value={persona} onChange={(e) => setPersona(e.target.value)}
+                style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
+          <option value="">Todas las personas</option>
+          {personas.map((p) => <option key={p} value={p} style={{ textTransform: "capitalize" }}>{p}</option>)}
+        </select>
         <select value={accion} onChange={(e) => setAccion(e.target.value)}
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
           {acciones.map((a) => <option key={a} value={a}>{a || "Todas las acciones"}</option>)}
         </select>
+        <button className="btn borde" style={{ marginLeft: "auto" }} onClick={exportar}>
+          Exportar
+        </button>
       </div>
-      <p className="pista">
-        Todo queda con persona, hora y dato. El registro no se puede editar ni borrar.
-      </p>
+      {msg && <p className="msg-ok">{msg}</p>}
       {traza.length === 0 ? (
         <p className="vacio">Sin acciones registradas todavía.</p>
       ) : (
@@ -329,6 +771,10 @@ function TabTraza({ token }) {
           </tbody>
         </table>
       )}
+      <p className="pista" style={{ marginTop: 10 }}>
+        Cumple la Ley 1581 de 2012: se registra la acción, no datos personales sensibles.
+        El registro no se puede editar ni borrar.
+      </p>
       <div className="card" style={{ marginTop: 14, background: "var(--azul-claro)" }}>
         <h3>Por qué el registro es inmutable</h3>
         <p style={{ fontSize: ".87rem" }}>

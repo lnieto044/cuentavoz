@@ -49,8 +49,27 @@ def usuario_actual(token: str = Depends(esquema)) -> Usuario:
         u = s.get(Usuario, int(datos["sub"]))
     if u is None:
         raise HTTPException(401, "Usuario no reconocido.")
+    if not u.activo:
+        raise HTTPException(403, "Ese usuario esta inactivo.")
     if (datos.get("ver", 0) or 0) != (u.version_token or 0):
         raise HTTPException(401, "Sesion cerrada desde otro dispositivo. Ingrese de nuevo.")
+    return u
+
+
+def verificar_token(token: str):
+    """Para WebSockets: el esquema OAuth2 exige el header Authorization, que
+    un WebSocket del navegador no puede mandar, asi que aqui se valida el
+    token pasado por query string con la misma regla que usuario_actual."""
+    if not token:
+        return None
+    try:
+        datos = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+    with Sesion() as s:
+        u = s.get(Usuario, int(datos["sub"]))
+    if u is None or (datos.get("ver", 0) or 0) != (u.version_token or 0):
+        return None
     return u
 
 

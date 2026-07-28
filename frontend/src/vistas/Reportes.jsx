@@ -1,149 +1,304 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
 
-export default function Reportes({ token }) {
-  const [archivos, setArchivos] = useState([]);
-  const [analisis, setAnalisis] = useState(null);
-  const [difBodega, setDifBodega] = useState(null);
-  const [err, setErr] = useState("");
+const fmt = (n) => Number(n ?? 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
-  async function generar(formato) {
-    setErr("");
-    try {
-      const d = await pedir(`/api/reportes?formato=${formato}`, { method: "POST" }, token);
-      setArchivos((a) => [{ ruta: d.archivo, formato, hora: new Date()
-        .toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }) }, ...a]);
-    } catch (e) { setErr(e.message); }
-  }
-  async function verAnalisis() {
-    try { setAnalisis(await pedir("/api/analisis/consumo", {}, token)); }
-    catch (e) { setErr(e.message); }
-  }
-  async function verDiferencias() {
-    try { setDifBodega(await pedir("/api/reportes/diferencias-por-bodega", {}, token)); }
-    catch (e) { setErr(e.message); }
-  }
+// "oro" es el modificador de clase (.chip.oro); la variable CSS real es
+// --amarillo, no --oro - de ahi los dos mapas separados.
+const CLASE_TITULO = {
+  "Consolidado para My Inventory": "verde",
+  "Diferencias por bodega": "oro",
+  "Detalle de bodega": "azul",
+  "Estado del tablero": "azul",
+};
+const VAR_TITULO = {
+  "Consolidado para My Inventory": "verde",
+  "Diferencias por bodega": "amarillo",
+  "Detalle de bodega": "azul",
+  "Estado del tablero": "azul",
+};
+const ICONO_TITULO = {
+  "Consolidado para My Inventory": "📊",
+  "Diferencias por bodega": "⚖️",
+  "Detalle de bodega": "🏬",
+  "Estado del tablero": "📋",
+};
 
-  const recomendacion = analisis?.subutilizados?.[0];
+export default function Reportes({ token, usuario }) {
+  const [tab, setTab] = useState("consolidado");
 
   return (
-    <Marco titulo="Reportes  ·  consolidado y análisis"
-           chip={{ texto: `${archivos.length} ARCHIVOS`, tipo: "azul" }}>
-      <div className="card">
-        <h3>Consolidado para My Inventory</h3>
-        <p className="pista">
-          Sale con los nombres y códigos oficiales de la base: información limpia
-          lista para cargar al ERP.
-        </p>
-        <div className="grilla-botones">
-          <button className="btn" onClick={() => generar("xlsx")}>Generar XLSX</button>
-          <button className="btn borde" onClick={() => generar("csv")}>Generar CSV</button>
-          <button className="btn oro" onClick={verAnalisis}>Análisis de consumo</button>
-          <button className="btn gris" onClick={verDiferencias}>Diferencias por bodega</button>
-        </div>
-        {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
-        {archivos.map((a, i) => (
-          <div className="registro" key={i}>
-            <span className="ok">✓</span>
-            <span>{a.ruta.split("/").pop()}</span>
-            <span className="cant">{a.formato.toUpperCase()} · {a.hora}</span>
-            <button className="btn borde" style={{ padding: "6px 12px", minHeight: 0 }}
-                    onClick={() => descargarReporte(a.ruta, token).catch((e) => setErr(e.message))}>
-              Descargar
-            </button>
-          </div>
-        ))}
+    <Marco titulo={tab === "consolidado" ? "Reportes  ·  consolidado de la toma"
+                                        : "Reportes  ·  análisis de consumo"}
+           chip={tab === "consolidado" ? { texto: "ARCHIVOS", tipo: "borde azul" }
+                                       : { texto: "ÚLTIMOS 30 DÍAS", tipo: "borde azul" }}>
+      <div className="chips">
+        <button className={`chip ${tab === "consolidado" ? "azul" : ""}`}
+                onClick={() => setTab("consolidado")}>Consolidado de la toma</button>
+        <button className={`chip ${tab === "analisis" ? "azul" : ""}`}
+                onClick={() => setTab("analisis")}>Análisis de consumo</button>
       </div>
 
-      {difBodega && (
+      {tab === "consolidado"
+        ? <TabConsolidado token={token} usuario={usuario} />
+        : <TabAnalisis token={token} usuario={usuario} />}
+    </Marco>
+  );
+}
+
+/** Tabla genérica: cada tipo de reporte (consolidado, diferencias, estado,
+    detalle de bodega) trae sus propias columnas, asi que en vez de mapear
+    columnas fijas se dibujan las que de verdad trae el archivo. */
+function TablaVistaPrevia({ filas }) {
+  if (!filas || filas.length === 0) return <p className="vacio">Este archivo no tiene filas.</p>;
+  const columnas = Object.keys(filas[0]);
+  return (
+    <table>
+      <thead><tr>{columnas.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+      <tbody>
+        {filas.map((f, i) => (
+          <tr key={i}>
+            {columnas.map((c) => (
+              <td key={c} className={c === "diferencia" ? "dif" : ""}>
+                {c === "diferencia" && f[c] > 0 ? `+${f[c]}` : String(f[c])}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/* ── Consolidado de la toma ── */
+function TabConsolidado({ token }) {
+  const [recientes, setRecientes] = useState(null);
+  const [archivoActivo, setArchivoActivo] = useState(null);   // {archivo, titulo}
+  const [filasPrevia, setFilasPrevia] = useState(null);
+  const [totalFilas, setTotalFilas] = useState(null);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
+
+  function cargar() {
+    pedir("/api/reportes/recientes", {}, token).then(setRecientes).catch(() => setRecientes([]));
+  }
+  useEffect(cargar, [token]);
+
+  async function previsualizar(archivo, titulo) {
+    setErr("");
+    try {
+      const d = await pedir(`/api/reportes/vista-previa?archivo=${encodeURIComponent(archivo)}`, {}, token);
+      setArchivoActivo({ archivo, titulo });
+      setFilasPrevia(d.filas);
+      setTotalFilas(d.total);
+    } catch (e) { setErr(e.message); }
+  }
+
+  async function generarConsolidado(formato) {
+    setErr(""); setMsg("");
+    try {
+      const d = await pedir(`/api/reportes?formato=${formato}`, { method: "POST" }, token);
+      setArchivoActivo({ archivo: d.archivo, titulo: "Consolidado para My Inventory" });
+      setFilasPrevia(d.vista_previa || null);
+      setTotalFilas(d.filas);
+      setMsg(`Consolidado generado: ${d.filas} filas.`);
+      cargar();
+    } catch (e) { setErr(e.message); }
+  }
+  async function generarDiferencias(formato) {
+    setErr(""); setMsg("");
+    try {
+      const d = await pedir(`/api/reportes/diferencias?formato=${formato}`, { method: "POST" }, token);
+      setMsg(`Diferencias exportadas: ${d.filas} filas en ${d.bodegas_con_descuadre} bodegas.`);
+      cargar();
+      await previsualizar(d.archivo, "Diferencias por bodega");
+    } catch (e) { setErr(e.message); }
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 }}>
+      <div className="card">
+        <h3>Archivos generados con los códigos oficiales de la base</h3>
+        {msg && <p className="msg-ok">{msg}</p>}
+        {err && <p className="error">{err}</p>}
+        {recientes === null ? (
+          <p className="cargando">Cargando…</p>
+        ) : recientes.length === 0 ? (
+          <p className="vacio">Todavía no se ha generado ningún archivo.</p>
+        ) : (
+          recientes.map((a, i) => {
+            const clase = CLASE_TITULO[a.titulo] || "azul";
+            const colorVar = clase === "oro" ? "var(--amarillo-tx)" : `var(--${VAR_TITULO[a.titulo] || "azul"})`;
+            const activo = archivoActivo?.archivo === a.archivo;
+            return (
+            <div key={i} onClick={() => previsualizar(a.archivo, a.titulo)}
+                 style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              borderTop: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
+              borderRight: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
+              borderBottom: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
+              borderLeft: `4px solid var(--${VAR_TITULO[a.titulo] || "azul"})`,
+              borderRadius: 10, padding: "12px 14px", marginBottom: 10,
+              cursor: "pointer", background: activo ? "var(--azul-claro)" : "transparent",
+            }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span className="icono-kpi" style={{ fontSize: "1.1rem" }}>
+                  {ICONO_TITULO[a.titulo] || "📄"}
+                </span>
+                <span>
+                  <b style={{ color: colorVar }}>{a.titulo}</b>
+                  <br />
+                  <small style={{ color: "var(--grafito)" }}>
+                    {a.formato} · hoy {a.hora}{a.filas != null ? ` · ${a.filas} filas` : ""}
+                  </small>
+                </span>
+              </span>
+              <span className={`chip ${clase}`}>{a.subtitulo}</span>
+            </div>
+            );
+          })
+        )}
+        <div className="grilla-botones" style={{ marginTop: 4 }}>
+          <button className="btn" onClick={() => generarConsolidado("xlsx")}>Generar consolidado</button>
+          <button className="btn borde" onClick={() => generarDiferencias("xlsx")}>Generar diferencias</button>
+          <button className="btn gris" onClick={() => window.print()}>Imprimir</button>
+        </div>
+        <p className="pista" style={{ marginTop: 10 }}>
+          Por voz: «genérame el consolidado» produce el mismo archivo sin tocar la pantalla.
+          Dele clic a cualquier tarjeta para ver su contenido aquí al lado.
+        </p>
+      </div>
+
+      <div className="card">
+        <h3>{archivoActivo ? `Vista previa · ${archivoActivo.titulo}` : "Vista previa del consolidado"}</h3>
+        {filasPrevia === null ? (
+          <p className="vacio">Genere un archivo o dele clic a uno ya generado para ver una muestra aquí.</p>
+        ) : (
+          <>
+            <TablaVistaPrevia filas={filasPrevia} />
+            <p className="pista" style={{ marginTop: 10 }}>
+              {totalFilas != null && `Mostrando ${Math.min(8, totalFilas)} de ${totalFilas} filas. `}
+              Los códigos SIN-#### corresponden a registros del extracto que llegaron sin número de artículo.
+            </p>
+            <div className="grilla-botones">
+              <button className="btn verde"
+                      onClick={() => descargarReporte(archivoActivo.archivo, token).catch((e) => setErr(e.message))}>
+                Descargar este archivo
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Análisis de consumo ── */
+function TabAnalisis({ token }) {
+  const [analisis, setAnalisis] = useState(null);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
+
+  function cargar() {
+    pedir("/api/analisis/consumo?dias=30", {}, token).then(setAnalisis).catch((e) => setErr(e.message));
+  }
+  useEffect(cargar, [token]);
+
+  async function exportar() {
+    setErr(""); setMsg("");
+    try {
+      const d = await pedir("/api/analisis/exportar?formato=xlsx&dias=30", { method: "POST" }, token);
+      await descargarReporte(d.archivo, token);
+      setMsg("Análisis exportado y descargado.");
+    } catch (e) { setErr(e.message); }
+  }
+
+  if (err) return <p className="error">{err}</p>;
+  if (!analisis) return <p className="cargando">Cargando…</p>;
+
+  const recomendacion = analisis.subutilizados[0];
+  const maxSobrepedido = Math.max(1, ...analisis.subutilizados.map((s) => s.sobrepedido_pct));
+
+  return (
+    <>
+      {msg && <p className="msg-ok">{msg}</p>}
+      <div className="kpis">
+        <div className="kpi">
+          <div className="kpi-cabeza"><span className="icono-kpi">📦</span><small>Pedido en el período</small></div>
+          <b>{fmt(analisis.pedido_total)} kg</b>
+          <i>en {analisis.servicios_periodo} servicios</i>
+        </div>
+        <div className="kpi">
+          <div className="kpi-cabeza"><span className="icono-kpi">🍽️</span><small>Usado realmente</small></div>
+          <b>{fmt(analisis.usado_total)} kg</b>
+          <i>{analisis.aprovechamiento} % de lo pedido</i>
+        </div>
+        <div className="kpi oro">
+          <div className="kpi-cabeza"><span className="icono-kpi">⚠️</span><small>Insumos subutilizados</small></div>
+          <b>{analisis.subutilizados.length}</b>
+          <i>se piden y no se usan</i>
+        </div>
+        <div className="kpi verde">
+          <div className="kpi-cabeza"><span className="icono-kpi">💰</span><small>Ahorro potencial</small></div>
+          <b>{fmt(analisis.ahorro_potencial)} kg</b>
+          <i>al mes si se ajusta</i>
+        </div>
+      </div>
+
+      {analisis.subutilizados.length === 0 ? (
         <div className="card">
-          <h3>Diferencias por bodega</h3>
-          {difBodega.length === 0 ? (
-            <p className="vacio">Sin diferencias registradas todavía.</p>
-          ) : (
-            <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
-                {difBodega.map((d) => {
-                  const max = difBodega[0].diferencia || 1;
-                  return (
-                    <div key={d.bodega} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 200, fontSize: ".83rem" }}>{d.bodega}</span>
-                      <div style={{ flex: 1, background: "var(--fondo)", borderRadius: 6, height: 14 }}>
-                        <div style={{ width: `${Math.max(4, d.diferencia / max * 100)}%`, height: 14,
-                                      background: "var(--azul)", borderRadius: 6 }} />
-                      </div>
-                      <b style={{ width: 56, textAlign: "right", fontSize: ".83rem" }}>{d.diferencia}</b>
-                    </div>
-                  );
-                })}
+          <p className="vacio">
+            Sin servicios legalizados en los últimos {analisis.dias} días: legalice uno para ver el análisis.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
+          <div className="card">
+            <h3>📉 Sobrepedido frente a la receta</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {analisis.subutilizados.slice(0, 6).map((s) => (
+                <div key={s.nombre} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 130, fontSize: ".83rem" }}>{s.nombre}</span>
+                  <div style={{ flex: 1, background: "var(--fondo)", borderRadius: 6, height: 16 }}>
+                    <div style={{ width: `${s.sobrepedido_pct / maxSobrepedido * 100}%`, height: 16,
+                                  background: s.sobrepedido_pct >= 30 ? "var(--amarillo)" : "var(--azul)",
+                                  borderRadius: 6 }} />
+                  </div>
+                  <b style={{ width: 34, textAlign: "right", fontSize: ".83rem" }}>{s.sobrepedido_pct}</b>
+                </div>
+              ))}
+            </div>
+            <p className="pista" style={{ marginTop: 10 }}>% por encima de lo que pide la receta.</p>
+          </div>
+
+          <div className="card">
+            <h3>🧺 Insumos subutilizados: se piden y sobran</h3>
+            {analisis.subutilizados.slice(0, 6).map((s) => (
+              <div key={s.nombre} className="registro">
+                <span style={{ textTransform: "capitalize" }}>{s.nombre.toLowerCase()}</span>
+                <span className="cant">{fmt(s.sobra)} kg sin usar</span>
+                <span className="chip oro">{s.veces} de {analisis.servicios_periodo} servicios</span>
               </div>
-              <p className="pista">Suma de |contado − sistema| sobre lo confirmado en cada bodega.</p>
-            </>
-          )}
+            ))}
+          </div>
         </div>
       )}
 
-      {analisis && (
+      {recomendacion && (
         <div className="card">
-          <h3>Lo pedido contra lo usado</h3>
-          <div className="kpis">
-            <div className="kpi"><small>Pedido en el período</small>
-              <b>{analisis.pedido_total}</b></div>
-            <div className="kpi"><small>Usado realmente</small>
-              <b>{analisis.usado_total}</b>
-              <i>{analisis.aprovechamiento} % de aprovechamiento</i></div>
-            <div className="kpi oro"><small>Insumos subutilizados</small>
-              <b>{analisis.subutilizados.length}</b><i>se piden y sobran</i></div>
+          <h3>🤖 Recomendación automática del agente</h3>
+          <p className="burbuja">
+            {recomendacion.nombre.toLowerCase()} sobra en {recomendacion.veces} de los servicios
+            legalizados: la receta pide {recomendacion.sobrepedido_pct}% más de lo que en promedio
+            se usa. Ajustar la receta liberaría {fmt(recomendacion.sobra)} kg al mes. La decisión
+            es del chef: el agente solo muestra el patrón.
+          </p>
+          <div className="grilla-botones">
+            <button className="btn" onClick={exportar}>Exportar análisis</button>
           </div>
-          {analisis.subutilizados.length === 0 ? (
-            <p className="vacio">
-              Sin servicios legalizados todavía: legalice uno para ver el análisis.
-            </p>
-          ) : (
-            <>
-              <h3>Sobrepedido frente a la receta</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-                {analisis.subutilizados.slice(0, 5).map((s) => (
-                  <div key={s.nombre} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 160, fontSize: ".83rem" }}>{s.nombre}</span>
-                    <div style={{ flex: 1, background: "var(--fondo)", borderRadius: 6, height: 14 }}>
-                      <div style={{ width: `${Math.min(100, s.sobrepedido_pct)}%`, height: 14,
-                                    background: "var(--amarillo)", borderRadius: 6 }} />
-                    </div>
-                    <b style={{ width: 44, textAlign: "right", fontSize: ".83rem" }}>{s.sobrepedido_pct}%</b>
-                  </div>
-                ))}
-              </div>
-              <table>
-                <thead><tr><th>Insumo</th><th>Sobra</th><th>Sobrepedido</th><th>Servicios</th></tr></thead>
-                <tbody>
-                  {analisis.subutilizados.map((s, i) => (
-                    <tr key={i}>
-                      <td>{s.nombre}</td><td>{s.sobra}</td>
-                      <td className="dif">{s.sobrepedido_pct} %</td><td>{s.veces}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {recomendacion && (
-                <div className="banner" style={{ marginTop: 14 }}>
-                  <span className="ico">i</span>
-                  <span>
-                    <b>Recomendación automática</b>
-                    <span>
-                      {recomendacion.nombre} sobra en {recomendacion.veces} de los servicios
-                      legalizados ({recomendacion.sobrepedido_pct}% por encima de lo usado).
-                      Ajustar la receta liberaría inventario. La decisión es del chef: el
-                      agente solo muestra el patrón.
-                    </span>
-                  </span>
-                </div>
-              )}
-            </>
-          )}
         </div>
       )}
-    </Marco>
+    </>
   );
 }

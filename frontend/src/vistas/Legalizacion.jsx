@@ -27,7 +27,8 @@ function narrar(sobrante, merma) {
   return partes.join(" ");
 }
 
-export default function Legalizacion({ token, servicioId = 1, ir }) {
+export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
+  const esAuditor = usuario?.perfil === "auditor";
   const [comp, setComp] = useState(null);
   const [listo, setListo] = useState(false);
   const [err, setErr] = useState("");
@@ -129,9 +130,11 @@ export default function Legalizacion({ token, servicioId = 1, ir }) {
             <span>El consumo real alimenta el histórico: si el plato gasta siempre más de un insumo que lo que dice la receta, el sistema lo detecta.</span></div>
           <div className="registro"><span className="ok">✓</span>
             <span>La merma queda trazada con responsable y hora: la revisión ya no depende de la memoria de nadie.</span></div>
-          <div className="grilla-botones">
-            <button className="btn" onClick={() => ir && ir("reportes")}>Ver el reporte del servicio</button>
-          </div>
+          {esAuditor && (
+            <div className="grilla-botones">
+              <button className="btn" onClick={() => ir && ir("reportes")}>Ver el reporte del servicio</button>
+            </div>
+          )}
         </div>
       </Marco>
     );

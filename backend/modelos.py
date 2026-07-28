@@ -15,10 +15,10 @@ class Usuario(Base):
     codigo = Column(String, default="")
     activo = Column(Integer, default=1)
     version_token = Column(Integer, default=0)       # +1 invalida sesiones anteriores
-    huella_registrada = Column(Integer, default=0)   # simulado: no hay lector real
+    huella_registrada = Column(Integer, default=0)   # tiene al menos una CredencialWebAuthn
     pin_actualizado = Column(DateTime, default=datetime.now)
     ultimo_acceso = Column(DateTime, nullable=True)
-    idioma_voz = Column(String, default="es-CO")
+    idioma_voz = Column(String, default="es-MX")
     velocidad_voz = Column(String, default="normal")     # lenta | normal | rapida
     confirmacion_hablada = Column(Integer, default=1)
 
@@ -96,6 +96,7 @@ class Alerta(Base):
     detalle = Column(String)
     resuelta = Column(Integer, default=0)
     creado = Column(DateTime, default=datetime.now)
+    resuelto = Column(DateTime, nullable=True)
 
 
 class Traza(Base):
@@ -116,6 +117,8 @@ class Receta(Base):
     id = Column(Integer, primary_key=True)
     nombre = Column(String, nullable=False)
     rendimiento = Column(Integer, default=1)
+    # paso a paso de cocina, no solo la lista de ingredientes con su cantidad.
+    preparacion = Column(String, default="")
 
 
 class RecetaIngrediente(Base):
@@ -134,7 +137,16 @@ class LineaServicio(Base):
     nombre = Column(String)
     pedido = Column(Float, default=0)
     usado = Column(Float, default=0)
-    estado = Column(String, default="abierto")       # abierto | legalizado
+    # abierto | legalizado | pendiente_aprobacion | rechazado
+    estado = Column(String, default="abierto")
+    plato = Column(String, default="")
+    porciones = Column(Integer, default=0)
+    creado = Column(DateTime, default=datetime.now)
+    bodega_id = Column(Integer, ForeignKey("bodega.id"), nullable=True)
+    creado_por_id = Column(Integer, ForeignKey("usuario.id"), nullable=True)
+    # agrupa las lineas de un mismo envio para poder aprobarlo/rechazarlo
+    # como una sola unidad, no linea por linea.
+    numero_pedido = Column(String, nullable=True)
 
 
 # ─── aprobación en paralelo: productos y bodegas creados en plena toma ───
@@ -171,3 +183,17 @@ class ConfigClave(Base):
     __tablename__ = "config_clave"
     clave = Column(String, primary_key=True)
     valor = Column(String, nullable=False)
+
+
+class CredencialWebAuthn(Base):
+    """Una llave de acceso (huella, Windows Hello, etc.) registrada en un
+    dispositivo para un usuario - el ingreso real por biometria via WebAuthn,
+    no la simulacion anterior."""
+    __tablename__ = "credencial_webauthn"
+    id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("usuario.id"), nullable=False)
+    credential_id = Column(String, nullable=False, unique=True)   # base64url
+    public_key = Column(String, nullable=False)                   # base64url
+    sign_count = Column(Integer, default=0)
+    dispositivo = Column(String, default="")     # nombre amigable, ej. "Edge en este equipo"
+    creado = Column(DateTime, default=datetime.now)
