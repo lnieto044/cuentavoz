@@ -1,16 +1,36 @@
 <div align="center">
 
-# 🎙️ CuentaVoz
+<img width="72" alt="CuentaVoz" src="frontend/public/logo.png" />
+
+# CuentaVoz
 
 ### Plataforma inteligente para la captura de inventarios por voz
 
 **Desarrollado por el equipo StockXperts** 🚀
 
-<img width="1000" alt="Panel principal de CuentaVoz" src="docs/capturas/panel-principal.png" />
+[![React](https://img.shields.io/badge/React-18-149ECA?style=for-the-badge&logo=react&logoColor=white)](frontend)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python-0B9260?style=for-the-badge&logo=fastapi&logoColor=white)](backend)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-produccion-336791?style=for-the-badge&logo=postgresql&logoColor=white)](backend/bd.py)
+[![Gemini AI](https://img.shields.io/badge/Google_Gemini-agente_de_voz-1B3A6B?style=for-the-badge&logo=googlegemini&logoColor=white)](backend/agente)
+[![WebAuthn](https://img.shields.io/badge/WebAuthn-ingreso_con_huella-D4A017?style=for-the-badge)](backend/servicios/huella.py)
+[![Render](https://img.shields.io/badge/Render-despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
 
-*Reto de Hotelería · Hackathon Colsubsidio × 30X · julio de 2026*
+<br/>
+
+<img width="900" alt="Panel principal de CuentaVoz" src="docs/capturas/panel-principal.png" />
+
+<sub>*Reto de Hotelería · Hackathon Colsubsidio × 30X · julio de 2026*</sub>
 
 </div>
+
+<br/>
+
+## Índice
+
+[Descripción](#-descripción) · [Características](#-características-principales) · [Capturas](#️-capturas) ·
+[Arquitectura](#-arquitectura) · [Momentos que cubre](#-los-tres-momentos-manuales-que-cubre) ·
+[Ingreso seguro](#-ingreso-seguro) · [Datos reales](#-datos-reales) · [Tecnologías](#-tecnologías) ·
+[Seguridad](#-seguridad) · [Ejecutar / Desplegar](#️-ejecutar-y-desplegar) · [Equipo](#-equipo--stockxperts)
 
 ---
 
@@ -24,19 +44,51 @@ producto confundido con otro parecido.
 
 CuentaVoz escucha, entiende cómo habla la bodega, concilia contra el
 catálogo oficial, valida al instante y registra directo en digital —
-integrando pedidos, conteos, legalización, auditoría y reportes en una
-sola plataforma, con datos reales de Colsubsidio desde el primer momento.
+integrando pedidos, conteos, legalización, auditoría, recetas y reportes en
+una sola plataforma, con datos reales de Colsubsidio desde el primer
+momento.
 
----
+## ✨ Características principales
+
+| | |
+|---|---|
+| 🎙️ **Pedidos por voz** | «hoy preparamos cincuenta ajiacos» → explota la receta, descuenta el stock y calcula solo lo que falta pedir |
+| 🧮 **Conteo conversacional** | dicta las cantidades, el agente concilia contra el catálogo oficial y valida en el momento |
+| 👩‍🍳 **Recetas administrables** | ingredientes, rendimiento y preparación paso a paso, editables desde Ajustes |
+| ✅ **Aprobación de pedidos** | el auditor revisa y aprueba antes de que el pedido salga al almacén |
+| 🔐 **Ingreso seguro** | usuario o código de empleado, perfil detectado solo, y huella del dispositivo (WebAuthn) |
+| 📊 **Panel gerencial** | exactitud por bodega, diferencias, stock por unidad, listo para Power BI |
+| 📁 **Reportes y trazabilidad** | consolidados exportables y bitácora inmutable de cada acción |
+| ☁️ **Listo para producción** | Render (Static Site + Web Service + PostgreSQL), documentado paso a paso |
 
 ## 🖼️ Capturas
 
-<div align="center">
-<img width="800" alt="Ingreso con detección automática de perfil" src="docs/capturas/ingreso.png" /><br/><br/>
-<img width="800" alt="Pedido armado por voz a partir de una receta" src="docs/capturas/pedidos-voz.png" />
-</div>
+<table>
+<tr>
+<td width="50%"><img src="docs/capturas/ingreso.png" alt="Ingreso" /><br/><sub align="center">Ingreso con detección automática de perfil</sub></td>
+<td width="50%"><img src="docs/capturas/pedidos-voz.png" alt="Pedido por voz" /><br/><sub>Pedido armado por voz a partir de una receta</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/capturas/panel-principal.png" alt="Inicio" /><br/><sub>Inicio: lo que hay para hoy, según el perfil</sub></td>
+<td width="50%"><img src="docs/capturas/panel-analitico.png" alt="Panel gerencial" /><br/><sub>Panel gerencial: exactitud, diferencias y stock</sub></td>
+</tr>
+</table>
 
----
+## 🏗️ Arquitectura
+
+```mermaid
+flowchart LR
+    U["👤 Usuario<br/>(voz o texto)"] --> FE["React + Vite<br/>Static Site en Render"]
+    FE -- "HTTPS / JWT" --> API["FastAPI<br/>Web Service en Render"]
+    FE -. WebAuthn .-> BIO["Windows Hello / Touch ID<br/>del dispositivo"]
+    API --> DB[("PostgreSQL<br/>(SQLite en local)")]
+    API --> GEMINI["Google Gemini<br/>agente de voz"]
+    API -. "respaldo sin llave" .-> INTERPRETE["Intérprete local<br/>(reglas + fuzzy match)"]
+```
+
+Frontend y backend se despliegan por separado (un "Static Site" solo sirve
+archivos; el backend necesita correr código de verdad) — ver
+[Arquitectura de despliegue](DESPLIEGUE.md).
 
 ## ✅ Los tres momentos manuales que cubre
 
@@ -46,7 +98,7 @@ sola plataforma, con datos reales de Colsubsidio desde el primer momento.
 | **2. Toma física** | menú Conteo y Bodegas | dicta y el agente concilia, valida y registra |
 | **3. Legalización** | menú Legalización | lo pedido contra lo usado, con sobrante y merma explicados |
 
-## 🛡️ Lo que valida antes de guardar
+### 🛡️ Lo que valida antes de guardar
 
 - **Nombres que no coinciden:** «tabla para picar blanca» → `TABLA ACRILICA PICAR BLANCO 50X38CM FB` (97503004). Y cuando hay dos candidatas, pregunta.
 - **Cantidades fuera de lo esperado:** «noventa cazuelas» → *«el sistema espera alrededor de 10, ¿confirma 90?»*
@@ -64,20 +116,18 @@ en ese equipo.
 ## 📊 Datos reales
 
 El prototipo carga el extracto entregado por Colsubsidio:
-**54 bodegas · 1.041 artículos · 1.406 registros de stock · 79 saldos
+**53 bodegas · 1.041 artículos · 1.405 registros de stock · 79 saldos
 negativos detectados** (el mini reto).
 
 ---
 
-## 🚀 Tecnologías utilizadas
+## 🚀 Tecnologías
 
-**Backend** — Python · FastAPI · SQLAlchemy · SQLite (local) / PostgreSQL
-(producción) · JWT + bcrypt · WebAuthn · Google Gemini AI
-
-**Frontend** — React · Vite · CSS propio (sin framework de UI)
-
-**Despliegue** — Render (Static Site + Web Service) · Docker / docker-compose
-para desarrollo local
+<table>
+<tr><td><b>Backend</b></td><td>Python · FastAPI · SQLAlchemy · SQLite (local) / PostgreSQL (producción) · JWT + bcrypt · WebAuthn · Google Gemini AI</td></tr>
+<tr><td><b>Frontend</b></td><td>React · Vite · CSS propio, sin framework de UI</td></tr>
+<tr><td><b>Despliegue</b></td><td>Render (Static Site + Web Service) · Docker / docker-compose para desarrollo local</td></tr>
+</table>
 
 ## 🔒 Seguridad
 
@@ -88,23 +138,14 @@ Alineado con la Ley 1581 de 2012.
 
 ---
 
-## ▶️ Ejecutar el proyecto localmente
+## ▶️ Ejecutar y desplegar
 
-Ver la guía completa, con requisitos y pasos verificados de punta a punta:
-**[LEEME_PRIMERO.md](LEEME_PRIMERO.md)**
-
-## ☁️ Desplegar en Render
-
-Ver la guía completa (Static Site + Web Service + PostgreSQL):
-**[DESPLIEGUE.md](DESPLIEGUE.md)**
-
-## 🌐 Demo
-
-*Próximamente — el enlace se agrega aquí una vez desplegado en Render.*
-
-## 🎥 Video demostrativo
-
-*Próximamente.*
+| | |
+|---|---|
+| 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
+| ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
+| 🌐 **Demo** | `https://cuentavoz.onrender.com` *(disponible al completar el despliegue)* |
+| 🎥 **Video** | *Próximamente* |
 
 ---
 
