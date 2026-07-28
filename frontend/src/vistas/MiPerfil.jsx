@@ -19,15 +19,30 @@ export default function MiPerfil({ token }) {
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [err, setErr] = useState("");
-  const [v, setV] = useState(Date.now());
-  const [fotoOk, setFotoOk] = useState(true);
+  const [fotoUrl, setFotoUrl] = useState(null);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
   const [hayLector, setHayLector] = useState(false);
+
+  // <img src> no puede mandar el header Authorization, y /foto exige
+  // sesion - por eso se trae como blob autenticado (mismo patron que
+  // descargarReporte) en vez de apuntar la imagen directo al endpoint.
+  function cargarFoto() {
+    fetch(`${BASE}/api/usuarios/yo/foto`, {
+      headers: { Authorization: `Bearer ${token || leerToken()}` },
+    }).then((r) => (r.ok ? r.blob() : null))
+      .then((b) => setFotoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return b ? URL.createObjectURL(b) : null;
+      }))
+      .catch(() => setFotoUrl(null));
+  }
 
   useEffect(() => {
     pedir("/api/usuarios/yo", {}, token).then(setDatos).catch(() => {});
     pedir("/api/usuarios/yo/bodegas", {}, token).then(setBodegas).catch(() => {});
     hayAutenticadorDisponible().then(setHayLector);
+    cargarFoto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   async function guardar() {
@@ -46,16 +61,21 @@ export default function MiPerfil({ token }) {
   async function subirFoto(e) {
     const f = e.target.files?.[0];
     if (!f) return;
+    setErr(""); setMsg("");
     const form = new FormData();
     form.append("foto", f);
-    await fetch(`${BASE}/api/usuarios/yo/foto`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token || leerToken()}` },
-      body: form,
-    });
-    setV(Date.now());
-    setFotoOk(true);
-    setMsg("Foto actualizada.");
+    try {
+      const r = await fetch(`${BASE}/api/usuarios/yo/foto`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token || leerToken()}` },
+        body: form,
+      });
+      if (!r.ok) throw new Error("No se pudo subir la foto.");
+      cargarFoto();
+      setMsg("Foto actualizada.");
+    } catch (e2) {
+      setErr(e2.message);
+    }
   }
   async function cambiarPin() {
     setErr("");
@@ -118,9 +138,8 @@ export default function MiPerfil({ token }) {
            chip={{ texto: "SESIÓN ACTIVA", tipo: "verde" }}>
       <div className="perfil-cols">
         <div className="card mic-caja">
-          {fotoOk ? (
-            <img src={`${BASE}/api/usuarios/yo/foto?t=${v}`} alt=""
-                 onError={() => setFotoOk(false)}
+          {fotoUrl ? (
+            <img src={fotoUrl} alt=""
                  style={{ width: 110, height: 110, borderRadius: "50%",
                           objectFit: "cover", border: "3px solid var(--azul)" }} />
           ) : (

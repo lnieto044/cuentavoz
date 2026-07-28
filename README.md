@@ -174,6 +174,8 @@ La aplicación crea estos usuarios sola la primera vez que arranca (ver
 |---|---|---|---|
 | `luis` | `CS-48127` | `StockXperts` | Auxiliar de inventarios |
 | `diana` | `CS-48200` | `StockXperts` | Administradora de bodega |
+| `stephanie` | `CS-48311` | `StockXperts` | Auxiliar de inventarios |
+| `valentina` | `CS-48342` | `StockXperts` | Auxiliar de inventarios |
 
 Se puede entrar con el usuario o con el código de empleado, indistintamente.
 
