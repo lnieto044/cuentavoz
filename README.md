@@ -63,14 +63,32 @@ momento.
 
 ## 🖼️ Capturas
 
+<sub>Todas las vistas funcionando en **modo tablet** (el diseño responsivo real de la aplicación, no un mockup de escritorio).</sub>
+
 <table>
 <tr>
-<td width="50%"><img src="docs/capturas/ingreso.png" alt="Ingreso" /><br/><sub align="center">Ingreso con detección automática de perfil</sub></td>
-<td width="50%"><img src="docs/capturas/pedidos-voz.png" alt="Pedido por voz" /><br/><sub>Pedido armado por voz a partir de una receta</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/ingreso.png" alt="Ingreso" /><br/><sub>Ingreso con detección automática de perfil</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/inicio.png" alt="Inicio" /><br/><sub>Inicio: lo que hay para hoy, según el perfil</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/capturas/panel-principal.png" alt="Inicio" /><br/><sub>Inicio: lo que hay para hoy, según el perfil</sub></td>
-<td width="50%"><img src="docs/capturas/panel-analitico.png" alt="Panel gerencial" /><br/><sub>Panel gerencial: exactitud, diferencias y stock</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/pedidos.png" alt="Pedidos por voz" /><br/><sub>Pedidos por voz: receta + stock = pedido calculado</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/conteo.png" alt="Conteo" /><br/><sub>Conteo: tablero de bodegas listas para contar</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/capturas/tablet/legalizacion.png" alt="Legalización" /><br/><sub>Legalización de pedidos y líneas de servicio</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/bodegas.png" alt="Bodegas" /><br/><sub>Bodegas: estado en vivo, filtros y doble firma</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/capturas/tablet/auditoria.png" alt="Auditoría" /><br/><sub>Auditoría: recuento ciego, aprobaciones y cierre</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/reportes.png" alt="Reportes" /><br/><sub>Reportes y trazabilidad exportable</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/capturas/tablet/panel.png" alt="Panel gerencial" /><br/><sub>Panel gerencial: exactitud, diferencias y stock</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/ajustes.png" alt="Ajustes" /><br/><sub>Ajustes: catálogo, recetas y configuración</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/capturas/tablet/ayuda.png" alt="Ayuda" /><br/><sub>Ayuda: preguntas frecuentes y comandos de voz</sub></td>
+<td width="50%"><img src="docs/capturas/tablet/mi-perfil.png" alt="Mi perfil" /><br/><sub>Mi perfil: datos personales y seguridad de la cuenta</sub></td>
 </tr>
 </table>
 
