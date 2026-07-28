@@ -5,7 +5,7 @@ import Marco from "../Marco";
 const SERIE = ["var(--serie-1)", "var(--serie-2)", "var(--serie-3)", "var(--serie-4)"];
 const ESTADO_COLOR = { cerrada: "var(--verde)", en_conteo: "var(--azul)",
                         en_auditoria: "var(--amarillo)", pendiente: "#C3CAD6" };
-const ESTADO_ETQ = { cerrada: "Cerrada", en_conteo: "En conteo",
+const ESTADO_ETQ = { cerrada: "Cerrada", en_conteo: "Conteo",
                       en_auditoria: "En auditoría", pendiente: "Pendiente" };
 
 // Nombre oficial de bodega (como en el catálogo) -> version corta para
@@ -95,7 +95,7 @@ function TabResumen({ r, urlPBI }) {
                 <span className="etq">{nombreCorto(d.bodega)}</span>
                 <div className="pista">
                   <div className="rellena" style={{ width: `${d.diferencia / maxDif * 100}%`,
-                                                     background: i === 0 ? "var(--serie-2)" : "var(--serie-1)" }} />
+                                                     background: i === 0 ? "var(--amarillo)" : "var(--serie-1)" }} />
                 </div>
                 <span className="val">{d.diferencia}</span>
               </div>
@@ -142,7 +142,7 @@ function TabAlertas({ a }) {
   return (
     <>
       <div className="kpis">
-        <div className="kpi verde">
+        <div className="kpi oro">
           <div className="kpi-cabeza">
             <span className="icono-kpi">📉</span>
             <small>Negativos detectados en el sistema</small>
@@ -152,7 +152,7 @@ function TabAlertas({ a }) {
         <div className="kpi">
           <div className="kpi-cabeza">
             <span className="icono-kpi">⏱️</span>
-            <small>Tiempo promedio por bodega</small>
+            <small>Tiempo promedio de conteo por bodega</small>
           </div>
           <b>{a.tiempo_promedio_min || "—"} min</b><i>conteos ya cerrados</i></div>
         <div className="kpi verde">
@@ -194,7 +194,7 @@ function TabAlertas({ a }) {
                 <span className="etq">{x.tipo}</span>
                 <div className="pista">
                   <div className="rellena" style={{ width: `${x.cantidad / maxAlerta * 100}%`,
-                                                     background: i === 0 ? "var(--serie-2)" : "var(--serie-1)" }} />
+                                                     background: i === 0 ? "var(--amarillo)" : "var(--serie-1)" }} />
                 </div>
                 <span className="val">{x.cantidad}</span>
               </div>
