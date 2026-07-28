@@ -163,42 +163,44 @@ function TabAlertas({ a }) {
           <b>{a.alias_aprendidos}</b><i>el agente habla como el equipo</i></div>
       </div>
 
-      <div className="card">
-        <h3>Estado de las bodegas</h3>
-        <div className="puntos-bodegas">
-          {estados.flatMap(([estado, n]) =>
-            Array.from({ length: n }, (_, i) => (
-              <span key={`${estado}-${i}`} style={{ background: ESTADO_COLOR[estado] }}
-                    title={ESTADO_ETQ[estado]} />
+      <div className="dos-columnas">
+        <div className="card">
+          <h3>Estado de las bodegas</h3>
+          <div className="puntos-bodegas">
+            {estados.flatMap(([estado, n]) =>
+              Array.from({ length: n }, (_, i) => (
+                <span key={`${estado}-${i}`} style={{ background: ESTADO_COLOR[estado] }}
+                      title={ESTADO_ETQ[estado]} />
+              ))
+            )}
+          </div>
+          <div className="leyenda">
+            {estados.map(([estado, n]) => (
+              <span key={estado}>
+                <span className="punto" style={{ background: ESTADO_COLOR[estado] }} />
+                {ESTADO_ETQ[estado]} · {n}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Alertas por tipo</h3>
+          {a.alertas_por_tipo.length === 0 ? (
+            <p className="vacio">Sin alertas registradas todavía.</p>
+          ) : (
+            a.alertas_por_tipo.map((x, i) => (
+              <div className="barra-fila" key={x.tipo}>
+                <span className="etq">{x.tipo}</span>
+                <div className="pista">
+                  <div className="rellena" style={{ width: `${x.cantidad / maxAlerta * 100}%`,
+                                                     background: i === 0 ? "var(--serie-2)" : "var(--serie-1)" }} />
+                </div>
+                <span className="val">{x.cantidad}</span>
+              </div>
             ))
           )}
         </div>
-        <div className="leyenda">
-          {estados.map(([estado, n]) => (
-            <span key={estado}>
-              <span className="punto" style={{ background: ESTADO_COLOR[estado] }} />
-              {ESTADO_ETQ[estado]} · {n}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <h3>Alertas por tipo</h3>
-        {a.alertas_por_tipo.length === 0 ? (
-          <p className="vacio">Sin alertas registradas todavía.</p>
-        ) : (
-          a.alertas_por_tipo.map((x, i) => (
-            <div className="barra-fila" key={x.tipo}>
-              <span className="etq">{x.tipo}</span>
-              <div className="pista">
-                <div className="rellena" style={{ width: `${x.cantidad / maxAlerta * 100}%`,
-                                                   background: SERIE[i % SERIE.length] }} />
-              </div>
-              <span className="val">{x.cantidad}</span>
-            </div>
-          ))
-        )}
       </div>
 
       <div className="card">
