@@ -3,6 +3,8 @@ import { pedir } from "../api";
 import Marco from "../Marco";
 
 const SERIE = ["var(--serie-1)", "var(--serie-2)", "var(--serie-3)", "var(--serie-4)"];
+const COLOR_UNIDAD = { Unidad: "var(--azul)", Kilogram: "var(--amarillo)",
+                        Liter: "var(--verde)", Portion: "#C3CAD6" };
 const ESTADO_COLOR = { cerrada: "var(--verde)", en_conteo: "var(--azul)",
                         en_auditoria: "var(--amarillo)", pendiente: "#C3CAD6" };
 const ESTADO_ETQ = { cerrada: "Cerrada", en_conteo: "Conteo",
@@ -105,7 +107,8 @@ function TabResumen({ r, urlPBI }) {
         <div className="card">
           <h3>Stock por unidad de medida</h3>
           <Dona datos={r.stock_por_unidad.map((u, i) => ({
-            etq: u.unidad, valor: u.cantidad, pct: u.pct, color: SERIE[i % SERIE.length],
+            etq: u.unidad, valor: u.cantidad, pct: u.pct,
+            color: COLOR_UNIDAD[u.unidad] || SERIE[i % SERIE.length],
           }))} />
         </div>
       </div>

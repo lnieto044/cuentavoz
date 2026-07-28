@@ -214,7 +214,7 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .kpi small { color: var(--grafito); font-size: .76rem; display: block; }
 .kpi b { font-size: 1.6rem; color: var(--azul); display: block; margin: 3px 0; }
 .kpi.verde b { color: var(--verde); }
-.kpi.oro b   { color: var(--amarillo-tx); }
+.kpi.oro b   { color: var(--amarillo); }
 .kpi i { font-size: .72rem; color: var(--grafito); font-style: normal; }
 .kpi-cabeza { display: flex; align-items: center; gap: 9px; margin-bottom: 2px; }
 .kpi-cabeza small { margin: 0; }
