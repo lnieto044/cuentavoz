@@ -1,6 +1,22 @@
 """El «pensar» del agente: Gemini via Google AI Studio."""
 import os
 import json
+import io
+import wave
+
+MODELO_VOZ = "gemini-2.5-flash-preview-tts"
+
+# Voces neuronales de Gemini disponibles para elegir en Mi perfil. No son
+# acentos de pais (Gemini TTS no expone eso todavia): son voces distintas,
+# pero todas genuinamente humanas y fluidas - muy por encima de las voces
+# "Desktop" clasicas del navegador, que es lo que se queria reemplazar.
+VOCES = {
+    "kore":   {"nombre": "Kore",   "etiqueta": "Femenina, firme y clara"},
+    "aoede":  {"nombre": "Aoede",  "etiqueta": "Femenina, suave y cercana"},
+    "puck":   {"nombre": "Puck",   "etiqueta": "Masculina, animada"},
+    "charon": {"nombre": "Charon", "etiqueta": "Masculina, grave y pausada"},
+}
+VOZ_DEFECTO = "kore"
 
 PROMPT_SISTEMA = """Eres CuentaVoz, el asistente de inventarios de Colsubsidio,
 usado por auxiliares de bodega en Piscilago. Hablas como una persona
@@ -138,3 +154,44 @@ def _respaldo(frase: str, mensaje: str = None) -> dict:
     if mensaje:
         datos["respuesta_hablada"] = mensaje
     return datos
+
+
+def _pcm_a_wav(pcm: bytes, tasa: int = 24000, canales: int = 1, bits: int = 16) -> bytes:
+    """Gemini TTS devuelve PCM crudo (sin encabezado): el navegador
+    necesita un WAV valido para poder reproducirlo con <audio>/Audio()."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(canales)
+        w.setsampwidth(bits // 8)
+        w.setframerate(tasa)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def sintetizar_voz(texto: str, voz: str = VOZ_DEFECTO) -> bytes | None:
+    """Convierte texto a un WAV con voz neuronal real. None si Gemini no
+    esta disponible - quien llama decide si cae de respaldo a la voz del
+    navegador."""
+    cliente = _obtener_cliente()
+    if cliente is None or not texto.strip():
+        return None
+    nombre_voz = VOCES.get(voz, VOCES[VOZ_DEFECTO])["nombre"]
+    try:
+        from google.genai import types
+        r = cliente.models.generate_content(
+            model=MODELO_VOZ,
+            contents=texto,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=nombre_voz)
+                    )
+                ),
+            ),
+        )
+        parte = r.candidates[0].content.parts[0].inline_data
+        return _pcm_a_wav(parte.data)
+    except Exception as e:
+        print(f"[cerebro] Voz neuronal no disponible: {e}")
+        return None

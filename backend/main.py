@@ -8,7 +8,7 @@ load_dotenv()
 from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
                      HTTPException, UploadFile, File, Request)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -1709,13 +1709,19 @@ def administrador_de_turno(u: Usuario = Depends(usuario_actual)):
 
 @app.get("/api/usuarios/yo")
 def ver_perfil(u: Usuario = Depends(usuario_actual)):
+    from agente.cerebro import VOCES, VOZ_DEFECTO
     dias_pin = (datetime.now() - (u.pin_actualizado or datetime.now())).days
+    # idioma_voz guardaba un codigo de idioma de navegador (es-MX, es-CO...)
+    # de cuando la voz salia por speechSynthesis; ahora guarda la clave de
+    # la voz neuronal elegida (kore, puck...). Una cuenta con el valor
+    # viejo cae a la voz por defecto en vez de romper el selector.
+    voz = u.idioma_voz if u.idioma_voz in VOCES else VOZ_DEFECTO
     return {"nombre": u.nombre, "correo": u.correo, "telefono": u.telefono,
             "codigo": u.codigo, "perfil": u.perfil,
             "ultimo_acceso": u.ultimo_acceso.strftime("%Y-%m-%d %H:%M") if u.ultimo_acceso else None,
             "pin_vence_en_dias": max(90 - dias_pin, 0),
             "huella_registrada": bool(u.huella_registrada),
-            "idioma_voz": u.idioma_voz, "velocidad_voz": u.velocidad_voz,
+            "idioma_voz": voz, "velocidad_voz": u.velocidad_voz,
             "confirmacion_hablada": bool(u.confirmacion_hablada)}
 
 
@@ -1828,6 +1834,30 @@ def ver_foto(u: Usuario = Depends(usuario_actual)):
     if not os.path.exists(ruta):
         raise HTTPException(404, "Sin foto.")
     return FileResponse(ruta)
+
+
+@app.get("/api/voz/voces")
+def voces_disponibles(u: Usuario = Depends(usuario_actual)):
+    from agente.cerebro import VOCES, VOZ_DEFECTO
+    return {"voces": [{"clave": k, **v} for k, v in VOCES.items()],
+            "defecto": VOZ_DEFECTO}
+
+
+class HablarIn(BaseModel):
+    texto: str
+    voz: str = "kore"
+
+
+@app.post("/api/voz/hablar")
+def api_hablar(body: HablarIn, u: Usuario = Depends(usuario_actual)):
+    from agente.cerebro import sintetizar_voz
+    texto = (body.texto or "").strip()
+    if not texto:
+        raise HTTPException(400, "Falta el texto.")
+    wav = sintetizar_voz(texto, body.voz)
+    if wav is None:
+        raise HTTPException(503, "Voz neuronal no disponible en este momento.")
+    return Response(content=wav, media_type="audio/wav")
 
 
 def _filtro_traza(s, persona: str, accion: str, rango: str):

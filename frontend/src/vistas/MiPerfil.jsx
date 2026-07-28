@@ -22,6 +22,7 @@ export default function MiPerfil({ token }) {
   const [fotoUrl, setFotoUrl] = useState(null);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
   const [hayLector, setHayLector] = useState(false);
+  const [voces, setVoces] = useState([]);
 
   // <img src> no puede mandar el header Authorization, y /foto exige
   // sesion - por eso se trae como blob autenticado (mismo patron que
@@ -40,6 +41,7 @@ export default function MiPerfil({ token }) {
   useEffect(() => {
     pedir("/api/usuarios/yo", {}, token).then(setDatos).catch(() => {});
     pedir("/api/usuarios/yo/bodegas", {}, token).then(setBodegas).catch(() => {});
+    pedir("/api/voz/voces", {}, token).then((r) => setVoces(r.voces)).catch(() => {});
     hayAutenticadorDisponible().then(setHayLector);
     cargarFoto();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,23 +229,22 @@ export default function MiPerfil({ token }) {
 
         <div className="card">
           <h3>Preferencias de voz</h3>
-          <label className="pista">Idioma del reconocimiento</label>
+          <label className="pista">Voz de CuentaVoz</label>
           <select value={datos.idioma_voz}
                   onChange={(e) => elegirPreferencia({ idioma_voz: e.target.value })}
                   style={{ width: "100%", marginTop: 6, marginBottom: 8, padding: "10px 12px",
                            border: "1px solid var(--borde)", borderRadius: 10 }}>
-            <option value="es-MX">Español (México) — recomendado</option>
-            <option value="es-CO">Español (Colombia)</option>
-            <option value="es-419">Español (Latinoamérica)</option>
-            <option value="es-US">Español (Estados Unidos)</option>
-            <option value="es-ES">Español (España)</option>
+            {voces.map((v) => (
+              <option key={v.clave} value={v.clave}>{v.nombre} — {v.etiqueta}</option>
+            ))}
           </select>
           <div className="grilla-botones" style={{ marginBottom: 6 }}>
             <button className="btn borde" onClick={probarVoz}>🔊 Probar voz</button>
           </div>
           <p className="pista" style={{ marginBottom: 12 }}>
-            El reconocimiento de lo que usted dice sigue siempre en español de
-            Colombia; esto solo cambia cómo suena CuentaVoz al responder.
+            Voz neuronal real (no la del navegador): suena humana y fluida.
+            El reconocimiento de lo que usted dice sigue siempre en español
+            de Colombia; esto solo cambia cómo suena CuentaVoz al responder.
           </p>
 
           <label className="pista">Velocidad de la respuesta</label>
