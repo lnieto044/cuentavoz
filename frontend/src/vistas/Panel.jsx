@@ -154,7 +154,7 @@ function TabAlertas({ a }) {
             <span className="icono-kpi">⏱️</span>
             <small>Tiempo promedio de conteo por bodega</small>
           </div>
-          <b>{a.tiempo_promedio_min || "—"} min</b><i>conteos ya cerrados</i></div>
+          <b>{a.tiempo_promedio_min ?? "—"} min</b><i>conteos ya cerrados</i></div>
         <div className="kpi verde">
           <div className="kpi-cabeza">
             <span className="icono-kpi">🗣️</span>
