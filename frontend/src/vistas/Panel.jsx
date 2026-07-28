@@ -307,7 +307,8 @@ function Linea({ puntos }) {
         {puntos.map((p, i) => (
           <text key={i} x={coords[i][0]} y={h - padInferior + 11} fontSize="6.5" textAnchor="end"
                 fill="var(--grafito)" transform={`rotate(-40 ${coords[i][0]} ${h - padInferior + 11})`}>
-            {nombreCorto(p.bodega).slice(0, 10)}
+            <title>{nombreCorto(p.bodega)}</title>
+            {`Toma ${i + 1}`}
           </text>
         ))}
         <text x={coords[coords.length - 1][0]} y={coords[coords.length - 1][1] - 10}
