@@ -269,13 +269,16 @@ function Dona({ datos }) {
   );
 }
 
-/** Línea de tendencia con SVG puro: una sola serie, sin leyenda. */
+/** Línea de tendencia con SVG puro: una sola serie, sin leyenda. Como
+    todos los cierres pueden caer el mismo dia, el eje muestra la bodega
+    de cada punto (ya es informacion real y distinta punto a punto) en
+    vez de repetir el mismo mes una y otra vez. */
 function Linea({ puntos }) {
-  const w = 460, h = 140, pad = 24;
+  const w = 460, h = 168, pad = 24, padInferior = 52;
   const valores = puntos.map((p) => p.exactitud);
   const min = Math.min(...valores) - 2, max = Math.max(...valores) + 2;
   const paso = (w - pad * 2) / (puntos.length - 1);
-  const y = (v) => h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2);
+  const y = (v) => h - padInferior - ((v - min) / (max - min || 1)) * (h - pad - padInferior);
   const coords = puntos.map((p, i) => [pad + i * paso, y(p.exactitud)]);
   const linea = coords.map(([x, yy], i) => `${i === 0 ? "M" : "L"}${x},${yy}`).join(" ");
 
@@ -291,14 +294,15 @@ function Linea({ puntos }) {
         </p>
       )}
       <svg width="100%" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Tendencia de exactitud">
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--borde)" strokeWidth="1" />
+        <line x1={pad} y1={h - padInferior} x2={w - pad} y2={h - padInferior} stroke="var(--borde)" strokeWidth="1" />
         <path d={linea} fill="none" stroke={color} strokeWidth="2" />
         {coords.map(([x, yy], i) => (
           <circle key={i} cx={x} cy={yy} r="4" fill={color} />
         ))}
         {puntos.map((p, i) => (
-          <text key={i} x={coords[i][0]} y={h - 4} fontSize="9" textAnchor="middle" fill="var(--grafito)">
-            {mesCorto(p.fecha)}
+          <text key={i} x={coords[i][0]} y={h - padInferior + 14} fontSize="8" textAnchor="end"
+                fill="var(--grafito)" transform={`rotate(-45 ${coords[i][0]} ${h - padInferior + 14})`}>
+            {nombreCorto(p.bodega).slice(0, 14)}
           </text>
         ))}
         <text x={coords[coords.length - 1][0]} y={coords[coords.length - 1][1] - 10}
