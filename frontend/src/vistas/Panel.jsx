@@ -106,30 +106,14 @@ function TabResumen({ r, urlPBI }) {
         </div>
       </div>
 
-      <div className="card">
-        <h3>Informe de Power BI</h3>
-        {urlPBI ? (
+      {urlPBI && (
+        <div className="card">
+          <h3>Informe de Power BI</h3>
           <iframe title="Panel gerencial CuentaVoz" src={urlPBI}
                   style={{ width: "100%", height: 460, border: 0, borderRadius: 12 }}
                   allowFullScreen />
-        ) : (
-          <>
-            <p className="pista">
-              Para insertar el informe: publíquelo en Power BI Service, copie el
-              enlace de <b>Archivo → Insertar informe</b> y póngalo en el archivo
-              <b> .env</b> del frontend como <b>VITE_POWERBI_URL</b>.
-            </p>
-            <div className="banner ok" style={{ marginTop: 14 }}>
-              <span className="ico">✓</span>
-              <span>
-                <b>Una sola fuente, dos salidas</b>
-                <span>El informe que abre la gerencia y este panel se alimentan de
-                      la misma base PostgreSQL.</span>
-              </span>
-            </div>
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }
