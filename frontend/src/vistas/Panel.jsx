@@ -68,42 +68,42 @@ function TabResumen({ r, urlPBI }) {
           <b>{r.bodegas_cerradas} / {r.bodegas_total}</b><i>con doble firma digital</i></div>
       </div>
 
-      <div className="card">
-        <h3>Diferencia absoluta por bodega</h3>
-        {r.diferencia_por_bodega.length === 0 ? (
-          <p className="vacio">Sin diferencias registradas todavía.</p>
-        ) : (
-          r.diferencia_por_bodega.map((d) => (
-            <div className="barra-fila" key={d.bodega}>
-              <span className="etq">{d.bodega}</span>
-              <div className="pista">
-                <div className="rellena" style={{ width: `${d.diferencia / maxDif * 100}%`,
-                                                   background: "var(--serie-1)" }} />
-              </div>
-              <span className="val">{d.diferencia}</span>
-            </div>
-          ))
-        )}
-      </div>
-
       <div className="conteo-cols">
+        <div className="card">
+          <h3>Diferencia absoluta por bodega</h3>
+          {r.diferencia_por_bodega.length === 0 ? (
+            <p className="vacio">Sin diferencias registradas todavía.</p>
+          ) : (
+            r.diferencia_por_bodega.map((d) => (
+              <div className="barra-fila" key={d.bodega}>
+                <span className="etq">{d.bodega}</span>
+                <div className="pista">
+                  <div className="rellena" style={{ width: `${d.diferencia / maxDif * 100}%`,
+                                                     background: "var(--serie-1)" }} />
+                </div>
+                <span className="val">{d.diferencia}</span>
+              </div>
+            ))
+          )}
+        </div>
         <div className="card">
           <h3>Stock por unidad de medida</h3>
           <Dona datos={r.stock_por_unidad.map((u, i) => ({
             etq: u.unidad, valor: u.cantidad, pct: u.pct, color: SERIE[i % SERIE.length],
           }))} />
         </div>
-        <div className="card">
-          <h3>Exactitud por toma de inventario</h3>
-          {r.historial_exactitud.length < 2 ? (
-            <p className="vacio">Se necesitan al menos dos cierres para ver la tendencia.</p>
-          ) : (
-            <Linea puntos={r.historial_exactitud} />
-          )}
-          <p className="pista" style={{ marginTop: 8 }}>
-            Un punto por cada bodega cerrada con doble firma, en orden cronológico.
-          </p>
-        </div>
+      </div>
+
+      <div className="card">
+        <h3>Exactitud por toma de inventario</h3>
+        {r.historial_exactitud.length < 2 ? (
+          <p className="vacio">Se necesitan al menos dos cierres para ver la tendencia.</p>
+        ) : (
+          <Linea puntos={r.historial_exactitud} />
+        )}
+        <p className="pista" style={{ marginTop: 8 }}>
+          Un punto por cada bodega cerrada con doble firma, en orden cronológico.
+        </p>
       </div>
 
       {urlPBI && (
