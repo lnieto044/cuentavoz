@@ -46,7 +46,7 @@ services:
         sync: false      # URL completa del static site (con https://), ver DESPLIEGUE.md
 
   - type: web
-    name: cuentavoz-web
+    name: cuentavoz
     env: static
     plan: free
     rootDir: frontend
