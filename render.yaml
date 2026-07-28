@@ -20,6 +20,9 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/salud
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"     # sin esto Render usa Python 3.13, donde rapidfuzz
+                            # no tiene wheel precompilado y falla al compilar
       - key: DB_URL
         fromDatabase:
           name: cuentavoz-db
