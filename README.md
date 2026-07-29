@@ -162,7 +162,7 @@ Alineado con la Ley 1581 de 2012.
 |---|---|
 | 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
-| 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V3.1.docx)** |
+| 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente]([docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V3.1.pdf])** |
 | 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
 | 🎥 **Video** | *Próximamente* |
 
