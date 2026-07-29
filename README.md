@@ -162,6 +162,7 @@ Alineado con la Ley 1581 de 2012.
 |---|---|
 | 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
+| 🤖 **El agente** | Cómo se construyó, en menos de 1 minuto → **[AGENTE.md](AGENTE.md)** |
 | 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
 | 🎥 **Video** | *Próximamente* |
 
