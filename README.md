@@ -162,7 +162,7 @@ Alineado con la Ley 1581 de 2012.
 |---|---|
 | 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
-| 🌐 **Demo** | `https://cuentavoz.onrender.com` *(disponible al completar el despliegue)* |
+| 🌐 **Demo** | `https://cuentavoz.onrender.com` |
 | 🎥 **Video** | *Próximamente* |
 
 ### 🔑 Acceso de prueba
