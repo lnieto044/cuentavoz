@@ -164,7 +164,7 @@ Alineado con la Ley 1581 de 2012.
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
 | 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V3.1.pdf)** |
 | 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
-| 🎥 **Video** | *Próximamente* |
+| 🎥 **Video** | **https://www.youtube.com/watch?v=4tSRTV5POd4** |
 
 ### 🔑 Acceso de prueba
 
