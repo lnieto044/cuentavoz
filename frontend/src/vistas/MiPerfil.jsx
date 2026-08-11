@@ -85,11 +85,14 @@ export default function MiPerfil({ token }) {
     if (pin.length < 6) return setErr("El PIN debe tener al menos 6 dígitos.");
     if (pin !== pin2) return setErr("Los dos PIN no coinciden.");
     try {
-      await pedir("/api/usuarios/yo/pin", {
+      const r = await pedir("/api/usuarios/yo/pin", {
         method: "PUT", body: JSON.stringify({ pin }),
       }, token);
-      setMsg("PIN actualizado.");
-      setPin(""); setPin2("");
+      // el PIN nuevo invalida el token con el que se pidió el cambio (igual
+      // que "cerrar todas las sesiones"): sin recargar, el resto de llamadas
+      // de esta pantalla seguirían usando el token viejo ya sin validez.
+      guardarToken(r.token);
+      window.location.reload();
     } catch (e) { setErr(e.message); }
   }
   async function registrarHuella() {

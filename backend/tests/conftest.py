@@ -88,7 +88,7 @@ def datos_regresion(client: TestClient) -> dict[str, object]:
 
     respuesta = client.post(
         "/api/ingresar",
-        data={"username": "luis", "password": "123456"},
+        data={"username": "luis", "password": "StockXperts"},
     )
     assert respuesta.status_code == 200, respuesta.text
     datos["headers"] = {"Authorization": f"Bearer {respuesta.json()['token']}"}

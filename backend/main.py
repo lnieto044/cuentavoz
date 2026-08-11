@@ -370,16 +370,23 @@ def listar_bodegas(propias: int = 0, u: Usuario = Depends(usuario_actual)):
     encontro, o a que hora se cerro) - no solo el total de referencias.
 
     ?propias=1 limita el tablero a las bodegas asignadas a quien pregunta -
-    sea auxiliar o administrador. Si la persona no tiene ninguna bodega
+    para un auditor/administrador. Si la persona no tiene ninguna bodega
     asignada, ve todas (administrador general, sin zona propia); si tiene
-    algunas asignadas, ve solo esas (auxiliar de siempre, o un supervisor
-    de zona con varios administradores repartiendose el parque). El resto
-    de pantallas (Pedidos elige donde descontar, Ajustes arma la lista
-    para asignar) siguen pidiendo la lista completa sin este parametro."""
+    algunas asignadas, ve solo esas (un supervisor de zona con varios
+    administradores repartiendose el parque). El resto de pantallas
+    (Pedidos elige donde descontar, Ajustes arma la lista para asignar)
+    siguen pidiendo la lista completa sin este parametro - pantallas que
+    solo un auditor/administrador alcanza a abrir.
+
+    Un auxiliar, en cambio, nunca ve bodegas fuera de su asignacion: para
+    ese perfil la restriccion aplica siempre, con o sin ?propias=1, para
+    que ninguna pantalla (incluida Pedidos) filtre por accidente el parque
+    completo a quien solo debe ver su zona."""
     with Sesion() as s:
         ids_asignadas = {a.bodega_id for a in
                          s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
-        if propias and ids_asignadas:
+        restringir = propias or u.perfil == "auxiliar"
+        if restringir and ids_asignadas:
             bodegas = (s.query(Bodega).filter(Bodega.id.in_(ids_asignadas))
                       .order_by(Bodega.nombre_oficial).all())
         else:
@@ -401,6 +408,9 @@ async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
              .filter(Bodega.nombre_oficial.contains(a.bodega.upper())).first())
         if b is None:
             raise HTTPException(404, "No encuentro esa bodega.")
+        if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
+                usuario_id=u.id, bodega_id=b.id).first():
+            raise HTTPException(403, "Esa bodega no esta asignada a usted.")
         abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
                                                  estado="abierta").first()
         if abierta and abierta.usuario_id != u.id:
@@ -1091,12 +1101,17 @@ def api_legalizacion(servicio_id: int, u: Usuario = Depends(usuario_actual)):
 @app.post("/api/legalizacion/confirmar")
 def api_confirmar(body: dict, u: Usuario = Depends(usuario_actual)):
     sid = body.get("servicio_id", 1)
+    # opcional: permite mandar lo usado junto con la confirmación en vez de
+    # exigir un "/legalizacion/ajustar" por cada insumo antes de cerrar.
+    usos = {item.get("codigo"): item.get("usado") for item in body.get("usos", [])}
     with Sesion() as s:
         for l in s.query(LineaServicio).filter_by(servicio_id=sid, estado="abierto").all():
+            if l.articulo_codigo in usos and usos[l.articulo_codigo] is not None:
+                l.usado = usos[l.articulo_codigo]
             dif = (l.usado or 0) - (l.pedido or 0)
             if dif < 0:                       # sobrante: vuelve a bodega
                 st = s.query(StockSistema).filter_by(
-                    articulo_codigo=l.articulo_codigo).first()
+                    articulo_codigo=l.articulo_codigo, bodega_id=l.bodega_id).first()
                 if st:
                     st.cantidad_sd = (st.cantidad_sd or 0) + abs(dif)
             l.estado = "legalizado"
@@ -1814,9 +1829,11 @@ def cambiar_pin(body: dict, u: Usuario = Depends(usuario_actual)):
     with Sesion() as s:
         usr = s.get(Usuario, u.id)
         usr.clave_hash = hash_clave(pin)      # nunca en texto plano
+        usr.version_token = (usr.version_token or 0) + 1  # cierra sesiones con el PIN viejo
         s.commit()
+        nuevo_token = crear_token(usr)
     registrar(u, "SEGURIDAD", "PIN actualizado")
-    return {"ok": True}
+    return {"ok": True, "token": nuevo_token}
 
 
 @app.post("/api/usuarios/yo/foto")
