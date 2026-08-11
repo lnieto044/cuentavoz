@@ -1,8 +1,42 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  plugins: [react()],   // <-- con paréntesis
+  plugins: [
+    react(),   // <-- con paréntesis
+    // registra un service worker que deja cacheado el cascarón de la app
+    // (HTML/JS/CSS/logos) la primera vez que carga con señal: después de
+    // eso, la URL abre igual sin Wi-Fi - el problema real no es "la app se
+    // cae sin internet", es que sin un service worker el navegador ni
+    // siquiera puede pedir el archivo si no hay red la primera vez.
+    // Las llamadas a la API (otro dominio: cuentavoz-api en Render) no se
+    // cachean aquí - eso ya lo resuelve por su cuenta cada pantalla
+    // (sesión guardada, catálogo local, cola de sincronización).
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["logo.png", "colsubsidio-blanco.png", "colsubsidio-color.png"],
+      manifest: {
+        name: "CuentaVoz · Colsubsidio",
+        short_name: "CuentaVoz",
+        description: "Asistente conversacional para la toma física de inventarios de Colsubsidio.",
+        lang: "es-CO",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#F5F7FB",
+        theme_color: "#0067B1",
+        icons: [
+          { src: "/logo.png", sizes: "203x203", type: "image/png" },
+          { src: "/logo.png", sizes: "203x203", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: {
+        // el rewrite de Render (/* -> /index.html) ya resuelve las rutas
+        // de la SPA con red; navigateFallback hace lo mismo sin red.
+        navigateFallback: "/index.html",
+      },
+    }),
+  ],
   server: {
     host: true,
     allowedHosts: true,

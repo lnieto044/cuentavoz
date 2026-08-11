@@ -92,6 +92,25 @@ export default function Pedido({ token, usuario, ir }) {
   const [bodegas, setBodegas] = useState([]);
   const [bodegaId, setBodegaId] = useState(guardado.bodegaId ?? null);
   const [platos, setPlatos] = useState([]);
+  const [offline, setOffline] = useState(!navigator.onLine);
+
+  // a diferencia de Conteo (que solo guarda "conté X de Y" y sincroniza
+  // después), calcular un pedido necesita el stock EN VIVO de la bodega
+  // para saber cuánto falta pedir - no hay forma honesta de simularlo sin
+  // conexión sin arriesgar un cálculo con datos viejos. Por eso aquí no
+  // hay cola offline: solo se avisa con claridad que hay que esperar a
+  // tener señal, y lo que el chef ya dictó no se pierde (sigue guardado
+  // en sessionStorage, ver claveEstadoPedido arriba).
+  useEffect(() => {
+    const alVolver = () => setOffline(false);
+    const alPerder = () => setOffline(true);
+    window.addEventListener("online", alVolver);
+    window.addEventListener("offline", alPerder);
+    return () => {
+      window.removeEventListener("online", alVolver);
+      window.removeEventListener("offline", alPerder);
+    };
+  }, []);
 
   // Guarda una foto de la conversación en cada cambio relevante, para que
   // salir y volver a esta pantalla la deje tal cual como quedó.
@@ -361,7 +380,19 @@ export default function Pedido({ token, usuario, ir }) {
 
   return (
     <Marco titulo="Pedidos  ·  Cocina Piscilago"
-           chip={{ texto: "SERVICIO ALMUERZO", tipo: "" }}>
+           chip={offline ? { texto: "SIN CONEXIÓN", tipo: "oro" }
+                         : { texto: "SERVICIO ALMUERZO", tipo: "" }}>
+      {offline && (
+        <div className="banner">
+          <span className="ico">!</span>
+          <span>
+            <b>Sin conexión</b>
+            <span>Calcular un pedido necesita el stock en vivo de la bodega, así que
+                  no se puede hacer sin señal. Lo que ya dictó no se pierde - siga
+                  cuando vuelva la conexión y retome donde quedó.</span>
+          </span>
+        </div>
+      )}
       <div className="chips">
         <span className="chip">{DIA[0].toUpperCase() + DIA.slice(1)} · almuerzo</span>
         <span className="chip">Cocina Piscilago</span>
@@ -482,7 +513,7 @@ export default function Pedido({ token, usuario, ir }) {
         )}
         {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
         <div className="grilla-botones">
-          <button className="btn" onClick={() => calcular()}>Calcular el pedido</button>
+          <button className="btn" onClick={() => calcular()} disabled={offline}>Calcular el pedido</button>
           <button className="btn borde" onClick={corregirCantidad}>Corregir cantidad</button>
           {!receta && (
             <button className="btn oro" onClick={() => verReceta()}>Ver la receta</button>
@@ -629,7 +660,7 @@ export default function Pedido({ token, usuario, ir }) {
               </p>
             ) : !enviado && (
               <div className="grilla-botones">
-                <button className="btn verde" onClick={enviar}>
+                <button className="btn verde" onClick={enviar} disabled={offline}>
                   Enviar pedido al almacén
                 </button>
               </div>

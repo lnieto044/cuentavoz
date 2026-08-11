@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { pedir, BASE, leerToken, guardarToken } from "../api";
+import { pedir, BASE, leerToken, actualizarTokenSesion, esFalloRed } from "../api";
 import { configurarVoz, hablar } from "../voz";
 import { hayAutenticadorDisponible, registrarHuellaDispositivo } from "../webauthn";
 import Marco from "../Marco";
@@ -77,7 +77,7 @@ export default function MiPerfil({ token }) {
       window.dispatchEvent(new Event("cuentavoz:foto-actualizada"));
       setMsg("Foto actualizada.");
     } catch (e2) {
-      setErr(e2 instanceof TypeError
+      setErr(esFalloRed(e2)
         ? "Sin conexión con el servidor. Revise el Wi-Fi e intente de nuevo."
         : e2.message);
     }
@@ -93,7 +93,7 @@ export default function MiPerfil({ token }) {
       // el PIN nuevo invalida el token con el que se pidió el cambio (igual
       // que "cerrar todas las sesiones"): sin recargar, el resto de llamadas
       // de esta pantalla seguirían usando el token viejo ya sin validez.
-      guardarToken(r.token);
+      actualizarTokenSesion(r.token);
       window.location.reload();
     } catch (e) { setErr(e.message); }
   }
@@ -120,7 +120,7 @@ export default function MiPerfil({ token }) {
   async function cerrarTodas() {
     try {
       const r = await pedir("/api/usuarios/yo/cerrar-todas", { method: "POST" }, token);
-      guardarToken(r.token);
+      actualizarTokenSesion(r.token);
       window.location.reload();
     } catch (e) { setErr(e.message); }
   }

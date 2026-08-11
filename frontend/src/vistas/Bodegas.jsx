@@ -31,7 +31,11 @@ export default function Bodegas({ token, usuario, ir }) {
   const esAuditor = usuario?.perfil === "auditor";
 
   useEffect(() => {
-    pedir("/api/bodegas?propias=1", {}, token).then(setLista).catch(() => {});
+    // si falla, resuelve a [] en vez de dejar lista en null para siempre:
+    // sin esto, un fallo de red aquí dejaba el tablero mostrando
+    // "Cargando…" sin fin, sin manera de saber que algo salió mal.
+    pedir("/api/bodegas?propias=1", {}, token).then(setLista)
+      .catch((e) => { setLista([]); setMsg(e.message); });
     /* tablero en vivo: el WebSocket avisa a todas las tabletas */
     const ws = new WebSocket(
       BASE.replace("http", "ws") + "/api/bodegas/estado?token=" + (token || leerToken())
@@ -157,6 +161,11 @@ export default function Bodegas({ token, usuario, ir }) {
 
   const tituloDetalle = detalle ? `Bodegas  ·  ${detalle.bodega.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}` : "";
   const chipDetalle = detalle ? (ETIQUETA[detalle.estado] || [detalle.estado?.toUpperCase(), ""]) : null;
+  // solo bloquea la pantalla con "Cargando…" en la primera carga de un
+  // detalle: si ya había uno (ej. reabrir() refrescando el mismo), se deja
+  // ver el dato viejo mientras llega el nuevo, en vez de taparlo con un
+  // aviso de carga que compite con el detalle todavía visible.
+  const mostrarCargandoDetalle = cargandoDetalle && !detalle;
 
   return (
     <Marco titulo={consulta ? "Bodegas  ·  consulta de artículo" : detalle ? tituloDetalle : "Bodegas  ·  estado en vivo"}
@@ -164,9 +173,9 @@ export default function Bodegas({ token, usuario, ir }) {
                           : detalle ? { texto: chipDetalle[0], tipo: `borde ${chipDetalle[1]}` }
                           : { texto: "EN VIVO", tipo: "verde" }}>
 
-      {cargandoDetalle && <p className="cargando">Cargando…</p>}
+      {mostrarCargandoDetalle && <p className="cargando">Cargando…</p>}
 
-      {!detalle && !cargandoDetalle && (
+      {!detalle && !mostrarCargandoDetalle && (
       <div className="card">
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "var(--grafito)" }}>🔍</span>
@@ -422,11 +431,11 @@ export default function Bodegas({ token, usuario, ir }) {
         </div>
       )}
 
-      {!consulta && !detalle && !cargandoDetalle && lista === null && (
+      {!consulta && !detalle && !mostrarCargandoDetalle && lista === null && (
         <p className="cargando">Cargando…</p>
       )}
 
-      {!consulta && !detalle && !cargandoDetalle && lista !== null && (
+      {!consulta && !detalle && !mostrarCargandoDetalle && lista !== null && (
         <>
           <div className="chips">
             {[["todas", `${lista.length} bodegas`, ""],

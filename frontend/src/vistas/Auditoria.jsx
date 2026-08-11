@@ -68,7 +68,10 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
     // ?propias=1: si este administrador tiene bodegas asignadas (supervisor
     // de una zona), audita solo esas; sin asignaciones, ve el parque
     // completo (administrador general) - ver /api/bodegas en el backend.
-    pedir("/api/bodegas?propias=1", {}, token).then(setBodegas).catch(() => {});
+    // si falla, resuelve a [] en vez de dejar bodegas en null para
+    // siempre: sin esto un fallo de red dejaba "Cargando…" sin fin.
+    pedir("/api/bodegas?propias=1", {}, token).then(setBodegas)
+      .catch((e) => { setBodegas([]); setMsg(e.message); });
   }
   useEffect(cargarBodegas, [token]);
 
@@ -426,7 +429,8 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
   const [msg, setMsg] = useState("");
 
   function cargar() {
-    pedir("/api/aprobaciones?estado=pendiente", {}, token).then(setLista).catch(() => {});
+    pedir("/api/aprobaciones?estado=pendiente", {}, token).then(setLista)
+      .catch((e) => { setLista([]); setMsg(e.message); });
   }
   useEffect(cargar, [token]);
 
@@ -500,7 +504,8 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
   const [msg, setMsg] = useState("");
 
   function cargar() {
-    pedir("/api/pedidos/pendientes", {}, token).then(setLista).catch(() => {});
+    pedir("/api/pedidos/pendientes", {}, token).then(setLista)
+      .catch((e) => { setLista([]); setMsg(e.message); });
   }
   useEffect(cargar, [token]);
 
@@ -581,7 +586,8 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
   const [msg, setMsg] = useState("");
 
   function cargar() {
-    pedir("/api/alertas?resueltas=0", {}, token).then(setAlertas).catch(() => {});
+    pedir("/api/alertas?resueltas=0", {}, token).then(setAlertas)
+      .catch((e) => { setAlertas([]); setMsg(e.message); });
     pedir("/api/alertas/resumen", {}, token).then(setResumen).catch(() => {});
   }
   useEffect(cargar, [token]);

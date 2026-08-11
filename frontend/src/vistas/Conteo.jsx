@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { enviarTurno, abrirBodega, pedir, descargarReporte } from "../api";
+import { enviarTurno, abrirBodega, pedir, descargarReporte, esFalloRed } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
+import { interpretarLocal } from "../interpreteLocal";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 
@@ -87,7 +88,15 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       setAvance(await pedir(`/api/sesiones/${sesionId}/avance${bid}`, {}, token));
     } catch (_) {}
   }
-  useEffect(() => { refrescar(); }, [bodega]);
+  useEffect(() => {
+    refrescar();
+    // si quedaron registros sin sincronizar de una sesión anterior (se
+    // cerró la pestaña, o se recargó ya con señal) y ahora sí hay
+    // conexión, se reintenta al entrar en vez de esperar a que el
+    // navegador dispare otro evento "online" que quizás no vuelva a pasar.
+    if (navigator.onLine) sincronizar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodega]);
 
   useEffect(() => {
     pedir("/api/usuarios/yo/bodegas", {}, token).then((r) => {
@@ -116,16 +125,25 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   }, [sesionId, bodega]);
 
   async function sincronizar() {
-    const pendientes = leerCola(sesionId);
-    if (!pendientes.length || !bodega) return;
-    for (const item of pendientes) {
+    const restantes = leerCola(sesionId);
+    if (!restantes.length || !bodega) return;
+    // solo se quita de la cola lo que de verdad se confirmó: si un item
+    // falla (o vuelve a caerse la red a mitad de la sincronización), el
+    // resto queda guardado para el próximo intento en vez de perderse -
+    // antes, cualquier falla borraba TODA la cola sin distinguir qué
+    // alcanzó a guardarse.
+    while (restantes.length) {
+      const item = restantes[0];
       try {
         await enviarTurno(`${item.articulo} ${item.cantidad} ${item.unidad}`, sesionId, token);
         await enviarTurno("confirmo", sesionId, token);
-      } catch (_) { break; }
+      } catch (_) {
+        break;
+      }
+      restantes.shift();
+      guardarCola(sesionId, restantes);
+      setCola([...restantes]);
     }
-    guardarCola(sesionId, []);
-    setCola([]);
     refrescar();
   }
 
@@ -141,10 +159,6 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     } catch (e) {
       setErr(e.message);
     }
-  }
-
-  function esFalloRed(e) {
-    return e instanceof TypeError || /failed to fetch|networkerror/i.test(e.message || "");
   }
 
   /** Un turno de conversación: el ciclo completo del agente.
@@ -632,24 +646,78 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
   );
 }
 
+/** Mismo ciclo de confirmación del agente real (dice el artículo y la
+    cantidad, CuentaVoz repite y pregunta, la persona confirma) pero
+    corriendo enteramente en el navegador con interpreteLocal.js - sin
+    tocar el backend ni el internet para nada. El reconocimiento de voz
+    del navegador sí necesita señal (no es algo que esta app controle),
+    así que aquí se escribe en vez de dictar; el resto de la conversación
+    - entender la frase, sugerir el nombre oficial, pedir confirmación -
+    sigue funcionando igual. */
 function FormularioOffline({ cola, onGuardar, onReintentar }) {
+  const [catalogo] = useState(() => leerCatalogo());
+  const [texto, setTexto] = useState("");
+  const [dicho, setDicho] = useState("");
+  const [respuesta, setRespuesta] = useState(
+    "Sin conexión, pero sigo entendiendo lo que escriba. Dígame el artículo y la cantidad."
+  );
+  const [pendiente, setPendiente] = useState(null); // {articulo, cantidad, unidad, codigo}
+  const [mostrarManual, setMostrarManual] = useState(false);
+
+  // el formulario campo por campo de siempre, como respaldo del respaldo
+  // si una frase no se deja interpretar bien.
   const [articulo, setArticulo] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const [unidad, setUnidad] = useState("Unidad");
-  const [catalogo] = useState(() => leerCatalogo());
+  const sugerenciaManual = sugerirDeCatalogo(articulo, catalogo);
 
-  const sugerencia = sugerirDeCatalogo(articulo, catalogo);
+  function procesarTexto(t) {
+    if (!t.trim()) return;
+    setDicho(t);
+    setTexto("");
+    const r = interpretarLocal(t);
+    const simple = t.trim().toLowerCase();
+    const esSi = /^(si|sí|confirmo|correcto|dale|listo)\b/.test(simple);
+    const esNo = /^no\b/.test(simple);
 
-  function usarSugerencia() {
-    setArticulo(sugerencia.nombre);
-    setUnidad(sugerencia.unidad);
+    if (pendiente && (esSi || r.intencion === "confirmar")) {
+      onGuardar({ articulo: pendiente.articulo, cantidad: pendiente.cantidad,
+                  unidad: pendiente.unidad });
+      setPendiente(null);
+      setRespuesta("Guardado en este equipo. Se sincroniza solo cuando vuelva la señal.");
+      return;
+    }
+    if (pendiente && esNo) {
+      setPendiente(null);
+      setRespuesta("Listo, no lo guardo. Dígame el artículo y la cantidad correctos.");
+      return;
+    }
+    if (pendiente && r.intencion === "corregir" && r.cantidad != null) {
+      setPendiente({ ...pendiente, cantidad: r.cantidad });
+      setRespuesta(`${pendiente.articulo}: ${r.cantidad} ${pendiente.unidad}. ¿Confirma?`);
+      return;
+    }
+    if (r.intencion === "contar" && r.cantidad != null) {
+      const sug = sugerirDeCatalogo(r.articulo_texto, catalogo);
+      const nombreFinal = sug?.nombre || r.articulo_texto || "ese artículo";
+      const unidadFinal = sug?.unidad || r.unidad || "Unidad";
+      setPendiente({ articulo: nombreFinal, cantidad: r.cantidad,
+                     unidad: unidadFinal, codigo: sug?.codigo });
+      setRespuesta(`${nombreFinal}: ${r.cantidad} ${unidadFinal}. ¿Confirma? (escriba «sí»)`);
+      return;
+    }
+    setRespuesta(r.respuesta_hablada
+      || "No le entendí bien. Dígame el artículo y la cantidad, por ejemplo «hay noventa cazuelas».");
   }
 
+  function usarSugerenciaManual() {
+    setArticulo(sugerenciaManual.nombre);
+    setUnidad(sugerenciaManual.unidad);
+  }
   function ciclarUnidad() {
     setUnidad(UNIDADES[(UNIDADES.indexOf(unidad) + 1) % UNIDADES.length]);
   }
-
-  function guardar() {
+  function guardarManual() {
     if (!articulo.trim()) return;
     onGuardar({ articulo: articulo.trim(), cantidad: Number(cantidad), unidad });
     setArticulo("");
@@ -662,43 +730,66 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
         <div className="banner">
           <span className="ico">!</span>
           <span>
-            <b>El asistente no responde en este momento</b>
-            <span>Modo formulario activo: lo que registre se guarda en el equipo
-                  y se sincroniza al volver la señal.</span>
+            <b>Sin conexión</b>
+            <span>El reconocimiento de voz necesita señal, pero CuentaVoz sigue
+                  entendiendo lo que escriba. Lo que registre se guarda en este
+                  equipo y se sincroniza solo al volver la red.</span>
           </span>
         </div>
-        <label className="pista">Artículo</label>
-        <input value={articulo} onChange={(e) => setArticulo(e.target.value)}
-               placeholder="tabla acril…"
-               style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
-                        border: "1px solid var(--borde)", borderRadius: 12 }} />
-        {sugerencia && (
-          <button className="chip azul" onClick={usarSugerencia}
-                  style={{ display: "block", width: "100%", textAlign: "left",
-                           marginBottom: 6 }}>
-            {sugerencia.nombre} {sugerencia.codigo}
+
+        <p className="rotulo">{dicho ? `Usted escribió: «${dicho}»` : "CuentaVoz responde"}</p>
+        <div className="burbuja">{respuesta}</div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+          <input value={texto} onChange={(e) => setTexto(e.target.value)}
+                 onKeyDown={(e) => e.key === "Enter" && procesarTexto(texto)}
+                 placeholder="hay noventa cazuelas blancas…"
+                 style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
+                          border: "1px solid var(--borde)", borderRadius: 12 }} />
+          <button className="btn" onClick={() => procesarTexto(texto)}>Enviar</button>
+        </div>
+
+        <div className="grilla-botones" style={{ marginTop: 10 }}>
+          <button className="btn borde" onClick={onReintentar}>Reintentar la voz</button>
+          <button className="btn gris" onClick={() => setMostrarManual((m) => !m)}>
+            {mostrarManual ? "Ocultar formulario manual" : "Registrar campo por campo"}
           </button>
+        </div>
+
+        {mostrarManual && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--borde)" }}>
+            <label className="pista">Artículo</label>
+            <input value={articulo} onChange={(e) => setArticulo(e.target.value)}
+                   placeholder="tabla acril…"
+                   style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
+                            border: "1px solid var(--borde)", borderRadius: 12 }} />
+            {sugerenciaManual && (
+              <button className="chip azul" onClick={usarSugerenciaManual}
+                      style={{ display: "block", width: "100%", textAlign: "left",
+                               marginBottom: 6 }}>
+                {sugerenciaManual.nombre} {sugerenciaManual.codigo}
+              </button>
+            )}
+            <label className="pista">Cantidad</label>
+            <div style={{ display: "flex", gap: 10, marginTop: 6, marginBottom: 10,
+                          alignItems: "center" }}>
+              <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
+                      onClick={() => setCantidad((c) => Math.max(0, Number(c) - 1))}>−</button>
+              <input type="number" value={cantidad}
+                     onChange={(e) => setCantidad(e.target.value)}
+                     style={{ width: 90, padding: "11px 13px", textAlign: "center",
+                              border: "1px solid var(--borde)", borderRadius: 12 }} />
+              <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
+                      onClick={() => setCantidad((c) => Number(c) + 1)}>+</button>
+              <button className="chip azul" onClick={ciclarUnidad}>{unidad}</button>
+            </div>
+            <button className="btn" onClick={guardarManual}>Guardar</button>
+          </div>
         )}
-        <p className="pista" style={{ marginBottom: 12 }}>
+
+        <p className="pista" style={{ marginTop: 12 }}>
           El catálogo local sigue sugiriendo nombres oficiales sin internet.
         </p>
-        <label className="pista">Cantidad</label>
-        <div style={{ display: "flex", gap: 10, marginTop: 6, marginBottom: 4,
-                      alignItems: "center" }}>
-          <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
-                  onClick={() => setCantidad((c) => Math.max(0, Number(c) - 1))}>−</button>
-          <input type="number" value={cantidad}
-                 onChange={(e) => setCantidad(e.target.value)}
-                 style={{ width: 90, padding: "11px 13px", textAlign: "center",
-                          border: "1px solid var(--borde)", borderRadius: 12 }} />
-          <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
-                  onClick={() => setCantidad((c) => Number(c) + 1)}>+</button>
-          <button className="chip azul" onClick={ciclarUnidad}>{unidad}</button>
-        </div>
-        <div className="grilla-botones">
-          <button className="btn" onClick={guardar}>Guardar</button>
-          <button className="btn borde" onClick={onReintentar}>Reintentar la voz</button>
-        </div>
       </div>
 
       <div className="card">

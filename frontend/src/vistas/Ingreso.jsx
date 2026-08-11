@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ingresar, guardarToken, pedir } from "../api";
+import { ingresar, pedir } from "../api";
 import { hayAutenticadorDisponible, ingresarConHuella } from "../webauthn";
 import Icono from "../Iconos";
 
@@ -40,7 +40,6 @@ export default function Ingreso({ alEntrar }) {
     setErr("");
     try {
       const r = await ingresar(usuario.trim(), clave);
-      guardarToken(r.token);
       alEntrar(r);
     } catch (e2) {
       setErr(e2.message);
@@ -54,7 +53,6 @@ export default function Ingreso({ alEntrar }) {
     setEntrandoConHuella(true);
     try {
       const r = await ingresarConHuella(usuario.trim());
-      guardarToken(r.token);
       alEntrar(r);
     } catch (e2) {
       setErr(e2.name === "NotAllowedError"

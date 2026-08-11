@@ -37,7 +37,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _origenes = {o.strip() for o in os.getenv("ORIGEN_PERMITIDO", "").split(",") if o.strip()}
-_origenes |= {"http://localhost:5173", "http://127.0.0.1:5173"}
+# 5173 es "npm run dev"; 4173 es "npm run preview" (el build de produccion,
+# el unico que arma el service worker real - hace falta para probar el
+# modo sin conexion tal como queda desplegado, no solo en modo desarrollo).
+_origenes |= {"http://localhost:5173", "http://127.0.0.1:5173",
+             "http://localhost:4173", "http://127.0.0.1:4173"}
 
 app.add_middleware(
     CORSMiddleware,

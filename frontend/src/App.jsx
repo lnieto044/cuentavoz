@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { borrarToken, pedir } from "./api";
+import { borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
 import { configurarVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
@@ -48,7 +48,11 @@ export function menuDe(vista) {
 }
 
 export default function App() {
-  const [sesion, setSesion] = useState(null);
+  // arranca directo con la sesión ya guardada (si hay) en vez de forzar
+  // login otra vez: sin esto, abrir la app sin señal (o reiniciarla en
+  // medio de una caída de Wi-Fi) dejaba a cualquiera sin poder entrar,
+  // aunque ya se hubiera identificado antes en este mismo equipo.
+  const [sesion, setSesion] = useState(() => leerSesion());
   const [vista, setVista] = useState("inicio");
   const [ctx, setCtx] = useState({ sesionId: 1 });
   const [salir, setSalir] = useState(false);
@@ -63,6 +67,7 @@ export default function App() {
     return (
       <Ingreso
         alEntrar={(s) => {
+          guardarSesion(s);
           setSesion(s);
           setVista("inicio");
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
@@ -106,7 +111,7 @@ export default function App() {
           sesionId={ctx.sesionId}
           onCancelar={() => setSalir(false)}
           onSalir={() => {
-            borrarToken();
+            borrarSesion();
             setSesion(null);
             setSalir(false);
             setVista("inicio");
