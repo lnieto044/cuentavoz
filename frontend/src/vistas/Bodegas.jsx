@@ -159,7 +159,7 @@ export default function Bodegas({ token, usuario, ir }) {
 
       {!detalle && (
       <div className="card">
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "var(--grafito)" }}>🔍</span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && buscarArticulo()}
@@ -249,7 +249,7 @@ export default function Bodegas({ token, usuario, ir }) {
 
       {!consulta && detalle && (
         <div className="card">
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ color: "var(--grafito)" }}>🔍</span>
             <input value={buscaArticuloBodega}
                    onChange={(e) => buscarEnBodega(e.target.value)}
@@ -315,7 +315,7 @@ export default function Bodegas({ token, usuario, ir }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 16, marginTop: 4 }}>
+          <div className="dos-columnas" style={{ gap: 16, marginTop: 4 }}>
             <div>
               <h3>Referencias con diferencia</h3>
               {detalle.diferencias.length > 0 ? (

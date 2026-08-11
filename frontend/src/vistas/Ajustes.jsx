@@ -78,7 +78,7 @@ function TabConfig({ token, esAuditor }) {
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="dos-columnas" style={{ gap: 16 }}>
         <div className="card">
           <h3>Validación de datos</h3>
           <table>

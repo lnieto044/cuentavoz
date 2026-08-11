@@ -454,9 +454,10 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
       ) : (
         lista.map((a) => (
           <div key={a.id} style={{ display: "flex", alignItems: "flex-start", gap: 14,
+                                   flexWrap: "wrap",
                                    border: "1px solid var(--borde)", borderRadius: 10,
                                    padding: "12px 14px", marginBottom: 10 }}>
-            <span style={{ flex: 1 }}>
+            <span style={{ flex: 1, minWidth: 200 }}>
               <b style={{ color: "var(--azul)" }}>{a.nombre}</b>
               <br />
               <span style={{ fontSize: ".85rem" }}>
@@ -529,9 +530,10 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
       ) : (
         lista.map((p) => (
           <div key={p.numero_pedido} style={{ display: "flex", alignItems: "flex-start", gap: 14,
+                                   flexWrap: "wrap",
                                    border: "1px solid var(--borde)", borderRadius: 10,
                                    padding: "12px 14px", marginBottom: 10 }}>
-            <span style={{ flex: 1 }}>
+            <span style={{ flex: 1, minWidth: 200 }}>
               <b style={{ color: "var(--azul)" }}>{p.plato}</b> · {p.porciones} porciones
               <span className="chip" style={{ marginLeft: 8 }}>{p.numero_pedido}</span>
               <br />
@@ -606,12 +608,12 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
       ) : (
         alertas.map((a) => (
           <div key={a.id} style={{
-            display: "flex", alignItems: "center", gap: 14, marginTop: 10,
+            display: "flex", alignItems: "center", gap: 14, marginTop: 10, flexWrap: "wrap",
             border: "1px solid var(--borde)",
             borderLeft: `4px solid ${COLOR_ALERTA[a.tipo] === "azul" ? "var(--azul)" : "var(--amarillo)"}`,
             borderRadius: 10, padding: "12px 14px",
           }}>
-            <span style={{ flex: 1 }}>
+            <span style={{ flex: 1, minWidth: 200 }}>
               <b style={{ color: COLOR_ALERTA[a.tipo] === "azul" ? "var(--azul)" : "var(--amarillo-tx)" }}>
                 {a.titulo}
               </b>
