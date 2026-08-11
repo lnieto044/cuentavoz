@@ -49,7 +49,7 @@ export default function Auditoria({ token, usuario }) {
 
 /* ── Recuento ciego + cierre con doble firma ── */
 function TabRecuento({ token, esAuditor, onEnFoco }) {
-  const [bodegas, setBodegas] = useState([]);
+  const [bodegas, setBodegas] = useState(null);
   const [bodegaId, setBodegaId] = useState(null);
   const [sesion, setSesion] = useState(null);
   const [dicho, setDicho] = useState("");
@@ -72,11 +72,11 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
   }
   useEffect(cargarBodegas, [token]);
 
-  const candidatas = bodegas.filter((b) => b.estado === "en_auditoria" || b.estado === "cerrada");
+  const candidatas = (bodegas || []).filter((b) => b.estado === "en_auditoria" || b.estado === "cerrada");
 
   useEffect(() => {
     if (!bodegaId) { onEnFoco(null); return; }
-    const nombre = comparar?.bodega || firmas?.bodega || bodegas.find((b) => b.id === bodegaId)?.bodega;
+    const nombre = comparar?.bodega || firmas?.bodega || (bodegas || []).find((b) => b.id === bodegaId)?.bodega;
     if (!nombre) return;
     if (modoCierre) {
       onEnFoco({ titulo: `Cierre de bodega  ·  ${nombre}`,
@@ -158,7 +158,9 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
       {!bodegaId ? (
         <div className="card">
           <h3>Bodegas listas para recuento ciego o cierre</h3>
-          {candidatas.length === 0 ? (
+          {bodegas === null ? (
+            <p className="cargando">Cargando…</p>
+          ) : candidatas.length === 0 ? (
             <p className="vacio">Ninguna bodega firmada por el auxiliar en este momento.</p>
           ) : (
             candidatas.map((b) => (
@@ -182,7 +184,7 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
         </div>
       ) : !sesion ? (
         <div className="card">
-          <h3>{bodegas.find((b) => b.id === bodegaId)?.bodega}</h3>
+          <h3>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
           <button className="btn" onClick={() => iniciar(bodegaId)}>
             Iniciar recuento ciego
           </button>
@@ -192,7 +194,7 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
         </div>
       ) : !comparar ? (
         <div className="card">
-          <h3>{bodegas.find((b) => b.id === bodegaId)?.bodega}</h3>
+          <h3>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
           <div className="conteo-cols">
             <div>
               <p className="rotulo">{dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}</p>
@@ -420,7 +422,7 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
 
 /* ── Aprobaciones pendientes ── */
 function TabAprobaciones({ token, esAuditor, onEnFoco }) {
-  const [lista, setLista] = useState([]);
+  const [lista, setLista] = useState(null);
   const [msg, setMsg] = useState("");
 
   function cargar() {
@@ -430,7 +432,7 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
 
   useEffect(() => {
     onEnFoco({ titulo: "Aprobaciones pendientes",
-              chip: { texto: `${lista.length} PENDIENTES`, tipo: "borde oro" } });
+              chip: { texto: lista === null ? "…" : `${lista.length} PENDIENTES`, tipo: "borde oro" } });
   }, [lista]);
 
   async function resolver(id, accion) {
@@ -449,7 +451,9 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
         Productos y bodegas creados durante la toma que esperan su firma para entrar al catálogo oficial.
       </p>
       {msg && <p className="msg-ok">{msg}</p>}
-      {lista.length === 0 ? (
+      {lista === null ? (
+        <p className="cargando">Cargando…</p>
+      ) : lista.length === 0 ? (
         <p className="vacio">Nada pendiente de aprobación.</p>
       ) : (
         lista.map((a) => (
@@ -492,7 +496,7 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
 
 /* ── Pedidos de auxiliares esperando aprobación antes de salir del almacén ── */
 function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
-  const [lista, setLista] = useState([]);
+  const [lista, setLista] = useState(null);
   const [msg, setMsg] = useState("");
 
   function cargar() {
@@ -502,7 +506,7 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
 
   useEffect(() => {
     onEnFoco({ titulo: "Pedidos pendientes de aprobación",
-              chip: { texto: `${lista.length} PENDIENTES`, tipo: "borde oro" } });
+              chip: { texto: lista === null ? "…" : `${lista.length} PENDIENTES`, tipo: "borde oro" } });
   }, [lista]);
 
   async function resolver(numero, aprobar) {
@@ -525,7 +529,9 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
         cuando usted lo aprueba aquí - igual que con productos y bodegas nuevas.
       </p>
       {msg && <p className="msg-ok">{msg}</p>}
-      {lista.length === 0 ? (
+      {lista === null ? (
+        <p className="cargando">Cargando…</p>
+      ) : lista.length === 0 ? (
         <p className="vacio">Nada pendiente de aprobación.</p>
       ) : (
         lista.map((p) => (
@@ -569,7 +575,7 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
 const COLOR_ALERTA = { desviacion: "oro", negativo: "oro", unidad: "azul", inexistente: "azul" };
 
 function TabAlertas({ token, esAuditor, onEnFoco }) {
-  const [alertas, setAlertas] = useState([]);
+  const [alertas, setAlertas] = useState(null);
   const [resumen, setResumen] = useState(null);
   const [verDetalle, setVerDetalle] = useState(null);
   const [msg, setMsg] = useState("");
@@ -582,7 +588,7 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
 
   useEffect(() => {
     onEnFoco({ titulo: "Auditoría  ·  Bandeja de alertas",
-              chip: { texto: `${alertas.length} ABIERTAS`, tipo: "borde oro" } });
+              chip: { texto: alertas === null ? "…" : `${alertas.length} ABIERTAS`, tipo: "borde oro" } });
   }, [alertas]);
 
   async function resolver(id) {
@@ -596,14 +602,16 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
   return (
     <div className="card">
       <div className="chips">
-        <span className="chip oro">{resumen?.abiertas ?? alertas.length} abiertas</span>
+        <span className="chip oro">{resumen?.abiertas ?? (alertas || []).length} abiertas</span>
         <span className="chip verde">{resumen?.resueltas_hoy ?? 0} resueltas hoy</span>
         <span className="chip">
           Tiempo medio: {resumen?.tiempo_medio_min != null ? `${resumen.tiempo_medio_min} min` : "—"}
         </span>
       </div>
       {msg && <p className="msg-ok">{msg}</p>}
-      {alertas.length === 0 ? (
+      {alertas === null ? (
+        <p className="cargando">Cargando…</p>
+      ) : alertas.length === 0 ? (
         <p className="vacio">No hay alertas abiertas.</p>
       ) : (
         alertas.map((a) => (

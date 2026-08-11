@@ -13,10 +13,11 @@ const ICONO_ESTADO = {
 };
 
 export default function Bodegas({ token, usuario, ir }) {
-  const [lista, setLista] = useState([]);
+  const [lista, setLista] = useState(null);
   const [filtro, setFiltro] = useState("todas");
   const [detalle, setDetalle] = useState(null);
   const [detalleId, setDetalleId] = useState(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [busca, setBusca] = useState("");
   const [consulta, setConsulta] = useState(null);
   const [escuchando, setEscuchando] = useState(false);
@@ -37,7 +38,8 @@ export default function Bodegas({ token, usuario, ir }) {
     );
     ws.onmessage = (e) => {
       const estados = JSON.parse(e.data);
-      setLista((prev) => {
+      setLista((previa) => {
+        const prev = previa || [];
         const hayNuevas = estados.some((x) => !prev.some((b) => b.id === x.id));
         if (hayNuevas) {
           // bodega creada despues de cargar el tablero: se necesita el
@@ -55,14 +57,19 @@ export default function Bodegas({ token, usuario, ir }) {
     return () => ws.close();
   }, [token]);
 
-  const vistas = lista.filter((b) => filtro === "todas" || b.estado === filtro);
-  const cuenta = (e) => lista.filter((b) => b.estado === e).length;
+  const vistas = (lista || []).filter((b) => filtro === "todas" || b.estado === filtro);
+  const cuenta = (e) => (lista || []).filter((b) => b.estado === e).length;
 
   async function verDetalle(id) {
     setDetalleId(id);
     setArticulosBodega(null);
     setBuscaArticuloBodega("");
-    setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token));
+    setCargandoDetalle(true);
+    try {
+      setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token));
+    } finally {
+      setCargandoDetalle(false);
+    }
   }
   async function verTodosLosArticulos() {
     if (articulosBodega) { setArticulosBodega(null); return; }
@@ -157,7 +164,9 @@ export default function Bodegas({ token, usuario, ir }) {
                           : detalle ? { texto: chipDetalle[0], tipo: `borde ${chipDetalle[1]}` }
                           : { texto: "EN VIVO", tipo: "verde" }}>
 
-      {!detalle && (
+      {cargandoDetalle && <p className="cargando">Cargando…</p>}
+
+      {!detalle && !cargandoDetalle && (
       <div className="card">
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "var(--grafito)" }}>🔍</span>
@@ -413,7 +422,11 @@ export default function Bodegas({ token, usuario, ir }) {
         </div>
       )}
 
-      {!consulta && !detalle && (
+      {!consulta && !detalle && !cargandoDetalle && lista === null && (
+        <p className="cargando">Cargando…</p>
+      )}
+
+      {!consulta && !detalle && !cargandoDetalle && lista !== null && (
         <>
           <div className="chips">
             {[["todas", `${lista.length} bodegas`, ""],
@@ -426,6 +439,9 @@ export default function Bodegas({ token, usuario, ir }) {
             ))}
           </div>
 
+          {lista.length === 0 ? (
+            <p className="vacio">No hay bodegas para mostrar.</p>
+          ) : (
           <div className="grid-bodegas">
             {vistas.map((b) => {
               const [txt, cls] = ETIQUETA[b.estado] || ["?", "gris"];
@@ -451,6 +467,7 @@ export default function Bodegas({ token, usuario, ir }) {
               );
             })}
           </div>
+          )}
           <p className="pista" style={{ marginTop: 12 }}>
             Cada tarjeta se actualiza al instante por WebSocket cuando alguien abre o cierra una bodega.
           </p>

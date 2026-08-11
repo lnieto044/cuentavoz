@@ -12,17 +12,32 @@ export function borrarToken() {
   localStorage.removeItem("cv_token");
 }
 
+/** "Failed to fetch" / "NetworkError" del navegador en un mensaje que un
+    auxiliar en una bodega con mal Wi-Fi pueda entender, en vez del error
+    técnico crudo en inglés que fetch() lanza tal cual. */
+function mensajeDeRed(error) {
+  if (error instanceof TypeError) {
+    return new Error("Sin conexión con el servidor. Revise el Wi-Fi e intente de nuevo.");
+  }
+  return error;
+}
+
 /** Llama al backend adjuntando el token de la sesión. */
 export async function pedir(ruta, opciones = {}, token) {
   const t = token || leerToken();
-  const res = await fetch(`${BASE}${ruta}`, {
-    ...opciones,
-    headers: {
-      "Content-Type": "application/json",
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
-      ...opciones.headers,
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${ruta}`, {
+      ...opciones,
+      headers: {
+        "Content-Type": "application/json",
+        ...(t ? { Authorization: `Bearer ${t}` } : {}),
+        ...opciones.headers,
+      },
+    });
+  } catch (error) {
+    throw mensajeDeRed(error);
+  }
   if (!res.ok) {
     let detalle = `Error ${res.status}`;
     try {
@@ -36,7 +51,12 @@ export async function pedir(ruta, opciones = {}, token) {
 
 export async function ingresar(usuario, clave) {
   const cuerpo = new URLSearchParams({ username: usuario, password: clave });
-  const res = await fetch(`${BASE}/api/ingresar`, { method: "POST", body: cuerpo });
+  let res;
+  try {
+    res = await fetch(`${BASE}/api/ingresar`, { method: "POST", body: cuerpo });
+  } catch (error) {
+    throw mensajeDeRed(error);
+  }
   if (!res.ok) throw new Error("Usuario o clave incorrectos.");
   return res.json();
 }
@@ -72,10 +92,15 @@ export const abrirBodega = (bodega, token) =>
     descarga nativa del navegador, sin salir de la aplicacion. */
 export async function descargarReporte(archivo, token) {
   const t = token || leerToken();
-  const res = await fetch(
-    `${BASE}/api/reportes/descargar?archivo=${encodeURIComponent(archivo)}`,
-    { headers: { Authorization: `Bearer ${t}` } }
-  );
+  let res;
+  try {
+    res = await fetch(
+      `${BASE}/api/reportes/descargar?archivo=${encodeURIComponent(archivo)}`,
+      { headers: { Authorization: `Bearer ${t}` } }
+    );
+  } catch (error) {
+    throw mensajeDeRed(error);
+  }
   if (!res.ok) throw new Error("No se pudo descargar el archivo.");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

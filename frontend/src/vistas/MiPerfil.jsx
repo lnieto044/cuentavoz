@@ -77,7 +77,9 @@ export default function MiPerfil({ token }) {
       window.dispatchEvent(new Event("cuentavoz:foto-actualizada"));
       setMsg("Foto actualizada.");
     } catch (e2) {
-      setErr(e2.message);
+      setErr(e2 instanceof TypeError
+        ? "Sin conexión con el servidor. Revise el Wi-Fi e intente de nuevo."
+        : e2.message);
     }
   }
   async function cambiarPin() {
