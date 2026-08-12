@@ -538,14 +538,15 @@ def listar_bodegas(propias: int = 0, u: Usuario = Depends(usuario_actual)):
 
 @app.post("/api/bodegas/abrir")
 async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
-    from servicios.conciliacion import normalizar
+    from servicios.conciliacion import buscar_bodega
     with Sesion() as s:
-        # normalizar() quita tildes: el reconocimiento de voz y el texto
-        # escrito a mano a veces traen "almacén" con tilde, y el catálogo
-        # de bodegas viene sin tildes del Excel - sin esto, el nombre
-        # correcto de una bodega real podía no encontrarse por una tilde.
-        b = (s.query(Bodega)
-             .filter(Bodega.nombre_oficial.contains(normalizar(a.bodega))).first())
+        # buscar_bodega() (misma funcion que usa el agente conversacional):
+        # quita tildes y puntuación de sobra (el reconocimiento de voz a
+        # veces cierra la frase con un "." que nadie dijo) y prioriza la
+        # coincidencia exacta - sin esto, "Zoológico" podía no encontrarse
+        # por el punto final, o abrir "ZOOLOGICO SUMINISTROS" en vez de la
+        # bodega "ZOOLOGICO" que de verdad se pidió.
+        b = buscar_bodega(s, a.bodega)
         if b is None:
             raise HTTPException(404, "No encuentro esa bodega.")
         if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(

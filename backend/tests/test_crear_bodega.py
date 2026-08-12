@@ -104,6 +104,60 @@ def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(
     assert r.json()["bodega"] == "ALMACEN REGIONAL"
 
 
+def test_abrir_bodega_por_rest_ignora_el_punto_final_del_reconocimiento_de_voz(
+    client: TestClient,
+) -> None:
+    """Bug real reportado desde producción: el reconocimiento de voz del
+    navegador cierra la frase con un punto ("Zoológico.") aunque nadie lo
+    haya dicho - antes eso bastaba para que "No encuentro esa bodega."."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        bodega = Bodega(nombre_oficial="ZOOLOGICO")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=bodega.id))
+        sesion.commit()
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/abrir", headers=headers,
+                    json={"bodega": "Zoológico."})
+    assert r.status_code == 200, r.text
+    assert r.json()["bodega"] == "ZOOLOGICO"
+
+
+def test_abrir_bodega_prefiere_la_coincidencia_exacta_sobre_una_mas_larga(
+    client: TestClient,
+) -> None:
+    """Bug real: decir solo "Zoológico" abría "ZOOLOGICO SUMINISTROS" (una
+    bodega distinta) porque "ZOOLOGICO" es substring de su nombre - debe
+    preferir la bodega cuyo nombre es EXACTAMENTE lo que se dijo."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        corta = Bodega(nombre_oficial="ZOOLOGICO")
+        larga = Bodega(nombre_oficial="ZOOLOGICO SUMINISTROS")
+        sesion.add_all([larga, corta])          # a proposito: la larga primero
+        sesion.flush()
+        sesion.add_all([
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=corta.id),
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=larga.id),
+        ])
+        sesion.commit()
+        corta_id = corta.id
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/abrir", headers=headers,
+                    json={"bodega": "zoologico"})
+    assert r.status_code == 200, r.text
+    assert r.json()["bodega"] == "ZOOLOGICO"
+    assert r.json()["bodega_id"] == corta_id
+
+
 def test_no_se_puede_solicitar_una_bodega_que_ya_existe(client: TestClient) -> None:
     headers_luis = _ingresar(client, "luis")
 

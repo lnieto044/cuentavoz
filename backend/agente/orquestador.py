@@ -3,7 +3,7 @@ from datetime import datetime
 from bd import Sesion
 from modelos import (Conteo, StockSistema, SesionConteo, Bodega, Alerta,
                      Articulo, AsignacionBodega, Usuario)
-from servicios.conciliacion import buscar_articulo, aprender_alias, normalizar
+from servicios.conciliacion import buscar_articulo, aprender_alias, buscar_bodega
 from servicios.validacion import validar_conteo
 from agente.cerebro import pensar
 
@@ -508,34 +508,11 @@ def _confirmar_abrir_bodega(est, usuario):
 
 def _abrir(est, texto_bodega, turno, usuario):
     with Sesion() as s:
-        # normalizar() quita tildes (igual que en buscar_articulo): el
-        # reconocimiento de voz transcribe "almacen" como "almacén", con
-        # tilde, pero el catalogo de bodegas viene sin tildes del Excel -
-        # sin esto, decir el nombre correcto de una bodega real caia en
-        # "no la encuentro, ¿la creamos?" por una simple tilde.
-        clave = normalizar(texto_bodega)
-        b = (s.query(Bodega)
-             .filter(Bodega.nombre_oficial.contains(clave))
-             .first())
-        if b is None:
-            # antes se probaba palabra por palabra y se quedaba con la
-            # PRIMERA bodega que contuviera CUALQUIERA de ellas - "las
-            # fuentes" perdia la palabra "las" (3 letras) y "fuentes"
-            # nunca llegaba a probarse porque "autoservicios" solo ya
-            # encontraba (mal) "AUTOSERVICIOS CASCADA" antes. Ahora se
-            # cuenta cuantas palabras dichas contiene cada bodega y gana
-            # la que mas tiene - un empate se resuelve por el nombre mas
-            # corto (menos texto de sobra que lo que la persona dijo).
-            palabras = [p for p in clave.split() if len(p) > 3]
-            if palabras:
-                candidatas = [
-                    (sum(1 for p in palabras if p in c.nombre_oficial), c)
-                    for c in s.query(Bodega).all()
-                ]
-                candidatas = [(n, c) for n, c in candidatas if n > 0]
-                if candidatas:
-                    candidatas.sort(key=lambda x: (-x[0], len(x[1].nombre_oficial)))
-                    b = candidatas[0][1]
+        # buscar_bodega() (servicios/conciliacion.py) es la misma funcion
+        # que usa /api/bodegas/abrir: una sola vez quita tildes y
+        # puntuacion de sobra, prioriza la coincidencia exacta, y solo si
+        # no hay exacta cae al respaldo por palabras.
+        b = buscar_bodega(s, texto_bodega)
         if b is None:
             # igual que un articulo que no esta en el catalogo: en vez de
             # dejar a la persona repitiendo el nombre sin salida, se ofrece
