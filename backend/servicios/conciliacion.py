@@ -54,21 +54,35 @@ def normalizar(t: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
-def buscar_bodegas_candidatas(s, texto: str) -> list[Bodega]:
+def buscar_bodegas_candidatas(s, texto: str, ids_permitidos: set[int] | None = None) -> list[Bodega]:
     """Todas las bodegas razonables para lo dicho/escrito, de más a menos
     específica - vacía si no hay ninguna, un solo elemento si es
     inequívoco, varios si es ambiguo ("restaurante" a secas encaja por
     igual en "RESTAURANTE FUENTES AYB" y "RESTAURANTE FUENTES SUMIN": ahí
-    quien llama debe ofrecer las opciones, no adivinar cuál de las dos)."""
+    quien llama debe ofrecer las opciones, no adivinar cuál de las dos).
+
+    ids_permitidos: si se da, restringe las coincidencias PARCIALES/
+    ambiguas (por dónde se filtran nombres de bodegas ajenas que un
+    auxiliar ni debería ver sugeridas). Una coincidencia EXACTA nunca se
+    restringe: si dijo el nombre completo de una bodega real que no es
+    suya, debe decir "no está asignada a usted" - no fingir que no
+    existe y ofrecerle crear una bodega duplicada."""
     clave = normalizar(texto)
     if not clave:
         return []
+
+    def _base():
+        q = s.query(Bodega)
+        if ids_permitidos is not None:
+            q = q.filter(Bodega.id.in_(ids_permitidos))
+        return q
+
     exacta = s.query(Bodega).filter(Bodega.nombre_oficial == clave).first()
     if exacta:
         return [exacta]
     # coincidencia parcial: "kiosco" a secas es substring de "KIOSCO 2
     # SUMINISTROS", "KIOSCO TAQUILLA AYB" y varias más - todas cuentan.
-    contienen = s.query(Bodega).filter(Bodega.nombre_oficial.contains(clave)).all()
+    contienen = _base().filter(Bodega.nombre_oficial.contains(clave)).all()
     if contienen:
         return contienen
     # ultimo recurso: cuantas palabras dichas (de mas de 3 letras) tiene
@@ -81,7 +95,7 @@ def buscar_bodegas_candidatas(s, texto: str) -> list[Bodega]:
     if not palabras:
         return []
     candidatas = [(sum(1 for p in palabras if p in c.nombre_oficial), c)
-                  for c in s.query(Bodega).all()]
+                  for c in _base().all()]
     candidatas = [(n, c) for n, c in candidatas if n > 0]
     if not candidatas:
         return []
@@ -89,15 +103,26 @@ def buscar_bodegas_candidatas(s, texto: str) -> list[Bodega]:
     return [c for n, c in candidatas if n == maximo]
 
 
-def buscar_bodega(s, texto: str) -> Bodega | None:
+def buscar_bodega(s, texto: str, ids_permitidos: set[int] | None = None) -> Bodega | None:
     """La misma bodega para el nombre dicho o escrito, en un solo lugar
     (antes /api/bodegas/abrir y el agente conversacional cada uno tenia
     su propia version, y se desincronizaban). Nunca adivina entre varias
     candidatas igual de buenas: mejor decir "no la encuentro" (o, para
     quien necesite las opciones, ver buscar_bodegas_candidatas) que abrir
     la bodega equivocada."""
-    candidatas = buscar_bodegas_candidatas(s, texto)
-    return candidatas[0] if len(candidatas) == 1 else None
+    candidatas = buscar_bodegas_candidatas(s, texto, ids_permitidos)
+    if len(candidatas) == 1:
+        return candidatas[0]
+    if ids_permitidos is not None and not candidatas:
+        # nada dentro de lo permitido - pero si el nombre dicho identifica
+        # sin ambigüedad una bodega REAL en todo el catálogo, hay que
+        # decir que existe (y dejar que quien llama la rechace por no
+        # estar asignada), no fingir que no existe y ofrecer crear un
+        # duplicado de una bodega que ya está en el sistema.
+        sin_restriccion = buscar_bodegas_candidatas(s, texto, None)
+        if len(sin_restriccion) == 1:
+            return sin_restriccion[0]
+    return None
 
 
 def buscar_articulo(texto: str, bodega_id=None) -> list[dict]:

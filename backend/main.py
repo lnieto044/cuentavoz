@@ -561,7 +561,8 @@ def buscar_bodega_endpoint(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
     - así la persona puede elegir la que quería, no repetir a ciegas."""
     from servicios.conciliacion import buscar_bodegas_candidatas
     with Sesion() as s:
-        candidatas = buscar_bodegas_candidatas(s, a.bodega)
+        ids_permitidos = _ids_permitidos_para_buscar(s, u)
+        candidatas = buscar_bodegas_candidatas(s, a.bodega, ids_permitidos)
         if len(candidatas) == 1:
             b = candidatas[0]
             return {"encontrada": True, "bodega": b.nombre_oficial, "bodega_id": b.id,
@@ -579,8 +580,10 @@ async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
         # veces cierra la frase con un "." que nadie dijo) y prioriza la
         # coincidencia exacta - sin esto, "Zoológico" podía no encontrarse
         # por el punto final, o abrir "ZOOLOGICO SUMINISTROS" en vez de la
-        # bodega "ZOOLOGICO" que de verdad se pidió.
-        b = buscar_bodega(s, a.bodega)
+        # bodega "ZOOLOGICO" que de verdad se pidió. Restringida a lo
+        # asignado si es auxiliar: no debe ni encontrar, ni ofrecer,
+        # bodegas de otra zona que igual no podría abrir.
+        b = buscar_bodega(s, a.bodega, _ids_permitidos_para_buscar(s, u))
         if b is None:
             raise HTTPException(404, "No encuentro esa bodega.")
         if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
@@ -653,6 +656,18 @@ def _requiere_acceso_bodega(s, u: Usuario, bodega_id: int):
     if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
             usuario_id=u.id, bodega_id=bodega_id).first():
         raise HTTPException(403, "Esa bodega no esta asignada a usted.")
+
+
+def _ids_permitidos_para_buscar(s, u: Usuario) -> set[int] | None:
+    """Para restringir buscar_bodega()/buscar_bodegas_candidatas() a lo
+    que un auxiliar de verdad puede abrir - sin esto, decir "restaurante"
+    ofrecia como opciones bodegas de zonas ajenas que ni siquiera podia
+    llegar a abrir, puro ruido (y un nombre que no tenia por qué ver).
+    None para un auditor: puede buscar en todo el catálogo."""
+    if u.perfil != "auxiliar":
+        return None
+    return {a.bodega_id for a in
+           s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
 
 
 @app.get("/api/bodegas/{bodega_id}/firmas")

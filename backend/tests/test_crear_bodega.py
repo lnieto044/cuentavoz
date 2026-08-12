@@ -201,6 +201,36 @@ def test_buscar_bodega_restaurante_ofrece_las_dos_reales(
     assert nombres == {"RESTAURANTE FUENTES AYB", "RESTAURANTE FUENTES SUMIN"}
 
 
+def test_buscar_bodega_restringe_opciones_a_lo_asignado_del_auxiliar(
+    client: TestClient,
+) -> None:
+    """Bug real reportado en vivo: decir "restaurante" mostraba las CINCO
+    bodegas "RESTAURANTE ..." del catálogo completo, aunque el auxiliar
+    solo tuviera UNA asignada - viendo nombres de zonas ajenas que ni
+    podía llegar a abrir. Restringido a lo suyo, "restaurante" debe
+    resolver directo a la única que sí tiene (sin mostrar "opciones")."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="stephanie").one()
+        suya = Bodega(nombre_oficial="RESTAURANTE FUENTES AYB")
+        ajena1 = Bodega(nombre_oficial="RESTAURANTE FUENTES SUMIN")
+        ajena2 = Bodega(nombre_oficial="RESTAURANTE NUTRIAS")
+        sesion.add_all([suya, ajena1, ajena2])
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=suya.id))
+        sesion.commit()
+        suya_id = suya.id
+
+    headers = _ingresar(client, "stephanie")
+    r = client.post("/api/bodegas/buscar", headers=headers, json={"bodega": "restaurante"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d == {"encontrada": True, "bodega": "RESTAURANTE FUENTES AYB",
+                "bodega_id": suya_id, "opciones": []}
+
+
 def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(
     client: TestClient,
 ) -> None:

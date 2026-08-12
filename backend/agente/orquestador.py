@@ -511,8 +511,14 @@ def _abrir(est, texto_bodega, turno, usuario):
         # buscar_bodega() (servicios/conciliacion.py) es la misma funcion
         # que usa /api/bodegas/abrir: una sola vez quita tildes y
         # puntuacion de sobra, prioriza la coincidencia exacta, y solo si
-        # no hay exacta cae al respaldo por palabras.
-        b = buscar_bodega(s, texto_bodega)
+        # no hay exacta cae al respaldo por palabras. Restringida a lo
+        # asignado si es auxiliar - no debe ni encontrar una bodega de
+        # otra zona, que igual el chequeo de abajo le negaria despues.
+        ids_permitidos = None
+        if getattr(usuario, "perfil", None) == "auxiliar":
+            ids_permitidos = {a.bodega_id for a in
+                              s.query(AsignacionBodega).filter_by(usuario_id=usuario.id).all()}
+        b = buscar_bodega(s, texto_bodega, ids_permitidos)
         if b is None:
             # igual que un articulo que no esta en el catalogo: en vez de
             # dejar a la persona repitiendo el nombre sin salida, se ofrece
