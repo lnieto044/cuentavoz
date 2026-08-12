@@ -76,7 +76,23 @@ function hablarConNavegador(texto) {
 /* ── Voz neuronal real (Gemini TTS, via el backend) ── */
 let audioActual = null;
 
-async function hablarConNeuronal(texto) {
+// La síntesis real tarda unos segundos (viaja al backend y a Gemini): si
+// mientras tanto la persona ya cambió de pantalla, esa respuesta ya no
+// tiene contexto y no debe hablar sola de repente sobre una pantalla que
+// ya no está en uso. Cada hablar() (y detenerVoz()) sube esta generación;
+// una respuesta que llega tarde, de una generación vieja, se descarta en
+// vez de reproducirse.
+let generacion = 0;
+
+/** App.jsx la llama en cada cambio de pantalla: corta lo que se esté
+    reproduciendo y invalida cualquier hablar() todavía en camino. */
+export function detenerVoz() {
+  generacion++;
+  if (audioActual) { audioActual.pause(); audioActual.currentTime = 0; }
+  if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+async function hablarConNeuronal(texto, miGeneracion) {
   const res = await fetch(`${BASE}/api/voz/hablar`, {
     method: "POST",
     headers: {
@@ -87,6 +103,7 @@ async function hablarConNeuronal(texto) {
   });
   if (!res.ok) throw new Error("voz neuronal no disponible");
   const blob = await res.blob();
+  if (miGeneracion !== generacion) return;      // se cambió de pantalla mientras se generaba
   const url = URL.createObjectURL(blob);
   if (audioActual) { audioActual.pause(); audioActual.currentTime = 0; }
   const audio = new Audio(url);
@@ -99,7 +116,10 @@ async function hablarConNeuronal(texto) {
 export function hablar(texto, { forzar = false } = {}) {
   if (!texto) return;
   if (!forzar && !confirmacionHablada) return;
-  hablarConNeuronal(texto).catch(() => hablarConNavegador(texto));
+  generacion++;
+  const miGeneracion = generacion;
+  hablarConNeuronal(texto, miGeneracion)
+    .catch(() => { if (miGeneracion === generacion) hablarConNavegador(texto); });
 }
 
 /** Escucha una frase y la devuelve como texto. */

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
-import { configurarVoz } from "./voz";
+import { configurarVoz, detenerVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
 import Inicio from "./vistas/Inicio";
@@ -59,6 +59,11 @@ export default function App() {
 
   /** Navega y pasa contexto: ir("bodegas", { bodegaId: 3 }) */
   function ir(destino, contexto = {}) {
+    // sin esto, una respuesta hablada que la pantalla anterior todavía
+    // estaba esperando (la síntesis real tarda unos segundos) podía
+    // reproducirse sola varios segundos después, ya con otra pantalla en
+    // uso - sonaba como si el agente hablara de la nada, fuera de tema.
+    detenerVoz();
     setCtx((c) => ({ ...c, ...contexto }));
     setVista(destino);
   }
@@ -87,6 +92,7 @@ export default function App() {
         usuario={sesion.usuario}
         token={sesion.token}
         onNavegar={(id) => {
+          detenerVoz();
           if (id === "salir") {
             setSalir(true);
             return;
