@@ -271,6 +271,98 @@ async def turno(t: TurnoIn, u: Usuario = Depends(usuario_actual)):
     return r
 
 
+class PreguntarAsistenteIn(BaseModel):
+    texto: str
+    vista: str
+
+
+# claves = lo mismo que usa ir(destino) en App.jsx; deben calzar exacto,
+# si no la navegacion por voz apunta a una vista que no existe.
+_DESTINOS_ASISTENTE = {
+    "inicio": "Inicio", "pedido": "Pedidos", "conteo": "Conteo",
+    "legalizacion": "Legalización", "bodegas": "Bodegas",
+    "auditoria": "Auditoría", "reportes": "Reportes", "panel": "Panel",
+    "ajustes": "Ajustes", "ayuda": "Ayuda", "perfil": "Mi perfil",
+}
+_SOLO_AUDITOR_ASISTENTE = {"auditoria", "reportes", "panel"}
+
+_FAQ_ASISTENTE = [
+    ("¿Cómo corrijo un conteo ya confirmado?",
+     "Diga «corregir» y luego el valor correcto; el valor anterior se conserva."),
+    ("El agente no entiende un producto",
+     "Dígalo como aparece en la etiqueta; si no existe se puede crear, queda pendiente."),
+    ("¿Qué hago si sale una alerta?",
+     "Recuente; si el número es correcto, confirme: queda marcado para el administrador."),
+    ("Se cayó el internet en plena bodega",
+     "Siga contando: el intérprete local mantiene el flujo y sincroniza al volver la señal."),
+    ("¿Puedo contar dos bodegas a la vez?",
+     "No en el mismo dispositivo; el candado de sesión evita conteos duplicados."),
+]
+
+
+def _contexto_asistente(vista: str, u: Usuario) -> str:
+    """Un resumen honesto de lo que hay AHORA en esa pantalla, para que el
+    agente conteste con datos reales y no invente nada. Reusa las mismas
+    funciones que ya alimentan cada pantalla, no vuelve a calcular nada."""
+    if vista == "inicio":
+        with Sesion() as s:
+            n_bodegas = s.query(AsignacionBodega).filter_by(usuario_id=u.id).count()
+            alertas = s.query(Alerta).filter_by(resuelta=0).count()
+            historial = s.query(HistorialCierre).all()
+            exact = (round(sum(h.exactitud for h in historial) / len(historial), 1)
+                     if historial else 100.0)
+        return (f"Pantalla: Inicio, de {u.nombre} ({u.perfil}). "
+                f"Bodegas asignadas a esta persona: {n_bodegas}. "
+                f"Alertas por revisar en toda la operación: {alertas}. "
+                f"Exactitud del mes: {exact}%.")
+    if vista == "ajustes":
+        a = ver_ajustes(u)
+        return (f"Pantalla: Ajustes. Umbral de anomalía: {a['umbral']}%. "
+                f"Modo sin conexión: {'activado' if a['offline'] else 'desactivado'}. "
+                f"Usuarios activos: {a['usuarios_activos']}. "
+                f"Aprobaciones pendientes: {a['aprobaciones_pendientes']}. "
+                f"Versión de CuentaVoz: {a['version']}, modelo del agente: {a['modelo']}. "
+                "Esta pantalla todavía no cambia la configuración por voz, solo explica.")
+    if vista == "panel" and u.perfil == "auditor":
+        r = analitica.resumen_ejecutivo()
+        return (f"Pantalla: Panel gerencial. Exactitud primera pasada: "
+                f"{r['exactitud_primera_pasada']}%. Referencias contadas: "
+                f"{r['referencias_contadas']}. Alertas gestionadas: "
+                f"{r['alertas_gestionadas']} de {r['alertas_total']}. "
+                f"Bodegas cerradas: {r['bodegas_cerradas']} de {r['bodegas_total']}.")
+    if vista == "reportes" and u.perfil == "auditor":
+        return ("Pantalla: Reportes. Aquí se genera el consolidado para My "
+                "Inventory y el análisis de consumo de los últimos 30 días. "
+                "Los botones «Generar consolidado» y «Generar diferencias» crean "
+                "los archivos; esta voz todavía no genera archivos, solo explica "
+                "y navega - para generarlos hay que usar los botones.")
+    if vista == "ayuda":
+        faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
+        return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
+    return f"Pantalla: {vista}."
+
+
+@app.post("/api/agente/asistente")
+def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual)):
+    """Version liviana del agente para pantallas que no cuentan ni piden
+    (Inicio, Ajustes, Ayuda, Reportes, Panel): responde preguntas sobre lo
+    que hay en esa pantalla y navega a otra si se lo piden. Sin el estado
+    multi-turno de /api/agente/turno, que es especifico del conteo/pedido."""
+    destinos = dict(_DESTINOS_ASISTENTE)
+    if u.perfil != "auditor":
+        for k in _SOLO_AUDITOR_ASISTENTE:
+            destinos.pop(k, None)
+    contexto = _contexto_asistente(p.vista, u)
+    from agente.cerebro import pensar_asistente
+    turno = pensar_asistente(contexto, p.texto, destinos)
+    destino = turno.get("destino")
+    if (turno.get("intencion") or "").lower() == "navegar" and destino in destinos:
+        return {"respuesta_hablada": turno.get("respuesta_hablada", ""),
+                "accion": "navegar", "destino": destino}
+    return {"respuesta_hablada": turno.get("respuesta_hablada", ""),
+            "accion": None, "destino": None}
+
+
 @app.get("/api/sesiones/{sesion_id}/avance")
 def ver_avance(sesion_id: int, bodega_id_respaldo: int | None = None,
               u: Usuario = Depends(usuario_actual)):

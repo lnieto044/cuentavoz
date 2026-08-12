@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pedir } from "../api";
 import Marco from "../Marco";
+import AsistenteVoz from "../AsistenteVoz";
 
 const SERIE = ["var(--serie-1)", "var(--serie-2)", "var(--serie-3)", "var(--serie-4)"];
 const COLOR_UNIDAD = { Unidad: "var(--azul)", Kilogram: "var(--amarillo)",
@@ -26,7 +27,7 @@ function nombreCorto(nombre) {
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesCorto = (fechaISO) => MESES[Number(fechaISO.slice(5, 7)) - 1];
 
-export default function Panel({ token }) {
+export default function Panel({ token, ir }) {
   const [tab, setTab] = useState("resumen");
   const [resumen, setResumen] = useState(null);
   const [alertas, setAlertas] = useState(null);
@@ -39,6 +40,8 @@ export default function Panel({ token }) {
 
   return (
     <Marco titulo="Panel gerencial" chip={{ texto: "ACTUALIZADO AHORA", tipo: "verde" }}>
+      <AsistenteVoz token={token} vista="panel" ir={ir}
+                    placeholder="¿cuál es la exactitud primera pasada?, lléveme a inicio…" />
       <div className="chips">
         <button className={`chip ${tab === "resumen" ? "azul" : ""}`}
                 onClick={() => setTab("resumen")}>Resumen ejecutivo</button>

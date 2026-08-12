@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
+import AsistenteVoz from "../AsistenteVoz";
 
-export default function Ajustes({ token, usuario, tabInicial, recetaId }) {
+export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
   const [tab, setTab] = useState(tabInicial || "config");
   const esAuditor = usuario?.perfil === "auditor";
 
@@ -10,6 +11,8 @@ export default function Ajustes({ token, usuario, tabInicial, recetaId }) {
     <Marco titulo="Ajustes  ·  configuración del sistema"
            chip={{ texto: esAuditor ? "ADMINISTRADORA" : "SOLO LECTURA",
                    tipo: esAuditor ? "azul" : "gris" }}>
+      <AsistenteVoz token={token} vista="ajustes" ir={ir}
+                    placeholder="¿cuál es el umbral de anomalía?, lléveme a reportes…" />
       <div className="chips">
         <button className={`chip ${tab === "config" ? "azul" : ""}`}
                 onClick={() => setTab("config")}>Configuración</button>

@@ -131,6 +131,15 @@ export const enviarTurno = (texto, sesionId, token, respaldo = {}) =>
     }),
   }, token);
 
+// Para pantallas que no cuentan ni piden (Inicio, Ajustes, Ayuda, Reportes,
+// Panel): una pregunta suelta o una orden de navegar, sin el estado de
+// conversación multi-turno que sí necesita enviarTurno. Ver AsistenteVoz.jsx.
+export const preguntarAsistente = (texto, vista, token) =>
+  pedir("/api/agente/asistente", {
+    method: "POST",
+    body: JSON.stringify({ texto, vista }),
+  }, token);
+
 export const abrirBodega = (bodega, token) =>
   pedir("/api/bodegas/abrir", {
     method: "POST",

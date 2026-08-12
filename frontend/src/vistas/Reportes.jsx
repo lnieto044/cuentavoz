@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
+import AsistenteVoz from "../AsistenteVoz";
 
 const fmt = (n) => Number(n ?? 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
@@ -25,7 +26,7 @@ const ICONO_TITULO = {
   "Estado del tablero": "📋",
 };
 
-export default function Reportes({ token, usuario, tabInicial }) {
+export default function Reportes({ token, usuario, ir, tabInicial }) {
   const [tab, setTab] = useState(tabInicial || "consolidado");
 
   return (
@@ -33,6 +34,8 @@ export default function Reportes({ token, usuario, tabInicial }) {
                                         : "Reportes  ·  análisis de consumo"}
            chip={tab === "consolidado" ? { texto: "ARCHIVOS", tipo: "borde azul" }
                                        : { texto: "ÚLTIMOS 30 DÍAS", tipo: "borde azul" }}>
+      <AsistenteVoz token={token} vista="reportes" ir={ir}
+                    placeholder="¿cuántas filas tiene el último consolidado?, lléveme al panel…" />
       <div className="chips">
         <button className={`chip ${tab === "consolidado" ? "azul" : ""}`}
                 onClick={() => setTab("consolidado")}>Consolidado de la toma</button>
@@ -167,7 +170,6 @@ function TabConsolidado({ token }) {
           <button className="btn gris" onClick={() => window.print()}>Imprimir</button>
         </div>
         <p className="pista" style={{ marginTop: 10 }}>
-          Por voz: «genérame el consolidado» produce el mismo archivo sin tocar la pantalla.
           Dele clic a cualquier tarjeta para ver su contenido aquí al lado.
         </p>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pedir } from "../api";
 import Marco from "../Marco";
+import AsistenteVoz from "../AsistenteVoz";
 
 const FECHA = new Date().toLocaleDateString("es-CO", {
   weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -47,6 +48,9 @@ export default function Inicio({ token, usuario, ir }) {
         Buenos días, <span style={{ textTransform: "capitalize" }}>{usuario?.nombre}</span>.
         Esto es lo que hay para hoy.
       </h2>
+
+      <AsistenteVoz token={token} vista="inicio" ir={ir}
+                    placeholder="¿cuántas bodegas tengo?, lléveme a bodegas…" />
 
       <div className="kpis">
         <div className="kpi">

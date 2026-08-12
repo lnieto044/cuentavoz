@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pedir } from "../api";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import AsistenteVoz from "../AsistenteVoz";
 
 const FAQ = [
   ["¿Cómo corrijo un conteo ya confirmado?",
@@ -24,7 +25,7 @@ const COMANDOS = [
   ["«Hoy preparamos cincuenta ajiacos»", "pedir insumos por receta"],
 ];
 
-export default function Ayuda({ token }) {
+export default function Ayuda({ token, ir }) {
   const [salud, setSalud] = useState(null);
   const [busca, setBusca] = useState("");
   const [reportando, setReportando] = useState(false);
@@ -64,9 +65,11 @@ export default function Ayuda({ token }) {
 
   return (
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
+      <AsistenteVoz token={token} vista="ayuda" ir={ir}
+                    placeholder="pregúntele al agente, por ejemplo: ¿qué hago si sale una alerta?" />
       <div className="card">
         <input value={busca} onChange={(e) => setBusca(e.target.value)}
-               placeholder="¿Qué necesita? También puede preguntarle al agente en voz alta."
+               placeholder="O escriba aquí para filtrar las preguntas frecuentes de abajo…"
                style={{ width: "100%", padding: "12px 14px",
                         border: "1px solid var(--borde)", borderRadius: 12 }} />
       </div>

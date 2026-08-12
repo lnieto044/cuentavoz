@@ -156,6 +156,78 @@ def _respaldo(frase: str, mensaje: str = None) -> dict:
     return datos
 
 
+PROMPT_ASISTENTE = """Eres CuentaVoz, el asistente de inventarios de
+Colsubsidio. La persona esta en una pantalla de la aplicacion (no esta
+contando ni armando un pedido) y le hace una pregunta o le pide ir a otra
+pantalla. Hable como una persona colombiana cercana y profesional, en
+frases cortas.
+
+Reglas:
+1. Responda SOLO con datos que aparezcan en el contexto que se le da. Si
+   no tiene el dato, digalo con honestidad en vez de inventar un numero.
+2. Si la persona pide ir a otra pantalla ("llevame a bodegas", "abre mi
+   perfil", "muestrame los reportes"), la intencion es "navegar" y
+   "destino" debe ser EXACTAMENTE una de las claves de la lista de
+   pantallas disponibles del contexto - nunca invente una clave que no
+   este ahi, y si la pantalla que piden no esta en la lista (por ejemplo
+   porque su perfil no tiene acceso), dígalo en vez de forzar un destino.
+3. Si no pide navegar, la intencion es "responder": conteste con el
+   contexto que tiene, o explique brevemente que se hace en esta pantalla.
+4. Nunca prometa una accion que esta pantalla no puede hacer todavia por
+   voz (cambiar una configuracion, generar un archivo, aprobar algo): solo
+   responde preguntas y navega. Si se lo piden, dígalo con claridad y
+   sugiera usar los botones de la pantalla.
+
+Responde SOLO con un JSON con estas llaves: intencion (navegar|responder),
+destino, respuesta_hablada."""
+
+
+def pensar_asistente(contexto: str, frase: str, destinos: dict[str, str]) -> dict:
+    """Version liviana de pensar(), para las pantallas que no son de
+    conteo ni de pedido (Inicio, Ajustes, Ayuda, Reportes, Panel): mismo
+    modelo y mismo cliente, pero un prompt propio y mas simple - sin el
+    estado de "pendiente"/"opciones" que solo tiene sentido a mitad de un
+    conteo o de un pedido en curso."""
+    lista = "\n".join(f"- {clave}: {etiqueta}" for clave, etiqueta in destinos.items())
+    contexto_completo = f"{contexto}\nPantallas disponibles para navegar:\n{lista}"
+    try:
+        from google.genai import types
+        cliente = _obtener_cliente()
+        if cliente is None:
+            return _respaldo_asistente(frase, destinos,
+                                       "Sin conexión con el agente en este momento.")
+        r = cliente.models.generate_content(
+            model=os.getenv("MODELO", "gemini-flash-latest"),
+            contents=f"{contexto_completo}\nLa persona dice: {frase}",
+            config=types.GenerateContentConfig(
+                system_instruction=PROMPT_ASISTENTE,
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+        datos = json.loads(r.text)
+        if not isinstance(datos, dict):
+            raise ValueError("respuesta inesperada")
+        return datos
+    except Exception as e:
+        print(f"[cerebro] Asistente sin Gemini: {e}")
+        return _respaldo_asistente(frase, destinos)
+
+
+def _respaldo_asistente(frase: str, destinos: dict[str, str], mensaje: str = None) -> dict:
+    """Sin Gemini, al menos reconoce «lleveme a <pantalla>» por palabra
+    clave - el resto queda honesto (no inventa una respuesta) en vez de
+    fingir que entendio."""
+    f = frase.lower()
+    for clave, etiqueta in destinos.items():
+        if clave in f or etiqueta.lower() in f:
+            return {"intencion": "navegar", "destino": clave,
+                    "respuesta_hablada": f"Vamos a {etiqueta.lower()}."}
+    return {"intencion": "responder", "destino": None,
+            "respuesta_hablada": mensaje or
+            "No pude entenderlo sin conexión al agente. Puede escribir su pregunta."}
+
+
 def _pcm_a_wav(pcm: bytes, tasa: int = 24000, canales: int = 1, bits: int = 16) -> bytes:
     """Gemini TTS devuelve PCM crudo (sin encabezado): el navegador
     necesita un WAV valido para poder reproducirlo con <audio>/Audio()."""
