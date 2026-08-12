@@ -65,12 +65,16 @@ def _ultimo_conteo(sesion_id: int):
                 .order_by(Conteo.id.desc()).first())
 
 
-def test_abrir_bodega_y_contar_directo_confirma_y_guarda(
+def test_abrir_bodega_pide_confirmar_antes_de_abrir_y_luego_deja_contar(
     client: TestClient, datos_agente: dict,
 ) -> None:
     headers = datos_agente["headers"]
 
-    abrir = _turno(client, headers, "iniciar conteo en bodega agente")
+    ofrece = _turno(client, headers, "iniciar conteo en bodega agente")
+    assert ofrece.get("bodega") is None                    # todavia no abrio nada
+    assert "confirma" in ofrece["respuesta_hablada"].lower()
+
+    abrir = _turno(client, headers, "confirmo")
     assert abrir["bodega"]["id"] == datos_agente["bodega_id"]
 
     contar = _turno(client, headers, "hay cien aceites")
@@ -113,8 +117,10 @@ def test_abrir_bodega_por_voz_encuentra_el_nombre_aunque_diga_tilde(
                             data={"username": "luis", "password": "StockXperts"})
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
 
-    r = _turno(client, headers, "iniciar conteo en almacén central", sesion_id=779)
-    assert r.get("intencion") != "crear_bodega", r
+    ofrece = _turno(client, headers, "iniciar conteo en almacén central", sesion_id=779)
+    assert ofrece.get("intencion") != "crear_bodega", ofrece
+
+    r = _turno(client, headers, "confirmo", sesion_id=779)
     assert r.get("bodega", {}).get("id") == bodega_id, r
 
 
@@ -149,8 +155,65 @@ def test_abrir_bodega_por_voz_no_confunde_nombres_parecidos(
                             data={"username": "luis", "password": "StockXperts"})
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
 
-    r = _turno(client, headers, "iniciar conteo en autoservicios las fuentes", sesion_id=780)
+    _turno(client, headers, "iniciar conteo en autoservicios las fuentes", sesion_id=780)
+    r = _turno(client, headers, "confirmo", sesion_id=780)
     assert r.get("bodega", {}).get("id") == fuentes_id, r
+
+
+def test_decir_no_a_la_confirmacion_de_bodega_no_abre_nada(
+    client: TestClient, datos_agente: dict,
+) -> None:
+    """Si el reconocimiento de voz entendió mal el nombre, decir "no" a
+    la confirmación debe dejar todo intacto - nada de sesión creada, nada
+    de bodega marcada en_conteo."""
+    headers = datos_agente["headers"]
+    sid = 783
+    ofrece = _turno(client, headers, "iniciar conteo en bodega agente", sesion_id=sid)
+    assert ofrece.get("bodega") is None
+
+    r = _turno(client, headers, "no", sesion_id=sid)
+    assert r.get("bodega") is None
+    assert "no la abro" in r["respuesta_hablada"].lower()
+
+    from bd import Sesion
+    from modelos import Bodega, SesionConteo
+    with Sesion() as sesion:
+        b = sesion.get(Bodega, datos_agente["bodega_id"])
+        assert b.estado != "en_conteo"
+        assert sesion.query(SesionConteo).filter_by(bodega_id=b.id).count() == 0
+
+
+def test_bodega_ya_abierta_por_otro_dice_quien_la_tiene(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Antes decía "ya está en conteo por otra persona" a secas - sin
+    saber si era normal o un error, ni con quién hablar. Ahora dice el
+    nombre real de quién la tiene."""
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    import agente.cerebro as cerebro
+    monkeypatch.setattr(cerebro, "_cliente", None)
+
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega, SesionConteo
+
+    with Sesion() as sesion:
+        luis = sesion.query(Usuario).filter_by(nombre="luis").one()
+        diana = sesion.query(Usuario).filter_by(nombre="diana").one()
+        bodega = Bodega(nombre_oficial="BODEGA COMPARTIDA", estado="en_conteo")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=luis.id, bodega_id=bodega.id))
+        sesion.add(SesionConteo(bodega_id=bodega.id, usuario_id=diana.id,
+                                tipo="conteo", estado="abierta"))
+        sesion.commit()
+
+    respuesta = client.post("/api/ingresar",
+                            data={"username": "luis", "password": "StockXperts"})
+    headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
+
+    r = _turno(client, headers, "iniciar conteo en bodega compartida", sesion_id=784)
+    assert r.get("bodega") is None
+    assert "diana" in r["respuesta_hablada"].lower()
 
 
 def test_sin_bodega_abierta_no_deja_contar(client: TestClient, datos_agente: dict) -> None:
@@ -166,6 +229,7 @@ def test_arroz_ambiguo_se_desambigua_y_dispara_desviacion(
     headers = datos_agente["headers"]
     sid = 779
     _turno(client, headers, "iniciar conteo en bodega agente", sesion_id=sid)
+    _turno(client, headers, "confirmo", sesion_id=sid)
 
     ambiguo = _turno(client, headers, "hay noventa arroces", sesion_id=sid)
     assert ambiguo.get("opciones") is not None
@@ -193,6 +257,7 @@ def test_declina_opciones_con_no_cancela_sin_romper(
     headers = datos_agente["headers"]
     sid = 780
     _turno(client, headers, "iniciar conteo en bodega agente", sesion_id=sid)
+    _turno(client, headers, "confirmo", sesion_id=sid)
     ambiguo = _turno(client, headers, "hay noventa arroces", sesion_id=sid)
     assert ambiguo.get("opciones") is not None
 
@@ -211,6 +276,7 @@ def test_corregir_antes_de_confirmar_cambia_la_cantidad_pendiente(
     headers = datos_agente["headers"]
     sid = 781
     _turno(client, headers, "iniciar conteo en bodega agente", sesion_id=sid)
+    _turno(client, headers, "confirmo", sesion_id=sid)
     _turno(client, headers, "hay cien aceites", sesion_id=sid)
 
     corregido = _turno(client, headers, "no, son noventa", sesion_id=sid)
@@ -228,6 +294,7 @@ def test_cantidad_negativa_no_se_guarda_y_pide_repetir(
     headers = datos_agente["headers"]
     sid = 782
     _turno(client, headers, "iniciar conteo en bodega agente", sesion_id=sid)
+    _turno(client, headers, "confirmo", sesion_id=sid)
 
     negativo = _turno(client, headers, "hay menos cinco aceites", sesion_id=sid)
     assert negativo.get("alerta") == "negativo"

@@ -2,7 +2,7 @@
 from datetime import datetime
 from bd import Sesion
 from modelos import (Conteo, StockSistema, SesionConteo, Bodega, Alerta,
-                     Articulo, AsignacionBodega)
+                     Articulo, AsignacionBodega, Usuario)
 from servicios.conciliacion import buscar_articulo, aprender_alias, normalizar
 from servicios.validacion import validar_conteo
 from agente.cerebro import pensar
@@ -123,6 +123,11 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
     # valor correcto?" - la conversacion quedaba trabada en un tema que la
     # persona ya habia cerrado.
     if dice_no and not est.get("pendiente"):
+        if est.get("bodega_pendiente"):
+            est["bodega_pendiente"] = None
+            turno["intencion"] = "explicar"
+            turno["respuesta_hablada"] = "Listo, no la abro. ¿Cuál bodega es?"
+            return turno
         if est.get("oferta_reporte") and not est.get("opciones"):
             est["oferta_reporte"] = False
             turno["intencion"] = "explicar"
@@ -138,6 +143,15 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
     # ── 1) confirma lo pendiente: aqui si se guarda ──
     if est.get("pendiente") and (dice_si or intencion == "confirmar"):
         return _guardar(est, sesion_id, usuario)
+
+    # ── 1z) confirma la bodega que se ofrecio abrir: aqui si se abre.
+    # Sin este paso, el nombre de una bodega dicho por voz se enviaba
+    # directo a abrirla - si el reconocimiento de voz entendio mal un
+    # nombre parecido (visto en produccion: "autoservicios las fuentes"
+    # -> "AUTOSERVICIOS CASCADA"), la persona quedaba metida en la bodega
+    # equivocada sin haber podido revisar antes.
+    if est.get("bodega_pendiente") and (dice_si or intencion == "confirmar"):
+        return _confirmar_abrir_bodega(est, usuario)
 
     # ── 1b) confirma la oferta de generar el archivo tras una consulta ──
     if (est.get("oferta_reporte") and not est.get("pendiente")
@@ -437,8 +451,62 @@ def _corregir(est, sesion_id, turno, usuario):
     return turno
 
 
-def _abrir(est, texto_bodega, turno, usuario):
+def _completar_apertura(s, b, est, usuario):
+    """La apertura de verdad: crea o reutiliza la sesion, marca la bodega
+    en_conteo y arma la respuesta. La llaman tanto _abrir() (cuando la
+    bodega ya la tiene la misma persona, no hay nada que confirmar) como
+    _confirmar_abrir_bodega() (despues del "si" a la pregunta de
+    confirmacion)."""
     from seguridad import registrar
+    abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
+                                             estado="abierta").first()
+    ses = abierta or SesionConteo(bodega_id=b.id, usuario_id=getattr(usuario, "id", 1))
+    if not abierta:
+        s.add(ses)
+        b.estado = "en_conteo"
+        s.commit()
+        s.refresh(ses)
+    refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
+    est["bodega_id"] = b.id
+    est["bodega_nombre"] = b.nombre_oficial
+    est["sesion_bd"] = ses.id
+    nombre = b.nombre_oficial
+    if usuario:
+        registrar(usuario, "APERTURA", f"{nombre} abierta - sesion bloqueada")
+    return {"respuesta_hablada": (f"Listo, {nombre.lower()} abierta con "
+                                  f"{refs} referencias. Dícteme el primer producto."),
+            "bodega": {"id": b.id, "nombre": nombre, "referencias": refs}}
+
+
+def _confirmar_abrir_bodega(est, usuario):
+    """Ya se pregunto "¿confirma que abro X?" y la persona dijo que si:
+    aqui es cuando de verdad se crea/reusa la sesion de conteo. Antes de
+    esto, decir el nombre de una bodega no habia tocado la base para nada
+    - si el reconocimiento de voz entendio mal, un "no" simplemente
+    descarta la oferta sin haber abierto nada."""
+    pendiente = est.get("bodega_pendiente")
+    est["bodega_pendiente"] = None
+    turno = {}
+    with Sesion() as s:
+        b = s.get(Bodega, pendiente["id"])
+        if b is None:
+            turno["respuesta_hablada"] = "Esa bodega ya no existe. ¿Cuál abro?"
+            return turno
+        # revalida que siga libre: pudo haberla tomado otra persona en el
+        # rato entre la pregunta y el "si".
+        abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
+                                                 estado="abierta").first()
+        if abierta and abierta.usuario_id != getattr(usuario, "id", None):
+            quien = s.get(Usuario, abierta.usuario_id)
+            nombre_quien = quien.nombre.capitalize() if quien else "otra persona"
+            turno["respuesta_hablada"] = (f"{b.nombre_oficial} ya la tiene {nombre_quien} "
+                                          "en conteo; no la abro.")
+            return turno
+        turno.update(_completar_apertura(s, b, est, usuario))
+    return turno
+
+
+def _abrir(est, texto_bodega, turno, usuario):
     with Sesion() as s:
         # normalizar() quita tildes (igual que en buscar_articulo): el
         # reconocimiento de voz transcribe "almacen" como "almacén", con
@@ -490,27 +558,26 @@ def _abrir(est, texto_bodega, turno, usuario):
         abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
                                                  estado="abierta").first()
         if abierta and abierta.usuario_id != getattr(usuario, "id", None):
-            turno["respuesta_hablada"] = (f"{b.nombre_oficial} ya esta en conteo "
-                                          "por otra persona.")
+            # antes decia "por otra persona" a secas - la persona no sabia
+            # si era normal (alguien de verdad ya la esta contando) o un
+            # error, ni con quien hablar para resolverlo.
+            quien = s.get(Usuario, abierta.usuario_id)
+            nombre_quien = quien.nombre.capitalize() if quien else "otra persona"
+            turno["respuesta_hablada"] = (f"{b.nombre_oficial} ya la tiene {nombre_quien} "
+                                          "en conteo; no la abro.")
             return turno
-        ses = abierta or SesionConteo(bodega_id=b.id,
-                                      usuario_id=getattr(usuario, "id", 1))
-        if not abierta:
-            s.add(ses)
-            b.estado = "en_conteo"
-            s.commit()
-            s.refresh(ses)
-        refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
-        est["bodega_id"] = b.id
-        est["bodega_nombre"] = b.nombre_oficial
-        est["sesion_bd"] = ses.id
-        nombre = b.nombre_oficial
-    if usuario:
-        registrar(usuario, "APERTURA", f"{nombre} abierta - sesion bloqueada")
-    turno["respuesta_hablada"] = (f"Listo, {nombre.lower()} abierta con "
-                                 f"{refs} referencias. Dicteme el primer producto.")
-    turno["bodega"] = {"id": est["bodega_id"], "nombre": nombre, "referencias": refs}
-    return turno
+        if abierta and abierta.usuario_id == getattr(usuario, "id", None):
+            # ya es suya (la dejo a medias): seguir donde iba no necesita
+            # confirmacion, no hay ambiguedad que revisar.
+            turno.update(_completar_apertura(s, b, est, usuario))
+            return turno
+        # bodega libre y accesible: antes de tocar la base, se pregunta -
+        # un nombre parecido mal transcrito ("autoservicios las fuentes"
+        # sonando a "autoservicios cascada") no debe meter a la persona en
+        # la bodega equivocada sin que lo haya podido revisar.
+        est["bodega_pendiente"] = {"id": b.id, "nombre": b.nombre_oficial}
+        turno["respuesta_hablada"] = f"¿Confirma que abro {b.nombre_oficial.lower()}?"
+        return turno
 
 
 def avance(sesion_id) -> str:
