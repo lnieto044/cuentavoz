@@ -54,23 +54,32 @@ function _elegirVozNavegador() {
   return candidatas[0]?.v || null;
 }
 
+/** Devuelve una promesa que se resuelve cuando termina de decirlo (no
+    cuando empieza) - quien vaya a escuchar() justo después de hablar()
+    necesita esperar a que la pregunta se termine de decir, o el
+    micrófono arranca mientras el navegador todavía está sonando y se
+    pierde la respuesta. */
 function hablarConNavegador(texto) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  if (!vozNavegadorBuscada) {
-    vozNavegadorElegida = _elegirVozNavegador();
-    if (!vozNavegadorElegida) {
-      window.speechSynthesis.onvoiceschanged = () => { vozNavegadorElegida = _elegirVozNavegador(); };
-    } else {
-      vozNavegadorBuscada = true;
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) { resolve(); return; }
+    if (!vozNavegadorBuscada) {
+      vozNavegadorElegida = _elegirVozNavegador();
+      if (!vozNavegadorElegida) {
+        window.speechSynthesis.onvoiceschanged = () => { vozNavegadorElegida = _elegirVozNavegador(); };
+      } else {
+        vozNavegadorBuscada = true;
+      }
     }
-  }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(texto);
-  u.lang = vozNavegadorElegida?.lang || "es-MX";
-  u.rate = tasaActual;
-  u.pitch = 1.03;
-  if (vozNavegadorElegida) u.voice = vozNavegadorElegida;
-  window.speechSynthesis.speak(u);
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = vozNavegadorElegida?.lang || "es-MX";
+    u.rate = tasaActual;
+    u.pitch = 1.03;
+    if (vozNavegadorElegida) u.voice = vozNavegadorElegida;
+    u.onend = resolve;
+    u.onerror = resolve;
+    window.speechSynthesis.speak(u);
+  });
 }
 
 /* ── Voz neuronal real (Gemini TTS, via el backend) ── */
@@ -84,12 +93,20 @@ let audioActual = null;
 // vez de reproducirse.
 let generacion = 0;
 
+// Si detenerVoz() corta el audio a la mitad (pause() no dispara "ended"),
+// esto es lo que despierta a quien esté esperando hablar() - si no, un
+// cambio de pantalla a mitad de frase dejaría esa promesa colgada para
+// siempre.
+let resolverAudioActual = null;
+
 /** App.jsx la llama en cada cambio de pantalla: corta lo que se esté
     reproduciendo y invalida cualquier hablar() todavía en camino. */
 export function detenerVoz() {
   generacion++;
   if (audioActual) { audioActual.pause(); audioActual.currentTime = 0; }
   if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+  resolverAudioActual?.();
+  resolverAudioActual = null;
 }
 
 async function hablarConNeuronal(texto, miGeneracion) {
@@ -109,17 +126,44 @@ async function hablarConNeuronal(texto, miGeneracion) {
   const audio = new Audio(url);
   audio.playbackRate = tasaActual;
   audioActual = audio;
-  audio.addEventListener("ended", () => URL.revokeObjectURL(url));
-  await audio.play();
+  // Espera a que el audio TERMINE de sonar, no solo a que arranque -
+  // audio.play() por sí solo se resuelve apenas empieza a reproducir, y
+  // quien llama a hablar() esperando poder escuchar() justo después
+  // necesita que la pregunta ya se haya terminado de decir.
+  await new Promise((resolve) => {
+    resolverAudioActual = resolve;
+    audio.addEventListener("ended", resolve, { once: true });
+    audio.addEventListener("error", resolve, { once: true });
+    audio.play().catch(resolve);
+  });
+  resolverAudioActual = null;
+  URL.revokeObjectURL(url);
 }
 
+// Tope de seguridad: ninguna frase de esta app tarda tanto en decirse.
+// Sin esto, si el navegador alguna vez no dispara "ended"/"onend" (se ha
+// visto en algunos Chrome tras minimizar la pestaña, y en entornos sin
+// salida de audio real), hablar() quedaría esperando para siempre y el
+// micrófono que depende de "await hablar()" nunca llegaría a abrirse.
+const TOPE_HABLAR_MS = 12000;
+
+/** Habla el texto y devuelve una promesa que se resuelve cuando termina
+    de decirlo (o, como mucho, a los TOPE_HABLAR_MS). Casi todo el código
+    la llama "al aire" (sin await) y eso sigue funcionando igual; quien
+    necesite escuchar() justo después de preguntar algo sí debe
+    esperarla, o el micrófono arranca mientras todavía se está hablando y
+    se pierde parte de la respuesta. */
 export function hablar(texto, { forzar = false } = {}) {
-  if (!texto) return;
-  if (!forzar && !confirmacionHablada) return;
+  if (!texto) return Promise.resolve();
+  if (!forzar && !confirmacionHablada) return Promise.resolve();
   generacion++;
   const miGeneracion = generacion;
-  hablarConNeuronal(texto, miGeneracion)
-    .catch(() => { if (miGeneracion === generacion) hablarConNavegador(texto); });
+  const intento = hablarConNeuronal(texto, miGeneracion)
+    .catch(() => { if (miGeneracion === generacion) return hablarConNavegador(texto); });
+  return Promise.race([
+    intento,
+    new Promise((resolve) => setTimeout(resolve, TOPE_HABLAR_MS)),
+  ]);
 }
 
 /** Escucha una frase y la devuelve como texto. */

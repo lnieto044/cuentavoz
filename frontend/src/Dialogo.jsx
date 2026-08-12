@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { escuchar, hablar } from "./voz";
 import { interpretarLocal } from "./interpreteLocal";
 
@@ -26,17 +26,27 @@ export default function Dialogo({
   const [escuchando, setEscuchando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [errorVoz, setErrorVoz] = useState("");
+  // Igual que en el selector de bodega de Conteo: cada escucha lleva su
+  // propio número, y si el micrófono anterior entrega su resultado tarde
+  // (por ejemplo, mientras todavía se está diciendo "¿confirma X?") se
+  // descarta en vez de procesarse como si fuera un nuevo valor dictado.
+  const idEscucha = useRef(0);
 
   function aceptar(valorAUsar = valor) {
     if (conCampo && !String(valorAUsar).trim()) return;
     onAceptar(valorAUsar);
   }
 
-  function preguntarConfirmacion(valorDictado) {
+  async function preguntarConfirmacion(valorDictado, miId) {
     setConfirmando(true);
-    hablar(`¿Confirma «${valorDictado}»?`);
+    // hay que esperar a que termine de decir la pregunta antes de abrir
+    // el micrófono - si arranca apenas empieza a sonar, se pierde el
+    // principio de la respuesta.
+    await hablar(`¿Confirma «${valorDictado}»?`);
+    if (miId !== idEscucha.current) return;
     escuchar({
       alTexto: (respuesta) => {
+        if (miId !== idEscucha.current) return;
         setConfirmando(false);
         const r = respuesta.toLowerCase().trim();
         if (AFIRMA.test(r)) {
@@ -53,7 +63,7 @@ export default function Dialogo({
     });
   }
 
-  function alTextoDictado(t) {
+  function alTextoDictado(t, miId) {
     if (!t) return;
     if (tipo === "number") {
       // el reconocimiento a veces ya entrega el número tal cual ("50"),
@@ -63,26 +73,30 @@ export default function Dialogo({
       const directo = Number(String(t).replace(",", "."));
       if (!Number.isNaN(directo)) {
         setValor(directo);
-        preguntarConfirmacion(directo);
+        preguntarConfirmacion(directo, miId);
         return;
       }
       const r = interpretarLocal(t);
       if (r.cantidad != null) {
         setValor(r.cantidad);
-        preguntarConfirmacion(r.cantidad);
+        preguntarConfirmacion(r.cantidad, miId);
         return;
       }
       setErrorVoz(`No reconocí un número en «${t}». Dígalo de nuevo o escríbalo.`);
       return;
     }
     setValor(t);
-    preguntarConfirmacion(t);
+    preguntarConfirmacion(t, miId);
   }
 
   function porVoz() {
     setErrorVoz("");
+    const miId = ++idEscucha.current;
     escuchar({
-      alTexto: alTextoDictado,
+      alTexto: (t) => {
+        if (miId !== idEscucha.current) return;
+        alTextoDictado(t, miId);
+      },
       alEstado: (e) => setEscuchando(e === "escuchando"),
       alError: setErrorVoz,
     });

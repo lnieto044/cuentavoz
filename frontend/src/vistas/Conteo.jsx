@@ -381,12 +381,20 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     if (!resuelto.encontrada) {
       if (resuelto.opciones?.length) {
         const nombres = resuelto.opciones.map((o) => o.bodega.toLowerCase());
-        hablar(`Hay varias: ${nombres.join(", ")}. ¿Cuál de todas?`);
         setOpcionesBodega(resuelto.opciones);
+        // reservar el id ANTES de hablar corta de una vez cualquier
+        // escucha anterior que responda tarde mientras se dice esto.
+        const miIdOpciones = ++idEscuchaBodega.current;
+        // hay que esperar a que la pregunta se termine de decir - si el
+        // micrófono arranca apenas empieza a sonar, se pierde el
+        // principio de la respuesta (o, si la voz tarda, el micrófono
+        // hasta se cansa de esperar antes de que la persona alcance a
+        // contestar).
+        await hablar(`Hay varias: ${nombres.join(", ")}. ¿Cuál de todas?`);
+        if (miIdOpciones !== idEscuchaBodega.current) return;
         // se puede elegir tocando una tarjeta, o siguiendo la conversación
         // y diciendo el nombre completo - que vuelve a pasar por aquí,
         // ahora sí resolviendo a una sola.
-        const miIdOpciones = ++idEscuchaBodega.current;
         rec.current = escuchar({
           alTexto: (t) => {
             if (miIdOpciones !== idEscuchaBodega.current) return;
@@ -404,8 +412,9 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     }
     const nombreReal = resuelto.bodega;
     setTextoBodega(nombreReal);
-    hablar(`¿Confirma que abro ${nombreReal.toLowerCase()}?`);
     const miIdConfirmar = ++idEscuchaBodega.current;
+    await hablar(`¿Confirma que abro ${nombreReal.toLowerCase()}?`);
+    if (miIdConfirmar !== idEscuchaBodega.current) return;
     rec.current = escuchar({
       alTexto: (respuesta) => {
         if (miIdConfirmar !== idEscuchaBodega.current) return;
