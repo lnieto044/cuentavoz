@@ -86,6 +86,38 @@ def test_abrir_bodega_y_contar_directo_confirma_y_guarda(
     assert guardado.cantidad == 100
 
 
+def test_abrir_bodega_por_voz_encuentra_el_nombre_aunque_diga_tilde(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bug real reportado desde producción: el catálogo de bodegas viene
+    sin tildes del Excel ("ALMACEN SUMINISTROS"), pero el reconocimiento
+    de voz transcribe con tilde ("almacén suministros") - antes eso caía
+    en "no la encuentro, ¿la creamos?" para una bodega que sí existía."""
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    import agente.cerebro as cerebro
+    monkeypatch.setattr(cerebro, "_cliente", None)
+
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        bodega = Bodega(nombre_oficial="ALMACEN CENTRAL")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=bodega.id))
+        sesion.commit()
+        bodega_id = bodega.id
+
+    respuesta = client.post("/api/ingresar",
+                            data={"username": "luis", "password": "StockXperts"})
+    headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
+
+    r = _turno(client, headers, "iniciar conteo en almacén central", sesion_id=779)
+    assert r.get("intencion") != "crear_bodega", r
+    assert r.get("bodega", {}).get("id") == bodega_id, r
+
+
 def test_sin_bodega_abierta_no_deja_contar(client: TestClient, datos_agente: dict) -> None:
     headers = datos_agente["headers"]
     r = _turno(client, headers, "hay diez aceites", sesion_id=778)

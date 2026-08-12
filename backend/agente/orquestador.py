@@ -3,7 +3,7 @@ from datetime import datetime
 from bd import Sesion
 from modelos import (Conteo, StockSistema, SesionConteo, Bodega, Alerta,
                      Articulo, AsignacionBodega)
-from servicios.conciliacion import buscar_articulo, aprender_alias
+from servicios.conciliacion import buscar_articulo, aprender_alias, normalizar
 from servicios.validacion import validar_conteo
 from agente.cerebro import pensar
 
@@ -440,11 +440,17 @@ def _corregir(est, sesion_id, turno, usuario):
 def _abrir(est, texto_bodega, turno, usuario):
     from seguridad import registrar
     with Sesion() as s:
+        # normalizar() quita tildes (igual que en buscar_articulo): el
+        # reconocimiento de voz transcribe "almacen" como "almacén", con
+        # tilde, pero el catalogo de bodegas viene sin tildes del Excel -
+        # sin esto, decir el nombre correcto de una bodega real caia en
+        # "no la encuentro, ¿la creamos?" por una simple tilde.
+        clave = normalizar(texto_bodega)
         b = (s.query(Bodega)
-             .filter(Bodega.nombre_oficial.contains(texto_bodega.upper()))
+             .filter(Bodega.nombre_oficial.contains(clave))
              .first())
         if b is None:
-            palabras = [p for p in texto_bodega.upper().split() if len(p) > 3]
+            palabras = [p for p in clave.split() if len(p) > 3]
             for p in palabras:
                 b = s.query(Bodega).filter(Bodega.nombre_oficial.contains(p)).first()
                 if b:

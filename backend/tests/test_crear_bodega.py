@@ -80,6 +80,30 @@ def test_administrador_crea_bodega_directo_sin_pasar_por_aprobacion(
     assert not any(a["tipo"] == "bodega" for a in pendientes.json())
 
 
+def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(
+    client: TestClient,
+) -> None:
+    """Mismo bug que en el agente conversacional, pero por el REST directo
+    (\"Abrir por nombre exacto\" / clic en una tarjeta): el catálogo no
+    trae tildes, así que buscar con tilde no debe fallar."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        bodega = Bodega(nombre_oficial="ALMACEN REGIONAL")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=bodega.id))
+        sesion.commit()
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/abrir", headers=headers,
+                    json={"bodega": "almacén regional"})
+    assert r.status_code == 200, r.text
+    assert r.json()["bodega"] == "ALMACEN REGIONAL"
+
+
 def test_no_se_puede_solicitar_una_bodega_que_ya_existe(client: TestClient) -> None:
     headers_luis = _ingresar(client, "luis")
 

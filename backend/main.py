@@ -523,9 +523,14 @@ def listar_bodegas(propias: int = 0, u: Usuario = Depends(usuario_actual)):
 
 @app.post("/api/bodegas/abrir")
 async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
+    from servicios.conciliacion import normalizar
     with Sesion() as s:
+        # normalizar() quita tildes: el reconocimiento de voz y el texto
+        # escrito a mano a veces traen "almacén" con tilde, y el catálogo
+        # de bodegas viene sin tildes del Excel - sin esto, el nombre
+        # correcto de una bodega real podía no encontrarse por una tilde.
         b = (s.query(Bodega)
-             .filter(Bodega.nombre_oficial.contains(a.bodega.upper())).first())
+             .filter(Bodega.nombre_oficial.contains(normalizar(a.bodega))).first())
         if b is None:
             raise HTTPException(404, "No encuentro esa bodega.")
         if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
