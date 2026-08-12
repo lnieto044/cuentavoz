@@ -27,8 +27,8 @@ function nombreCorto(nombre) {
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesCorto = (fechaISO) => MESES[Number(fechaISO.slice(5, 7)) - 1];
 
-export default function Panel({ token, ir }) {
-  const [tab, setTab] = useState("resumen");
+export default function Panel({ token, ir, tabInicial }) {
+  const [tab, setTab] = useState(tabInicial || "resumen");
   const [resumen, setResumen] = useState(null);
   const [alertas, setAlertas] = useState(null);
   const urlPBI = import.meta.env.VITE_POWERBI_URL;

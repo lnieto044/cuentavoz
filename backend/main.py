@@ -286,6 +286,17 @@ _DESTINOS_ASISTENTE = {
 }
 _SOLO_AUDITOR_ASISTENTE = {"auditoria", "reportes", "panel"}
 
+# pantallas con pestañas propias: para no obligar a la persona a llegar y
+# después dar clic en la pestaña que quería, si la pide de una vez
+# ("llévame al análisis de consumo") el agente navega directo a ella. La
+# clave interna debe ser la misma que usa cada vista en su useState(tab).
+_PESTANAS_ASISTENTE = {
+    "reportes": {"consolidado": "Consolidado de la toma", "analisis": "Análisis de consumo"},
+    "ajustes": {"config": "Configuración", "usuarios": "Gestión de usuarios",
+               "recetas": "Recetas", "traza": "Registro de trazabilidad"},
+    "panel": {"resumen": "Resumen ejecutivo", "alertas": "Bodegas y alertas"},
+}
+
 _FAQ_ASISTENTE = [
     ("¿Cómo corrijo un conteo ya confirmado?",
      "Diga «corregir» y luego el valor correcto; el valor anterior se conserva."),
@@ -354,13 +365,17 @@ def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual))
             destinos.pop(k, None)
     contexto = _contexto_asistente(p.vista, u)
     from agente.cerebro import pensar_asistente
-    turno = pensar_asistente(contexto, p.texto, destinos)
+    turno = pensar_asistente(contexto, p.texto, destinos, _PESTANAS_ASISTENTE)
     destino = turno.get("destino")
     if (turno.get("intencion") or "").lower() == "navegar" and destino in destinos:
+        pestana = turno.get("pestana")
+        pestanas_validas = _PESTANAS_ASISTENTE.get(destino, {})
+        if pestana not in pestanas_validas:
+            pestana = None
         return {"respuesta_hablada": turno.get("respuesta_hablada", ""),
-                "accion": "navegar", "destino": destino}
+                "accion": "navegar", "destino": destino, "pestana": pestana}
     return {"respuesta_hablada": turno.get("respuesta_hablada", ""),
-            "accion": None, "destino": None}
+            "accion": None, "destino": None, "pestana": None}
 
 
 @app.get("/api/sesiones/{sesion_id}/avance")

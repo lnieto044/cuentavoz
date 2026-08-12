@@ -450,11 +450,24 @@ def _abrir(est, texto_bodega, turno, usuario):
              .filter(Bodega.nombre_oficial.contains(clave))
              .first())
         if b is None:
+            # antes se probaba palabra por palabra y se quedaba con la
+            # PRIMERA bodega que contuviera CUALQUIERA de ellas - "las
+            # fuentes" perdia la palabra "las" (3 letras) y "fuentes"
+            # nunca llegaba a probarse porque "autoservicios" solo ya
+            # encontraba (mal) "AUTOSERVICIOS CASCADA" antes. Ahora se
+            # cuenta cuantas palabras dichas contiene cada bodega y gana
+            # la que mas tiene - un empate se resuelve por el nombre mas
+            # corto (menos texto de sobra que lo que la persona dijo).
             palabras = [p for p in clave.split() if len(p) > 3]
-            for p in palabras:
-                b = s.query(Bodega).filter(Bodega.nombre_oficial.contains(p)).first()
-                if b:
-                    break
+            if palabras:
+                candidatas = [
+                    (sum(1 for p in palabras if p in c.nombre_oficial), c)
+                    for c in s.query(Bodega).all()
+                ]
+                candidatas = [(n, c) for n, c in candidatas if n > 0]
+                if candidatas:
+                    candidatas.sort(key=lambda x: (-x[0], len(x[1].nombre_oficial)))
+                    b = candidatas[0][1]
         if b is None:
             # igual que un articulo que no esta en el catalogo: en vez de
             # dejar a la persona repitiendo el nombre sin salida, se ofrece

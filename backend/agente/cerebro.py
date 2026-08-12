@@ -177,18 +177,31 @@ Reglas:
    voz (cambiar una configuracion, generar un archivo, aprobar algo): solo
    responde preguntas y navega. Si se lo piden, dígalo con claridad y
    sugiera usar los botones de la pantalla.
+5. Algunas pantallas tienen pestañas propias (se listan en el contexto
+   como "destino > pestaña"). Si la persona pide una pestaña especifica
+   ("llevame al analisis de consumo", "abre la gestion de usuarios"), no
+   se queda a medio camino: pone el destino correcto Y "pestana" con la
+   clave exacta de esa pestaña, para llegar directo sin dar clic despues.
+   Si solo pide la pantalla en general, sin mencionar pestaña, deje
+   "pestana" en null - no adivine una.
 
 Responde SOLO con un JSON con estas llaves: intencion (navegar|responder),
-destino, respuesta_hablada."""
+destino, pestana, respuesta_hablada."""
 
 
-def pensar_asistente(contexto: str, frase: str, destinos: dict[str, str]) -> dict:
+def pensar_asistente(contexto: str, frase: str, destinos: dict[str, str],
+                     pestanas: dict[str, dict[str, str]] | None = None) -> dict:
     """Version liviana de pensar(), para las pantallas que no son de
     conteo ni de pedido (Inicio, Ajustes, Ayuda, Reportes, Panel): mismo
     modelo y mismo cliente, pero un prompt propio y mas simple - sin el
     estado de "pendiente"/"opciones" que solo tiene sentido a mitad de un
-    conteo o de un pedido en curso."""
+    conteo o de un pedido en curso. pestanas permite pedir de una vez una
+    pestaña especifica de un destino con pestañas propias (ver main.py)."""
+    pestanas = pestanas or {}
     lista = "\n".join(f"- {clave}: {etiqueta}" for clave, etiqueta in destinos.items())
+    for destino, sub in pestanas.items():
+        for clave_tab, etiqueta_tab in sub.items():
+            lista += f"\n- {destino} > {clave_tab}: {etiqueta_tab}"
     contexto_completo = f"{contexto}\nPantallas disponibles para navegar:\n{lista}"
     try:
         from google.genai import types
@@ -217,13 +230,13 @@ def pensar_asistente(contexto: str, frase: str, destinos: dict[str, str]) -> dic
 def _respaldo_asistente(frase: str, destinos: dict[str, str], mensaje: str = None) -> dict:
     """Sin Gemini, al menos reconoce «lleveme a <pantalla>» por palabra
     clave - el resto queda honesto (no inventa una respuesta) en vez de
-    fingir que entendio."""
+    fingir que entendio. No intenta adivinar la pestaña sin el modelo."""
     f = frase.lower()
     for clave, etiqueta in destinos.items():
         if clave in f or etiqueta.lower() in f:
-            return {"intencion": "navegar", "destino": clave,
+            return {"intencion": "navegar", "destino": clave, "pestana": None,
                     "respuesta_hablada": f"Vamos a {etiqueta.lower()}."}
-    return {"intencion": "responder", "destino": None,
+    return {"intencion": "responder", "destino": None, "pestana": None,
             "respuesta_hablada": mensaje or
             "No pude entenderlo sin conexión al agente. Puede escribir su pregunta."}
 

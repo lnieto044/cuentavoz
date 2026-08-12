@@ -118,6 +118,41 @@ def test_abrir_bodega_por_voz_encuentra_el_nombre_aunque_diga_tilde(
     assert r.get("bodega", {}).get("id") == bodega_id, r
 
 
+def test_abrir_bodega_por_voz_no_confunde_nombres_parecidos(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bug real reportado desde producción: decir "autoservicios las
+    fuentes" abría "AUTOSERVICIOS CASCADA" - el respaldo por palabras se
+    quedaba con la PRIMERA bodega que contuviera "autoservicios", sin
+    llegar a comparar "fuentes" para desempatar."""
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    import agente.cerebro as cerebro
+    monkeypatch.setattr(cerebro, "_cliente", None)
+
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        cascada = Bodega(nombre_oficial="AUTOSERVICIOS CASCADA")
+        fuentes = Bodega(nombre_oficial="AUTOSERVICIOS LAS FUENTES")
+        sesion.add_all([cascada, fuentes])
+        sesion.flush()
+        sesion.add_all([
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=cascada.id),
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=fuentes.id),
+        ])
+        sesion.commit()
+        fuentes_id = fuentes.id
+
+    respuesta = client.post("/api/ingresar",
+                            data={"username": "luis", "password": "StockXperts"})
+    headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
+
+    r = _turno(client, headers, "iniciar conteo en autoservicios las fuentes", sesion_id=780)
+    assert r.get("bodega", {}).get("id") == fuentes_id, r
+
+
 def test_sin_bodega_abierta_no_deja_contar(client: TestClient, datos_agente: dict) -> None:
     headers = datos_agente["headers"]
     r = _turno(client, headers, "hay diez aceites", sesion_id=778)

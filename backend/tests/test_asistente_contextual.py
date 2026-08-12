@@ -97,3 +97,47 @@ def test_asistente_exige_sesion(client: TestClient) -> None:
     r = client.post("/api/agente/asistente",
                     json={"texto": "hola", "vista": "inicio"})
     assert r.status_code == 401
+
+
+def test_asistente_navega_directo_a_una_pestana_valida(
+    client: TestClient, monkeypatch
+) -> None:
+    """Pedir "el análisis de consumo" no solo debe llevar a Reportes: debe
+    llegar directo a esa pestaña, sin dar clic aparte."""
+    import agente.cerebro as cerebro
+
+    def _falso(contexto, frase, destinos, pestanas=None):
+        return {"intencion": "navegar", "destino": "reportes", "pestana": "analisis",
+                "respuesta_hablada": "Vamos al análisis de consumo."}
+    monkeypatch.setattr(cerebro, "pensar_asistente", _falso)
+
+    headers = _ingresar(client, "diana")
+    r = client.post("/api/agente/asistente", headers=headers,
+                    json={"texto": "llevame al analisis de consumo", "vista": "inicio"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["accion"] == "navegar"
+    assert d["destino"] == "reportes"
+    assert d["pestana"] == "analisis"
+
+
+def test_asistente_descarta_una_pestana_que_no_pertenece_al_destino(
+    client: TestClient, monkeypatch
+) -> None:
+    """Si el modelo se equivoca y devuelve una pestaña que no existe en
+    ese destino (o viene de otra pantalla), se descarta en vez de
+    mandarla tal cual - nunca abrir una pestaña inexistente."""
+    import agente.cerebro as cerebro
+
+    def _falso(contexto, frase, destinos, pestanas=None):
+        return {"intencion": "navegar", "destino": "reportes", "pestana": "usuarios",
+                "respuesta_hablada": "Vamos a reportes."}
+    monkeypatch.setattr(cerebro, "pensar_asistente", _falso)
+
+    headers = _ingresar(client, "diana")
+    r = client.post("/api/agente/asistente", headers=headers,
+                    json={"texto": "llevame a reportes", "vista": "inicio"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["destino"] == "reportes"
+    assert d["pestana"] is None

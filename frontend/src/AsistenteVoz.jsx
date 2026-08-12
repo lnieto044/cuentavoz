@@ -23,7 +23,13 @@ export default function AsistenteVoz({ token, vista, ir, placeholder }) {
       const r = await preguntarAsistente(dicho, vista, token);
       setRespuesta(r.respuesta_hablada || "");
       hablar(r.respuesta_hablada);
-      if (r.accion === "navegar" && r.destino && ir) ir(r.destino);
+      if (r.accion === "navegar" && r.destino && ir) {
+        // ir() combina el contexto en vez de reemplazarlo: sin fijar
+        // tabInicial explicitamente (aunque sea undefined), una pestaña
+        // pedida en una navegacion anterior por otro camino se quedaba
+        // pegada y aparecia en un destino que no la tiene.
+        ir(r.destino, { tabInicial: r.pestana || undefined });
+      }
     } catch (e) {
       setError(e.message);
     }
