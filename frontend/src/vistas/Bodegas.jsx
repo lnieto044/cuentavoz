@@ -514,7 +514,7 @@ export default function Bodegas({ token, usuario, ir }) {
 
       {pidiendoBodegaNueva && (
         <Dialogo titulo="Solicitar bodega nueva"
-                 mensaje="Queda pendiente de aprobación: no entra al catálogo hasta que otro administrador la confirme desde Auditoría → Aprobaciones."
+                 mensaje="Queda pendiente de aprobación: no entra al catálogo hasta que se confirme desde Auditoría → Aprobaciones."
                  conCampo placeholder="nombre de la bodega"
                  textoAceptar="Solicitar"
                  onAceptar={solicitarBodegaNueva}
