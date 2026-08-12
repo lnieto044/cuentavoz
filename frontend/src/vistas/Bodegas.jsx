@@ -28,6 +28,7 @@ export default function Bodegas({ token, usuario, ir }) {
   const [escuchandoBodega, setEscuchandoBodega] = useState(false);
   const [msg, setMsg] = useState("");
   const [pedirMotivo, setPedirMotivo] = useState(false);
+  const [pidiendoBodegaNueva, setPidiendoBodegaNueva] = useState(false);
   const esAuditor = usuario?.perfil === "auditor";
 
   useEffect(() => {
@@ -137,6 +138,17 @@ export default function Bodegas({ token, usuario, ir }) {
       setMsg("Bodega reabierta: queda registrada la justificación.");
       verDetalle(detalleId);
       pedir("/api/bodegas?propias=1", {}, token).then(setLista).catch(() => {});
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function solicitarBodegaNueva(nombre) {
+    setPidiendoBodegaNueva(false);
+    if (!nombre || !nombre.trim()) return;
+    try {
+      const r = await pedir("/api/bodegas/crear-pendiente", {
+        method: "POST", body: JSON.stringify({ nombre }),
+      }, token);
+      setMsg(r.respuesta_hablada || "Solicitud enviada.");
     } catch (e) { setMsg(e.message); }
   }
 
@@ -482,21 +494,31 @@ export default function Bodegas({ token, usuario, ir }) {
           </p>
 
           <div className="grilla-botones">
-            <button className="btn borde"
-                    onClick={() => detalleId ? verDetalle(detalleId)
-                                  : setMsg("Toque primero una tarjeta para ver su detalle.")}>
-              Ver detalle
-            </button>
             {esAuditor && (
               <button className="btn borde" onClick={exportarEstado}>Exportar estado</button>
             )}
             {esAuditor && (
-              <button className="btn" onClick={() => ir && ir("ajustes")}>
+              <button className="btn"
+                      onClick={() => ir && ir("ajustes", { tabInicial: "usuarios" })}>
                 Asignar personas a bodegas
+              </button>
+            )}
+            {esAuditor && (
+              <button className="btn borde" onClick={() => setPidiendoBodegaNueva(true)}>
+                + Bodega nueva
               </button>
             )}
           </div>
         </>
+      )}
+
+      {pidiendoBodegaNueva && (
+        <Dialogo titulo="Solicitar bodega nueva"
+                 mensaje="Queda pendiente de aprobación: no entra al catálogo hasta que otro administrador la confirme desde Auditoría → Aprobaciones."
+                 conCampo placeholder="nombre de la bodega"
+                 textoAceptar="Solicitar"
+                 onAceptar={solicitarBodegaNueva}
+                 onCancelar={() => setPidiendoBodegaNueva(false)} />
       )}
 
       {pedirMotivo && (

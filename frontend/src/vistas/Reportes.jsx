@@ -25,8 +25,8 @@ const ICONO_TITULO = {
   "Estado del tablero": "📋",
 };
 
-export default function Reportes({ token, usuario }) {
-  const [tab, setTab] = useState("consolidado");
+export default function Reportes({ token, usuario, tabInicial }) {
+  const [tab, setTab] = useState(tabInicial || "consolidado");
 
   return (
     <Marco titulo={tab === "consolidado" ? "Reportes  ·  consolidado de la toma"
@@ -61,8 +61,8 @@ function TablaVistaPrevia({ filas }) {
         {filas.map((f, i) => (
           <tr key={i}>
             {columnas.map((c) => (
-              <td key={c} className={c === "diferencia" ? "dif" : ""}>
-                {c === "diferencia" && f[c] > 0 ? `+${f[c]}` : String(f[c])}
+              <td key={c} className={c === "Diferencia" ? "dif" : ""}>
+                {c === "Diferencia" && f[c] > 0 ? `+${f[c]}` : String(f[c])}
               </td>
             ))}
           </tr>

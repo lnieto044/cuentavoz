@@ -132,7 +132,10 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
             <span>La merma queda trazada con responsable y hora: la revisión ya no depende de la memoria de nadie.</span></div>
           {esAuditor && (
             <div className="grilla-botones">
-              <button className="btn" onClick={() => ir && ir("reportes")}>Ver el reporte del servicio</button>
+              <button className="btn"
+                      onClick={() => ir && ir("reportes", { tabInicial: "analisis" })}>
+                Ver el reporte del servicio
+              </button>
             </div>
           )}
         </div>

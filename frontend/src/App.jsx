@@ -92,7 +92,15 @@ export default function App() {
             return;
           }
           const g = MENU.find((m) => m.id === id);
-          if (g) ir(g.vistas[0]);
+          if (g) {
+            // el menu lateral es una navegacion "limpia": sin esto, un
+            // contexto de una vista anterior (tabInicial="recetas" de
+            // Pedido, bodegaId de un detalle, etc.) se quedaba pegado para
+            // siempre - la proxima vez que se entraba a Ajustes por el
+            // menu, por ejemplo, seguia abriendo la pestana equivocada.
+            setCtx({ sesionId: ctx.sesionId });
+            setVista(g.vistas[0]);
+          }
         }}
       />
 

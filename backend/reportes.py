@@ -4,11 +4,16 @@ import datetime
 import pandas as pd
 from bd import motor
 
+# Los nombres de columna son a proposito los mismos que trae el extracto
+# real de Colsubsidio (ver data/BODEGAS_Y_STOCK.xlsx: "Nr.Artículo",
+# "Artículo", "Unidad", "SD") - Bodega/Contado/Diferencia son las unicas
+# columnas nuevas. Asi el archivo que se descarga aqui se reconoce de una
+# en My Inventory (Oracle) en vez de traer nombres genericos inventados.
 CONSULTA = """
-SELECT a.codigo, a.nombre_oficial AS articulo, a.unidad_medida AS unidad,
-       b.nombre_oficial AS bodega, c.cantidad AS contado,
-       st.cantidad_sd AS sistema,
-       c.cantidad - COALESCE(st.cantidad_sd, 0) AS diferencia
+SELECT a.codigo AS "Nr.Artículo", a.nombre_oficial AS "Artículo",
+       a.unidad_medida AS "Unidad", b.nombre_oficial AS "Bodega",
+       c.cantidad AS "Contado", st.cantidad_sd AS "SD",
+       c.cantidad - COALESCE(st.cantidad_sd, 0) AS "Diferencia"
 FROM conteo c
 JOIN articulo a ON a.codigo = c.articulo_codigo
 JOIN sesion_conteo sc ON sc.id = c.sesion_id
@@ -21,12 +26,12 @@ WHERE c.estado = 'confirmado'
 
 def consolidado(formato: str = "xlsx") -> tuple[str, int, list[dict]]:
     df = pd.read_sql(CONSULTA, motor)
-    # "sistema" sale NULL/NaN cuando el articulo no tiene fila de stock en
-    # esa bodega (LEFT JOIN); NaN no es JSON valido para la vista previa,
-    # y aqui significa lo mismo que en el resto de la app: no hay dato,
-    # se trata como 0.
-    df["sistema"] = df["sistema"].fillna(0)
-    df["diferencia"] = df["diferencia"].round(2)
+    # "SD" sale NULL/NaN cuando el articulo no tiene fila de stock en esa
+    # bodega (LEFT JOIN); NaN no es JSON valido para la vista previa, y
+    # aqui significa lo mismo que en el resto de la app: no hay dato, se
+    # trata como 0.
+    df["SD"] = df["SD"].fillna(0)
+    df["Diferencia"] = df["Diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/consolidado_{marca}.{formato}"
@@ -42,8 +47,8 @@ def diferencias_archivo(formato: str = "xlsx") -> tuple[str, int, int]:
     """«Diferencias por bodega» descargable: solo las filas donde el
     conteo no cuadro con el sistema, no el consolidado completo."""
     df = pd.read_sql(CONSULTA, motor)
-    df["diferencia"] = df["diferencia"].round(2)
-    df = df[df["diferencia"] != 0]
+    df["Diferencia"] = df["Diferencia"].round(2)
+    df = df[df["Diferencia"] != 0]
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/diferencias_{marca}.{formato}"
@@ -51,14 +56,14 @@ def diferencias_archivo(formato: str = "xlsx") -> tuple[str, int, int]:
         df.to_csv(ruta, index=False)
     else:
         df.to_excel(ruta, index=False)
-    return ruta, len(df), df["bodega"].nunique() if len(df) else 0
+    return ruta, len(df), df["Bodega"].nunique() if len(df) else 0
 
 
 def detalle_bodega(bodega_id: int, formato: str = "xlsx") -> str:
     """«Descargar detalle»: el conteo completo de una sola bodega."""
     df = pd.read_sql(CONSULTA + " AND b.id = :bodega_id",
                      motor, params={"bodega_id": bodega_id})
-    df["diferencia"] = df["diferencia"].round(2)
+    df["Diferencia"] = df["Diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
     marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/bodega_{bodega_id}_{marca}.{formato}"
