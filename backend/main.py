@@ -404,6 +404,16 @@ def ver_avance(sesion_id: int, bodega_id_respaldo: int | None = None,
             "bodega": est.get("bodega_nombre"), "ultimos": detalle}
 
 
+def _limpiar_nombre_dictado(t: str) -> str:
+    """El reconocimiento de voz del navegador cierra la frase con
+    puntuación que nadie dijo ("Juguetería."). Ya se le quita para
+    BUSCAR una bodega (servicios.conciliacion.normalizar); esto hace lo
+    mismo pero para GUARDAR un nombre nuevo - sin tocar tildes ni
+    mayúsculas, que sí importan en lo que queda escrito en el catálogo."""
+    import re
+    return re.sub(r"[.,;:!¿?¡]+\s*$", "", t.strip()).strip()
+
+
 class CrearProductoIn(BaseModel):
     nombre: str
     unidad_medida: str
@@ -423,10 +433,11 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
         raise HTTPException(409, "Abra una bodega antes de crear un producto.")
     if p.cantidad_inicial < 0:
         raise HTTPException(400, "La cantidad inicial no puede ser negativa.")
+    nombre = _limpiar_nombre_dictado(p.nombre).upper()
     codigo = f"PEND-{datetime.now().strftime('%H%M%S%f')[:10]}"
     es_auditor = u.perfil == "auditor"
     with Sesion() as s:
-        s.add(Articulo(codigo=codigo, nombre_oficial=p.nombre.upper().strip(),
+        s.add(Articulo(codigo=codigo, nombre_oficial=nombre,
                        unidad_medida=p.unidad_medida))
         s.commit()
         conteo = Conteo(sesion_id=p.sesion_id, articulo_codigo=codigo,
@@ -438,16 +449,16 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
         if es_auditor:
             s.add(StockSistema(articulo_codigo=codigo, bodega_id=bodega_id, cantidad_sd=0))
         else:
-            s.add(Aprobacion(tipo="producto", nombre=p.nombre.upper().strip(),
+            s.add(Aprobacion(tipo="producto", nombre=nombre,
                              unidad_medida=p.unidad_medida, cantidad_inicial=p.cantidad_inicial,
                              bodega_id=bodega_id, articulo_codigo=codigo,
                              conteo_id=conteo.id, creado_por_id=u.id))
         s.commit()
     if es_auditor:
-        registrar(u, "CREACION", f"{p.nombre.upper()} creado")
+        registrar(u, "CREACION", f"{nombre} creado")
         return {"ok": True, "codigo": codigo,
                 "respuesta_hablada": "Creado y confirmado en el catálogo."}
-    registrar(u, "CREACION", f"{p.nombre.upper()} creado, pendiente de aprobacion")
+    registrar(u, "CREACION", f"{nombre} creado, pendiente de aprobacion")
     return {"ok": True, "codigo": codigo,
             "respuesta_hablada": "Creado. Queda pendiente de aprobación del administrador; "
                                  "el conteo sigue sin interrupción."}
@@ -585,7 +596,7 @@ def crear_bodega_pendiente(p: CrearBodegaIn, u: Usuario = Depends(usuario_actual
     contrario terminaria aprobando su propia solicitud, lo cual no
     verifica nada (visto en produccion: Diana pidio "ALIMENTOS" y quedo
     esperando su propia firma en su propia bandeja)."""
-    nombre = p.nombre.upper().strip()
+    nombre = _limpiar_nombre_dictado(p.nombre).upper()
     if not nombre:
         raise HTTPException(400, "Dígame el nombre de la bodega.")
     with Sesion() as s:

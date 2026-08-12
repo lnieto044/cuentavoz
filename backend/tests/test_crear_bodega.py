@@ -30,6 +30,24 @@ def test_solicitar_bodega_nueva_queda_pendiente_y_no_es_visible_aun(
     assert "ALMACEN NUEVO PISCILAGO" not in [b["bodega"] for b in despues.json()]
 
 
+def test_solicitar_bodega_nueva_quita_el_punto_del_reconocimiento_de_voz(
+    client: TestClient,
+) -> None:
+    """Bug real reportado desde producción: el reconocimiento de voz
+    cierra la frase con un punto ("Juguetería.") que nadie dijo, y
+    quedaba guardado tal cual en el catálogo para siempre."""
+    headers_luis = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/crear-pendiente", headers=headers_luis,
+                    json={"nombre": "Juguetería."})
+    assert r.status_code == 200, r.text
+
+    headers_diana = _ingresar(client, "diana")
+    pendientes = client.get("/api/aprobaciones?estado=pendiente", headers=headers_diana).json()
+    nombres = [a["nombre"] for a in pendientes if a["tipo"] == "bodega"]
+    assert "JUGUETERÍA" in nombres
+    assert "JUGUETERÍA." not in nombres
+
+
 def test_aprobar_bodega_nueva_la_crea_de_verdad_y_se_puede_abrir(
     client: TestClient,
 ) -> None:
