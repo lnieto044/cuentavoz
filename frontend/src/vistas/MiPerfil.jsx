@@ -16,6 +16,7 @@ export default function MiPerfil({ token }) {
   const [datos, setDatos] = useState(null);
   const [bodegas, setBodegas] = useState([]);
   const [msg, setMsg] = useState("");
+  const [pinActual, setPinActual] = useState("");
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [err, setErr] = useState("");
@@ -84,11 +85,12 @@ export default function MiPerfil({ token }) {
   }
   async function cambiarPin() {
     setErr("");
+    if (!pinActual) return setErr("Digite su PIN actual.");
     if (pin.length < 6) return setErr("El PIN debe tener al menos 6 dígitos.");
     if (pin !== pin2) return setErr("Los dos PIN no coinciden.");
     try {
       const r = await pedir("/api/usuarios/yo/pin", {
-        method: "PUT", body: JSON.stringify({ pin }),
+        method: "PUT", body: JSON.stringify({ pin_actual: pinActual, pin }),
       }, token);
       // el PIN nuevo invalida el token con el que se pidió el cambio (igual
       // que "cerrar todas las sesiones"): sin recargar, el resto de llamadas
@@ -195,11 +197,18 @@ export default function MiPerfil({ token }) {
             Su PIN vence en <b>{datos.pin_vence_en_dias} días</b>
           </p>
 
+          <input type="password" placeholder="PIN actual" value={pinActual}
+                 autoComplete="current-password"
+                 onChange={(e) => setPinActual(e.target.value)}
+                 style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
+                          border: "1px solid var(--borde)", borderRadius: 12 }} />
           <input type="password" placeholder="PIN nuevo (6 dígitos)" value={pin}
+                 autoComplete="new-password"
                  onChange={(e) => setPin(e.target.value)}
                  style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <input type="password" placeholder="Confirmar PIN" value={pin2}
+                 autoComplete="new-password"
                  onChange={(e) => setPin2(e.target.value)}
                  style={{ width: "100%", padding: "11px 13px",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />

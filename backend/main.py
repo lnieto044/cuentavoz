@@ -1,5 +1,6 @@
 """La API de CuentaVoz. Aqui se conectan la tableta, el agente y la base."""
 import os
+import secrets
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
@@ -56,6 +57,10 @@ async def cabeceras(request: Request, llamar):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "SAMEORIGIN"
     resp.headers["Referrer-Policy"] = "no-referrer"
+    # obliga HTTPS en cada visita futura del navegador, no solo en esta -
+    # sin esto, un enlace http:// (o un portal cautivo de Wi-Fi) puede
+    # interceptar la primera peticion antes de que el servidor la redirija.
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
 
 
@@ -439,9 +444,21 @@ def _ultima_sesion(s, bodega_id: int, tipo: str):
             .order_by(SesionConteo.id.desc()).first())
 
 
+def _requiere_acceso_bodega(s, u: Usuario, bodega_id: int):
+    """El tablero (listar_bodegas) ya oculta las bodegas ajenas a un
+    auxiliar, pero eso no basta: sin este chequeo, pedir el detalle,
+    las firmas o el inventario completo por su bodega_id directamente
+    (sin pasar por el tablero) dejaba ver auditoria y stock de cualquier
+    zona con solo cambiar el numero en la URL."""
+    if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
+            usuario_id=u.id, bodega_id=bodega_id).first():
+        raise HTTPException(403, "Esa bodega no esta asignada a usted.")
+
+
 @app.get("/api/bodegas/{bodega_id}/firmas")
 def ver_firmas(bodega_id: int, u: Usuario = Depends(usuario_actual)):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         conteo = _ultima_sesion(s, bodega_id, "conteo")
         auditoria = _ultima_sesion(s, bodega_id, "auditoria")
@@ -664,6 +681,7 @@ def _color_hito(t):
 @app.get("/api/bodegas/{bodega_id}/detalle")
 def detalle_bodega(bodega_id: int, u: Usuario = Depends(usuario_actual)):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         if b is None:
             raise HTTPException(404, "Bodega no encontrada.")
@@ -766,6 +784,7 @@ def articulos_bodega(bodega_id: int, u: Usuario = Depends(usuario_actual)):
     """El extracto completo de My Inventory para esta bodega, tal cual
     quedo cargado del Excel: codigo, articulo, unidad y saldo del sistema."""
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         if b is None:
             raise HTTPException(404, "Bodega no encontrada.")
@@ -1395,7 +1414,7 @@ class CrearUsuarioIn(BaseModel):
     nombre: str
     perfil: str
     correo: str = ""
-    pin: str = "StockXperts"
+    pin: str | None = None    # None: se genera uno temporal, ver mas abajo
 
 
 @app.post("/api/usuarios")
@@ -1403,13 +1422,24 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
     nombre = datos.nombre.strip().lower()
     if datos.perfil not in ("auxiliar", "auditor"):
         raise HTTPException(400, "El perfil debe ser auxiliar o auditor.")
-    if len(datos.pin) < 6:
+    # sin esto, todo usuario creado desde Ajustes (la pantalla nunca pide
+    # un PIN) quedaba con la misma clave de siempre - la misma que
+    # aparece publicada en el README para las cuentas de demostracion.
+    # Un temporal aleatorio, distinto cada vez, obliga a que quien lo
+    # reciba lo cambie por uno propio desde Mi perfil.
+    pin_generado = None
+    if datos.pin is None:
+        pin_generado = secrets.token_urlsafe(6)
+        pin_para_guardar = pin_generado
+    else:
+        pin_para_guardar = datos.pin
+    if len(pin_para_guardar) < 6:
         raise HTTPException(400, "El PIN debe tener al menos 6 digitos.")
     with Sesion() as s:
         if s.query(Usuario).filter_by(nombre=nombre).first():
             raise HTTPException(409, "Ya existe un usuario con ese nombre.")
         nuevo = Usuario(nombre=nombre, perfil=datos.perfil,
-                        clave_hash=hash_clave(datos.pin), correo=datos.correo)
+                        clave_hash=hash_clave(pin_para_guardar), correo=datos.correo)
         s.add(nuevo)
         s.commit()
         s.refresh(nuevo)
@@ -1418,7 +1448,10 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
         nuevo.codigo = f"CS-{48000 + nid}"
         s.commit()
     registrar(u, "USUARIO", f"Usuario {nombre} creado ({datos.perfil})", "ok")
-    return {"ok": True, "id": nid}
+    respuesta = {"ok": True, "id": nid}
+    if pin_generado:
+        respuesta["pin_temporal"] = pin_generado
+    return respuesta
 
 
 @app.put("/api/usuarios/yo")
@@ -1778,7 +1811,8 @@ def guardar_preferencias(body: dict, u: Usuario = Depends(usuario_actual)):
 
 
 @app.post("/api/usuarios/yo/huella/opciones")
-def opciones_registro_huella(u: Usuario = Depends(usuario_actual)):
+@limiter.limit("10/minute")
+def opciones_registro_huella(request: Request, u: Usuario = Depends(usuario_actual)):
     """Paso 1 del registro: reto de WebAuthn para navigator.credentials.create()."""
     with Sesion() as s:
         existentes = [c.credential_id for c in
@@ -1787,7 +1821,8 @@ def opciones_registro_huella(u: Usuario = Depends(usuario_actual)):
 
 
 @app.post("/api/usuarios/yo/huella/verificar")
-def verificar_registro_huella(credencial: dict, u: Usuario = Depends(usuario_actual)):
+@limiter.limit("10/minute")
+def verificar_registro_huella(request: Request, credencial: dict, u: Usuario = Depends(usuario_actual)):
     """Paso 2: verifica la respuesta del navegador y guarda la credencial."""
     try:
         verificado = huella.verificar_registro(u.id, credencial)
@@ -1826,12 +1861,18 @@ def cerrar_todas_sesiones(u: Usuario = Depends(usuario_actual)):
 
 
 @app.put("/api/usuarios/yo/pin")
-def cambiar_pin(body: dict, u: Usuario = Depends(usuario_actual)):
+@limiter.limit("5/minute")
+def cambiar_pin(request: Request, body: dict, u: Usuario = Depends(usuario_actual)):
     pin = str(body.get("pin", ""))
     if len(pin) < 6:
         raise HTTPException(400, "El PIN debe tener al menos 6 digitos.")
     with Sesion() as s:
         usr = s.get(Usuario, u.id)
+        # sin esto, cualquiera con el token abierto (tableta compartida sin
+        # bloquear, token filtrado) podia tomarse la cuenta por completo con
+        # solo mandar un PIN nuevo - ni siquiera hacia falta saber el viejo.
+        if not verificar_clave(str(body.get("pin_actual", "")), usr.clave_hash):
+            raise HTTPException(401, "El PIN actual no es correcto.")
         usr.clave_hash = hash_clave(pin)      # nunca en texto plano
         usr.version_token = (usr.version_token or 0) + 1  # cierra sesiones con el PIN viejo
         s.commit()
@@ -1840,16 +1881,36 @@ def cambiar_pin(body: dict, u: Usuario = Depends(usuario_actual)):
     return {"ok": True, "token": nuevo_token}
 
 
+def _tipo_imagen_real(contenido: bytes) -> str | None:
+    """El Content-Type que manda el navegador lo elige quien sube el
+    archivo, no el archivo: antes se guardaba y se devolvia tal cual al
+    pedir la foto, asi que subir algo con Content-Type "text/html" lo
+    serviria despues como HTML. Aqui se detecta el tipo real por los
+    primeros bytes (firma del formato), no por lo que diga la cabecera."""
+    if contenido.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if contenido.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if contenido.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if contenido[:4] == b"RIFF" and contenido[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 @app.post("/api/usuarios/yo/foto")
 async def subir_foto(foto: UploadFile = File(...),
                      u: Usuario = Depends(usuario_actual)):
     contenido = await foto.read()
     if len(contenido) > 3 * 1024 * 1024:
         raise HTTPException(400, "La foto no puede pesar mas de 3 MB.")
+    tipo_real = _tipo_imagen_real(contenido)
+    if tipo_real is None:
+        raise HTTPException(400, "El archivo no es una imagen valida (JPEG, PNG, GIF o WebP).")
     with Sesion() as s:
         usr = s.get(Usuario, u.id)
         usr.foto = contenido
-        usr.foto_tipo = foto.content_type or "image/jpeg"
+        usr.foto_tipo = tipo_real
         s.commit()
     return {"ok": True}
 

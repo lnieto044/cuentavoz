@@ -1,5 +1,6 @@
 """Identidad: contraseñas cifradas, token firmado y permisos por perfil."""
 import os
+import secrets
 import datetime
 import jwt
 import bcrypt
@@ -8,7 +9,25 @@ from fastapi.security import OAuth2PasswordBearer
 from bd import Sesion
 from modelos import Usuario
 
-SECRETO = os.getenv("SECRETO_JWT", "cambieme-por-una-frase-larga")
+
+def _secreto_jwt() -> str:
+    """Sin SECRETO_JWT en el entorno, antes se firmaba con una frase fija
+    escrita en el codigo fuente publico - cualquiera que leyera el repo
+    podia forjar un token valido para cualquier perfil, incluido auditor.
+    En Render siempre esta configurado (ver render.yaml, generateValue:
+    true); aqui solo cubre un arranque local sin .env, y con un secreto
+    aleatorio de verdad en vez de uno que cualquiera puede leer."""
+    llave = os.getenv("SECRETO_JWT")
+    if llave:
+        return llave
+    print("[seguridad] SECRETO_JWT no esta configurado: se genero uno "
+          "aleatorio solo para este arranque (las sesiones no sobreviven "
+          "un reinicio). Defina SECRETO_JWT en su .env para desarrollo "
+          "estable, o en las variables de entorno en produccion.")
+    return secrets.token_hex(32)
+
+
+SECRETO = _secreto_jwt()
 MINUTOS = int(os.getenv("MINUTOS_TOKEN", 480))
 esquema = OAuth2PasswordBearer(tokenUrl="/api/ingresar", auto_error=False)
 

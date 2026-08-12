@@ -149,10 +149,15 @@ negativos detectados** (el mini reto).
 
 ## 🔒 Seguridad
 
-Contraseñas con bcrypt, sesiones con token JWT que vence, ingreso opcional
-con huella del dispositivo (WebAuthn), permisos por perfil, consultas por
-ORM, secretos fuera del repositorio y registro de trazabilidad inmutable.
-Alineado con la Ley 1581 de 2012.
+Contraseñas con bcrypt, sesiones con token JWT que vence (invalidado por
+completo al cambiar el PIN o cerrar todas las sesiones), cambio de PIN
+que exige el PIN vigente, ingreso opcional con huella del dispositivo
+(WebAuthn real), permisos por perfil reforzados también por asignación
+de bodega (auditados con tests de regresión), consultas por ORM sin SQL
+armado a mano, límite de tasa en los endpoints sensibles, cabeceras de
+seguridad (incluida HSTS), secretos fuera del repositorio y registro de
+trazabilidad inmutable. Alineado con la Ley 1581 de 2012. Detalle
+técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 
 ---
 
@@ -162,6 +167,7 @@ Alineado con la Ley 1581 de 2012.
 |---|---|
 | 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
+| 🧭 **Arquitectura** | Mapa del código, por qué cada librería, modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)** |
 | 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V3.1.pdf)** |
 | 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
 | 🎥 **Video** | **https://www.youtube.com/watch?v=4tSRTV5POd4** |

@@ -183,12 +183,15 @@ function TabUsuarios({ token, usuario }) {
   async function crear() {
     if (!nuevo?.nombre?.trim()) return;
     try {
-      await pedir("/api/usuarios", {
+      // sin "pin" en el body: el backend genera uno temporal distinto
+      // para cada persona en vez de reusar siempre la misma clave.
+      const r = await pedir("/api/usuarios", {
         method: "POST",
         body: JSON.stringify({ nombre: nuevo.nombre, perfil: nuevo.perfil || "auxiliar",
                                correo: nuevo.correo || "" }),
       }, token);
-      setMsg(`Usuario ${nuevo.nombre} creado con PIN StockXperts.`);
+      setMsg(`Usuario ${nuevo.nombre} creado. PIN temporal: ${r.pin_temporal} `
+             + "(cambíelo al primer ingreso, en Mi perfil).");
       setNuevo(null);
       cargar();
     } catch (e) { setMsg(e.message); }

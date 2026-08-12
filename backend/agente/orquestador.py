@@ -1,7 +1,8 @@
 """Donde el pensar se vuelve accion. El agente propone, el backend dispone."""
 from datetime import datetime
 from bd import Sesion
-from modelos import Conteo, StockSistema, SesionConteo, Bodega, Alerta, Articulo
+from modelos import (Conteo, StockSistema, SesionConteo, Bodega, Alerta,
+                     Articulo, AsignacionBodega)
 from servicios.conciliacion import buscar_articulo, aprender_alias
 from servicios.validacion import validar_conteo
 from agente.cerebro import pensar
@@ -450,6 +451,15 @@ def _abrir(est, texto_bodega, turno, usuario):
                     break
         if b is None:
             turno["respuesta_hablada"] = "No encuentro esa bodega. ¿Me repite el nombre?"
+            return turno
+        # la misma regla que /api/bodegas/abrir: decirlo por voz no debe
+        # abrir puertas que el mismo pedido por REST tiene cerradas. Sin
+        # esto, un auxiliar podia saltarse la asignacion de zona con solo
+        # dictar el nombre de una bodega ajena.
+        if (getattr(usuario, "perfil", None) == "auxiliar"
+                and not s.query(AsignacionBodega).filter_by(
+                    usuario_id=usuario.id, bodega_id=b.id).first()):
+            turno["respuesta_hablada"] = f"{b.nombre_oficial} no esta asignada a usted."
             return turno
         abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
                                                  estado="abierta").first()
