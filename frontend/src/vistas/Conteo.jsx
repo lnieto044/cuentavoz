@@ -278,6 +278,29 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     });
   }
 
+  /** Para elegir bodega (a diferencia del conteo, que confirma hablado
+      antes de guardar): esto solo llena el buscador con lo que se
+      reconoció, sin abrir nada todavía. Nombres poco comunes ("Piscilago")
+      son justo donde más se equivoca el reconocimiento de voz del
+      navegador - mejor que la persona vea el texto y confirme con
+      "Abrir por nombre exacto" (o corrija a mano) que descubrirlo recién
+      cuando el agente responde "no la encuentro" con otra cosa distinta. */
+  function alMicrofonoBodega() {
+    if (estado === "escuchando") {
+      rec.current?.stop();
+      return;
+    }
+    setErr("");
+    rec.current = escuchar({
+      alTexto: (t) => setTextoBodega(t),
+      alEstado: (e, parcial) => {
+        setEstado(e);
+        if (parcial) setTextoBodega(parcial);
+      },
+      alError: setErr,
+    });
+  }
+
   return (
     <Marco
       titulo={`Conteo por voz${bodega ? "  ·  " + bodega.bodega : ""}`}
@@ -288,19 +311,50 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       {!bodega ? (
         <div className="card">
           <h3>¿Qué bodega va a contar?</h3>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6 }}>
             <button
               className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
               style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-              onClick={alMicrofono} title="diga el nombre de la bodega">
+              onClick={alMicrofonoBodega} title="diga el nombre de la bodega">
               🎤
             </button>
             <small style={{ color: "var(--grafito)" }}>
               {estado === "escuchando" ? "Escuchando…"
-                : estado === "procesando" ? "Procesando…"
                 : "o diga el nombre de la bodega en voz alta"}
             </small>
           </div>
+          <p className="pista" style={{ marginBottom: 8 }}>
+            Lo que reconozca aparece abajo para escribir — revíselo (nombres
+            como «Piscilago» a veces se transcriben mal) y confirme con
+            «Abrir por nombre exacto».
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+            <input
+              style={{ flex: 1, minWidth: 240, padding: "12px 14px",
+                       border: "1px solid var(--borde)", borderRadius: 12 }}
+              value={textoBodega}
+              onChange={(e) => setTextoBodega(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && abrir()}
+              placeholder="nombre de la bodega…"
+            />
+            <button className="btn" onClick={() => abrir()}>Abrir por nombre exacto</button>
+          </div>
+          {err && <p className="error" style={{ marginBottom: 10 }}>{err}</p>}
+          {msgBodega && <p className="msg-ok" style={{ marginBottom: 10 }}>{msgBodega}</p>}
+          {bodegaNoEncontrada && (
+            <div className="banner" style={{ marginBottom: 10 }}>
+              <span className="ico">!</span>
+              <span>
+                <b>¿Crear «{bodegaNoEncontrada}»?</b>
+                <span>No existe en el catálogo. Queda pendiente de aprobación del
+                      administrador; el conteo no se detiene por esto.</span>
+              </span>
+              <button className="btn" style={{ flex: "none" }}
+                      onClick={solicitarBodegaNueva}>
+                Solicitar bodega nueva
+              </button>
+            </div>
+          )}
           {asignadas === null ? (
             <p className="cargando">Cargando sus bodegas asignadas…</p>
           ) : asignadas.length > 0 && !buscarOtra ? (
@@ -337,7 +391,6 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
                   );
                 })}
               </div>
-              {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
               <div className="grilla-botones" style={{ marginTop: 14 }}>
                 <button className="btn borde"
                         onClick={() => { setBuscarOtra(true); if (!todas) cargarTodas(); }}>
@@ -352,34 +405,6 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
                   Buscando fuera de sus bodegas asignadas.
                 </p>
               )}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <input
-                  style={{ flex: 1, minWidth: 240, padding: "12px 14px",
-                           border: "1px solid var(--borde)", borderRadius: 12 }}
-                  value={textoBodega}
-                  onChange={(e) => setTextoBodega(e.target.value)}
-                  placeholder="escriba para buscar…"
-                  autoFocus
-                />
-                <button className="btn" onClick={() => abrir()}>Abrir por nombre exacto</button>
-              </div>
-              {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
-              {msgBodega && <p className="msg-ok" style={{ marginTop: 10 }}>{msgBodega}</p>}
-              {bodegaNoEncontrada && (
-                <div className="banner" style={{ marginTop: 10 }}>
-                  <span className="ico">!</span>
-                  <span>
-                    <b>¿Crear «{bodegaNoEncontrada}»?</b>
-                    <span>No existe en el catálogo. Queda pendiente de aprobación del
-                          administrador; el conteo no se detiene por esto.</span>
-                  </span>
-                  <button className="btn" style={{ flex: "none" }}
-                          onClick={solicitarBodegaNueva}>
-                    Solicitar bodega nueva
-                  </button>
-                </div>
-              )}
-
               {todas === null ? (
                 <p className="cargando" style={{ marginTop: 10 }}>Cargando bodegas…</p>
               ) : (
