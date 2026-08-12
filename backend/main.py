@@ -1025,10 +1025,43 @@ def catalogo_ligero(u: Usuario = Depends(usuario_actual)):
 
 @app.get("/api/articulos/consulta")
 def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_actual)):
-    from servicios.conciliacion import buscar_articulo
+    from servicios.conciliacion import buscar_articulo, buscar_bodegas_candidatas
     cand = buscar_articulo(q)
     if not cand:
-        return {"resumen": "No encontre ese articulo en el catalogo.", "bodegas": []}
+        # lo dicho no es ningun articulo del catalogo - pero si SI es el
+        # nombre de una bodega (p. ej. alguien dice "restaurante" en este
+        # buscador de ingredientes por error, cuando quería ir a Conteo a
+        # abrirla), vale la pena decirlo en vez de un "no encontre" a
+        # secas que deja a la persona sin saber por que. "restaurante" a
+        # secas encaja en mas de una bodega real - ahi no hay una sola
+        # que prellenar, pero igual vale la pena decir que existen y
+        # mandar a Conteo a terminar de decir cual.
+        with Sesion() as s:
+            ids_permitidos = _ids_permitidos_para_buscar(s, u)
+            candidatas = buscar_bodegas_candidatas(s, q, ids_permitidos)
+            if ids_permitidos is not None:
+                # buscar_bodegas_candidatas() no restringe una coincidencia
+                # EXACTA (para que /abrir pueda decir "existe pero no es
+                # suya" en vez de "no existe") - aqui, en cambio, esto es
+                # solo una sugerencia informativa sin ese motivo: no hay
+                # por qué nombrarle a un auxiliar una bodega ajena.
+                candidatas = [c for c in candidatas if c.id in ids_permitidos]
+        if len(candidatas) == 1:
+            nombre = candidatas[0].nombre_oficial
+            return {
+                "resumen": (f"No encuentro ese artículo, pero {nombre.title()} "
+                            "sí es una bodega - vaya a Conteo para abrirla."),
+                "bodegas": [], "sugerencia_bodega": nombre,
+            }
+        if candidatas:
+            nombres = ", ".join(c.nombre_oficial.title() for c in candidatas[:4])
+            return {
+                "resumen": (f"No encuentro ese artículo. Ese nombre coincide con varias "
+                            f"bodegas ({nombres}) - vaya a Conteo para abrir la que necesita."),
+                "bodegas": [], "sugerencia_bodega": None,
+            }
+        return {"resumen": "No encontre ese articulo en el catalogo.",
+                "bodegas": [], "sugerencia_bodega": None}
     # si la persona ya eligio una de las alternativas, usa esa; si no, la mejor
     a = next((c for c in cand if c["codigo"] == codigo), None) or cand[0]
     hoy = datetime.now().date()

@@ -1,0 +1,74 @@
+"""/api/articulos/consulta: cuando lo dicho no es un artículo pero sí
+parece el nombre de una bodega, debe sugerir ir a Conteo en vez de
+responder solo "no encontré" - sin esto, alguien que dice el nombre de
+una bodega en el buscador de ingredientes (la pantalla equivocada) se
+queda sin saber por qué no encontró nada."""
+from fastapi.testclient import TestClient
+
+
+def test_sugiere_la_bodega_asignada_cuando_el_nombre_es_exacto(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    r = client.get(
+        "/api/articulos/consulta",
+        params={"q": datos_regresion["bodega_asignada"]},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["sugerencia_bodega"] == datos_regresion["bodega_asignada"]
+    assert "Conteo" in cuerpo["resumen"]
+
+
+def test_no_le_sugiere_ni_le_nombra_una_bodega_que_no_le_esta_asignada(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """buscar_bodegas_candidatas() no restringe una coincidencia EXACTA
+    (para que /abrir pueda decir "existe pero no es suya" en vez de "no
+    existe"), pero esta sugerencia es solo informativa - no hay motivo
+    para revelarle a un auxiliar el nombre de una bodega ajena aunque la
+    haya dicho exacta."""
+    r = client.get(
+        "/api/articulos/consulta",
+        params={"q": datos_regresion["bodega_no_asignada"]},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["sugerencia_bodega"] is None
+    assert datos_regresion["bodega_no_asignada"] not in cuerpo["resumen"]
+
+
+def test_articulo_real_sigue_funcionando_igual(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """Regresión: agregar la sugerencia de bodega no debe tocar el
+    camino normal cuando sí se encuentra un artículo de verdad."""
+    r = client.get(
+        "/api/articulos/consulta",
+        params={"q": "articulo regresion"},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo.get("codigo") == datos_regresion["articulo_codigo"]
+    assert "sugerencia_bodega" not in cuerpo or cuerpo.get("sugerencia_bodega") is None
+
+
+def test_sin_ningun_parecido_responde_el_mensaje_generico(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    r = client.get(
+        "/api/articulos/consulta",
+        # gibberish elegido para que ninguna de sus palabras sea, ni de
+        # casualidad, substring de "BODEGA ASIGNADA"/"BODEGA RESTRINGIDA"
+        # (una consulta con palabras reales del español sí puede coincidir
+        # por casualidad - "nada" cabe dentro de "asigNADA" - eso no es un
+        # bug de esta función, y no es lo que esta prueba busca cubrir).
+        params={"q": "qzxjklwvbn tfghqzxjkl"},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["sugerencia_bodega"] is None
+    assert cuerpo["resumen"] == "No encontre ese articulo en el catalogo."

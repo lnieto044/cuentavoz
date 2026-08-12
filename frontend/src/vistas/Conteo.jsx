@@ -48,11 +48,16 @@ const ETIQUETA_BODEGA = {
   en_auditoria: ["EN AUDITORÍA", "oro"], cerrada: ["CERRADA", "verde"],
 };
 
-export default function Conteo({ token, sesionId = 1, ir, usuario }) {
+export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerida }) {
   const [bodega, setBodega] = useState(null);
   const [asignadas, setAsignadas] = useState(null);
   const [todas, setTodas] = useState(null);
-  const [textoBodega, setTextoBodega] = useState("");
+  // Llega desde Bodegas cuando alguien buscó por voz/texto el nombre de
+  // una bodega en el buscador de INGREDIENTES (no encontró artículo, pero
+  // el nombre sí es una bodega real) - deja el nombre ya listo para
+  // confirmar con "Abrir por nombre exacto" en vez de tener que dictarlo
+  // otra vez desde cero.
+  const [textoBodega, setTextoBodega] = useState(bodegaSugerida || "");
   const [buscarOtra, setBuscarOtra] = useState(false);
   const [bodegaNoEncontrada, setBodegaNoEncontrada] = useState(null);
   const [opcionesBodega, setOpcionesBodega] = useState(null);

@@ -207,6 +207,20 @@ export default function Bodegas({ token, usuario, ir }) {
           <>
             <p className="rotulo" style={{ marginTop: 14 }}>CuentaVoz responde</p>
             <p className="burbuja">{consulta.resumen}</p>
+            {consulta.sugerencia_bodega && (
+              <div className="banner" style={{ marginTop: 10 }}>
+                <span className="ico">💡</span>
+                <span>
+                  <b>{consulta.sugerencia_bodega}</b> es el nombre de una bodega, no de un artículo.
+                  <span> Este buscador es para ingredientes — para abrirla y empezar a
+                        contar, vaya a Conteo.</span>
+                </span>
+                <button className="btn" style={{ flex: "none" }}
+                        onClick={() => ir && ir("conteo", { bodegaSugerida: consulta.sugerencia_bodega })}>
+                  Ir a Conteo
+                </button>
+              </div>
+            )}
             {consulta.ambiguo && consulta.alternativas?.length > 0 && (
               <div className="chips" style={{ marginTop: 10 }}>
                 <span className="pista" style={{ width: "100%" }}>¿Era este otro?</span>
