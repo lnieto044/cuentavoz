@@ -87,7 +87,15 @@ def arranque():
         # bodegas asignadas por persona: solo la primera vez, y solo si ya
         # hay bodegas cargadas (cargar_excel.py corre antes que la API)
         if s.query(AsignacionBodega).count() == 0 and s.query(Bodega).count() > 0:
-            bodegas = s.query(Bodega).order_by(Bodega.nombre_oficial).all()
+            # del Excel real de Colsubsidio, solo un subconjunto de bodegas
+            # trae existencia de sistema (SD) cargada - las demas son
+            # ubicaciones del catalogo sin stock_sistema asociado. Priorizar
+            # esas para el reparto demo evita que un auxiliar de prueba abra
+            # una bodega con "0 referencias" y no pueda mostrar diferencias
+            # contra el sistema en una demo en vivo.
+            con_stock = {bid for (bid,) in s.query(StockSistema.bodega_id).distinct()}
+            todas = s.query(Bodega).order_by(Bodega.nombre_oficial).all()
+            bodegas = sorted(todas, key=lambda b: (b.id not in con_stock, b.nombre_oficial))
             usuarios = {u.nombre: u for u in s.query(Usuario).all()}
             reparto = {"luis": bodegas[0:3], "stephanie": bodegas[3:6],
                       "valentina": bodegas[6:9]}
@@ -298,7 +306,10 @@ class CrearProductoIn(BaseModel):
 
 @app.post("/api/conteo/crear-producto")
 def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_actual)):
-    """El conteo no se detiene: el producto entra pendiente y sigue contando."""
+    """El conteo no se detiene: el producto entra pendiente y sigue contando.
+    Si quien cuenta es el administrador, el producto se confirma de una -
+    igual que en crear_bodega_pendiente, dejarlo pendiente significaria que
+    solo el mismo administrador puede aprobarlo despues."""
     est = ESTADOS.get(p.sesion_id, {})
     bodega_id = est.get("bodega_id")
     if not bodega_id:
@@ -306,21 +317,29 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
     if p.cantidad_inicial < 0:
         raise HTTPException(400, "La cantidad inicial no puede ser negativa.")
     codigo = f"PEND-{datetime.now().strftime('%H%M%S%f')[:10]}"
+    es_auditor = u.perfil == "auditor"
     with Sesion() as s:
         s.add(Articulo(codigo=codigo, nombre_oficial=p.nombre.upper().strip(),
                        unidad_medida=p.unidad_medida))
         s.commit()
         conteo = Conteo(sesion_id=p.sesion_id, articulo_codigo=codigo,
                         cantidad=p.cantidad_inicial, unidad=p.unidad_medida,
-                        estado="pendiente_aprobacion")
+                        estado="confirmado" if es_auditor else "pendiente_aprobacion")
         s.add(conteo)
         s.commit()
         s.refresh(conteo)
-        s.add(Aprobacion(tipo="producto", nombre=p.nombre.upper().strip(),
-                         unidad_medida=p.unidad_medida, cantidad_inicial=p.cantidad_inicial,
-                         bodega_id=bodega_id, articulo_codigo=codigo,
-                         conteo_id=conteo.id, creado_por_id=u.id))
+        if es_auditor:
+            s.add(StockSistema(articulo_codigo=codigo, bodega_id=bodega_id, cantidad_sd=0))
+        else:
+            s.add(Aprobacion(tipo="producto", nombre=p.nombre.upper().strip(),
+                             unidad_medida=p.unidad_medida, cantidad_inicial=p.cantidad_inicial,
+                             bodega_id=bodega_id, articulo_codigo=codigo,
+                             conteo_id=conteo.id, creado_por_id=u.id))
         s.commit()
+    if es_auditor:
+        registrar(u, "CREACION", f"{p.nombre.upper()} creado")
+        return {"ok": True, "codigo": codigo,
+                "respuesta_hablada": "Creado y confirmado en el catálogo."}
     registrar(u, "CREACION", f"{p.nombre.upper()} creado, pendiente de aprobacion")
     return {"ok": True, "codigo": codigo,
             "respuesta_hablada": "Creado. Queda pendiente de aprobación del administrador; "
@@ -445,16 +464,26 @@ class CrearBodegaIn(BaseModel):
 
 @app.post("/api/bodegas/crear-pendiente")
 def crear_bodega_pendiente(p: CrearBodegaIn, u: Usuario = Depends(usuario_actual)):
-    """Igual que crear_producto_pendiente: la bodega no se crea de una,
-    queda pendiente de aprobacion del administrador (Aprobacion tipo
-    "bodega", ya soportada en aprobar()/rechazar()) - asi el catalogo de
-    bodegas no crece con lo que cualquiera escriba sin control."""
+    """La bodega no se crea de una para un auxiliar: queda pendiente de
+    aprobacion del administrador (Aprobacion tipo "bodega", ya soportada
+    en aprobar()/rechazar()) - asi el catalogo no crece con lo que
+    cualquiera escriba sin control. Un administrador ya tiene esa
+    autoridad, asi que para el la bodega se crea de inmediato - de lo
+    contrario terminaria aprobando su propia solicitud, lo cual no
+    verifica nada (visto en produccion: Diana pidio "ALIMENTOS" y quedo
+    esperando su propia firma en su propia bandeja)."""
     nombre = p.nombre.upper().strip()
     if not nombre:
         raise HTTPException(400, "Dígame el nombre de la bodega.")
     with Sesion() as s:
         if s.query(Bodega).filter_by(nombre_oficial=nombre).first():
             raise HTTPException(409, "Ya existe una bodega con ese nombre.")
+        if u.perfil == "auditor":
+            s.add(Bodega(nombre_oficial=nombre, estado="pendiente"))
+            s.commit()
+            registrar(u, "CREACION", f"Bodega {nombre} creada")
+            return {"ok": True,
+                    "respuesta_hablada": f"{nombre.capitalize()} creada. Ya está en el catálogo."}
         s.add(Aprobacion(tipo="bodega", nombre=nombre, creado_por_id=u.id))
         s.commit()
     registrar(u, "CREACION", f"Bodega {nombre} solicitada, pendiente de aprobacion")

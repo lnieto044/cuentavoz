@@ -503,20 +503,23 @@ export default function Bodegas({ token, usuario, ir }) {
                 Asignar personas a bodegas
               </button>
             )}
-            {esAuditor && (
-              <button className="btn borde" onClick={() => setPidiendoBodegaNueva(true)}>
-                + Bodega nueva
-              </button>
-            )}
+            {/* Sin esAuditor a proposito: quien suele topar con una bodega
+                que no esta en el catalogo es el auxiliar en el terreno, no
+                el administrador desde su escritorio. */}
+            <button className="btn borde" onClick={() => setPidiendoBodegaNueva(true)}>
+              + Bodega nueva
+            </button>
           </div>
         </>
       )}
 
       {pidiendoBodegaNueva && (
-        <Dialogo titulo="Solicitar bodega nueva"
-                 mensaje="Queda pendiente de aprobación: no entra al catálogo hasta que se confirme desde Auditoría → Aprobaciones."
+        <Dialogo titulo={esAuditor ? "Bodega nueva" : "Solicitar bodega nueva"}
+                 mensaje={esAuditor
+                   ? "Como administrador, la bodega entra directo al catálogo: no necesita otra aprobación."
+                   : "Queda pendiente de aprobación: no entra al catálogo hasta que un administrador la confirme desde Auditoría → Aprobaciones."}
                  conCampo placeholder="nombre de la bodega"
-                 textoAceptar="Solicitar"
+                 textoAceptar={esAuditor ? "Crear" : "Solicitar"}
                  onAceptar={solicitarBodegaNueva}
                  onCancelar={() => setPidiendoBodegaNueva(false)} />
       )}

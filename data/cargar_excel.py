@@ -141,7 +141,7 @@ def cargar_recetas():
         return sorted(candidatos, key=lambda a: len(a.nombre_oficial))[0]
 
     RECETAS = {
-        "AJIACO SANTAFERENO": [(("POLLO",), 0.250), (("PAPA",), 0.200),
+        "AJIACO SANTAFEREÑO": [(("POLLO",), 0.250), (("PAPA",), 0.200),
                                (("ARROZ",), 0.080), (("SAL",), 0.005),
                                (("ACEITE",), 0.010)],
         "SANCOCHO DE GALLINA": [(("POLLO",), 0.300), (("PAPA",), 0.250),

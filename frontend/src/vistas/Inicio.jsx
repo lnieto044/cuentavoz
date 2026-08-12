@@ -17,17 +17,27 @@ const DOT = { verde: "var(--verde)", azul: "var(--azul)",
 export default function Inicio({ token, usuario, ir }) {
   const [resumen, setResumen] = useState(null);
   const [actividad, setActividad] = useState([]);
+  const esAuditor = usuario?.perfil === "auditor";
 
   useEffect(() => {
     pedir("/api/usuarios/yo/resumen", {}, token).then(setResumen).catch(() => {});
     pedir("/api/trazabilidad/reciente", {}, token).then(setActividad).catch(() => {});
   }, [token]);
 
-  const accesos = [
+  // "Auditoría"/"Reportes"/"Panel" ni siquiera aparecen en el menú lateral
+  // de un auxiliar (soloAuditor en App.jsx:MENU) - ofrecerlos aqui como
+  // acceso directo llevaba a una pantalla que el propio perfil no puede
+  // usar, aunque el menu de al lado dijera lo contrario.
+  const accesos = esAuditor ? [
     { t: "Iniciar un conteo", s: "dicte y CuentaVoz registra", d: "conteo", ic: "🎙️" },
     { t: "Ver el tablero", s: "estado de las bodegas", d: "bodegas", ic: "🏬" },
     { t: "Continuar auditoría", s: "recuento ciego y aprobaciones", d: "auditoria", ic: "🔍" },
     { t: "Generar reporte", s: "consolidado del día", d: "reportes", ic: "📄" },
+  ] : [
+    { t: "Iniciar un conteo", s: "dicte y CuentaVoz registra", d: "conteo", ic: "🎙️" },
+    { t: "Ver el tablero", s: "estado de las bodegas", d: "bodegas", ic: "🏬" },
+    { t: "Hacer un pedido", s: "receta y porciones por voz", d: "pedido", ic: "📋" },
+    { t: "Legalizar servicio", s: "sobrante y merma del turno", d: "legalizacion", ic: "⚖️" },
   ];
 
   return (

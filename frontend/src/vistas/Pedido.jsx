@@ -269,13 +269,19 @@ export default function Pedido({ token, usuario, ir }) {
       setOpcionesPara(t.opciones_para || null);
       if (t.producto_consultado) setProductoConsultado(t.producto_consultado);
       if (t.receta) setReceta(t.receta);
-      hablar(t.respuesta_hablada);
       // el chef ya dijo plato Y porciones en la misma frase: el agente dice
       // "voy a consultar la receta y los insumos" en su respuesta, asi que
       // hay que calcular de una - si no, la pantalla se queda sin nada
-      // mientras el mensaje hablado ya prometió que se iba a hacer.
+      // mientras el mensaje hablado ya prometió que se iba a hacer. Ese
+      // cálculo ya trae su propio mensaje hablado (calcular() más abajo);
+      // hablar también esta respuesta intermedia disparaba dos audios casi
+      // simultáneos que competían por la misma voz neuronal, y si uno de
+      // los dos fallaba caía en la voz de respaldo del navegador, sonaba
+      // como si hablaran dos personas distintas.
       if (t.preparacion && t.porciones) {
         calcular(t.porciones, t.preparacion);
+      } else {
+        hablar(t.respuesta_hablada);
       }
     } catch (e) {
       setErr(e.message);

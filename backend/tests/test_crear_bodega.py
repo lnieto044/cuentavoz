@@ -59,6 +59,27 @@ def test_aprobar_bodega_nueva_la_crea_de_verdad_y_se_puede_abrir(
     assert abrir.status_code == 200, abrir.text
 
 
+def test_administrador_crea_bodega_directo_sin_pasar_por_aprobacion(
+    client: TestClient,
+) -> None:
+    """Antes, el administrador quedaba pidiendo su propia bodega y solo el
+    mismo podia aprobarla (visto en produccion) - una aprobacion que no
+    verifica nada. Ahora, para el auditor, la bodega se crea de una."""
+    headers_diana = _ingresar(client, "diana")
+
+    solicitud = client.post("/api/bodegas/crear-pendiente", headers=headers_diana,
+                            json={"nombre": "bodega de la administradora"})
+    assert solicitud.status_code == 200, solicitud.text
+    assert "pendiente" not in solicitud.json()["respuesta_hablada"].lower()
+
+    # ya existe de verdad, sin pasar por aprobaciones
+    listado = client.get("/api/bodegas", headers=headers_diana)
+    assert "BODEGA DE LA ADMINISTRADORA" in [b["bodega"] for b in listado.json()]
+
+    pendientes = client.get("/api/aprobaciones?estado=pendiente", headers=headers_diana)
+    assert not any(a["tipo"] == "bodega" for a in pendientes.json())
+
+
 def test_no_se_puede_solicitar_una_bodega_que_ya_existe(client: TestClient) -> None:
     headers_luis = _ingresar(client, "luis")
 
