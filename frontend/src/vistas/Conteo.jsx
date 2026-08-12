@@ -288,6 +288,19 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       {!bodega ? (
         <div className="card">
           <h3>¿Qué bodega va a contar?</h3>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+            <button
+              className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
+              style={{ width: 46, height: 46, fontSize: "1.2rem" }}
+              onClick={alMicrofono} title="diga el nombre de la bodega">
+              🎤
+            </button>
+            <small style={{ color: "var(--grafito)" }}>
+              {estado === "escuchando" ? "Escuchando…"
+                : estado === "procesando" ? "Procesando…"
+                : "o diga el nombre de la bodega en voz alta"}
+            </small>
+          </div>
           {asignadas === null ? (
             <p className="cargando">Cargando sus bodegas asignadas…</p>
           ) : asignadas.length > 0 && !buscarOtra ? (
