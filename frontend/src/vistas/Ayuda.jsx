@@ -162,7 +162,7 @@ export default function Ayuda({ token, ir }) {
       {pedirDetalle && (
         <Dialogo titulo="Reportar un problema"
                  mensaje="Describa el problema que encontró:"
-                 conCampo multilinea placeholder="Se cayó el micrófono al confirmar un conteo…"
+                 conCampo conVoz multilinea placeholder="Se cayó el micrófono al confirmar un conteo…"
                  textoAceptar="Enviar"
                  onAceptar={reportarProblema}
                  onCancelar={() => setPedirDetalle(false)} />

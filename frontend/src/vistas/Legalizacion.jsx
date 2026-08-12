@@ -209,7 +209,7 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
       {pedirAjuste && (
         <Dialogo titulo="Ajustar por voz"
                  mensaje="Diga el insumo y cuánto se usó realmente:"
-                 conCampo placeholder="el pollo fueron doce kilos"
+                 conCampo conVoz placeholder="el pollo fueron doce kilos"
                  onAceptar={ajustarPorVoz}
                  onCancelar={() => setPedirAjuste(false)} />
       )}

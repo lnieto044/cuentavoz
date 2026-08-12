@@ -725,7 +725,7 @@ export default function Pedido({ token, usuario, ir }) {
         <Dialogo titulo={porciones ? "Corregir cantidad" : "Porciones"}
                  mensaje={porciones ? "¿Cuántas porciones son en realidad?"
                                     : `¿Para cuántas porciones prepara ${plato.toLowerCase()}?`}
-                 conCampo tipo="number" valorInicial={porciones ?? ""}
+                 conCampo conVoz tipo="number" valorInicial={porciones ?? ""}
                  onAceptar={confirmarPorciones}
                  onCancelar={() => setPedirPorciones(false)} />
       )}

@@ -518,7 +518,7 @@ export default function Bodegas({ token, usuario, ir }) {
                  mensaje={esAuditor
                    ? "Como administrador, la bodega entra directo al catálogo: no necesita otra aprobación."
                    : "Queda pendiente de aprobación: no entra al catálogo hasta que un administrador la confirme desde Auditoría → Aprobaciones."}
-                 conCampo placeholder="nombre de la bodega"
+                 conCampo conVoz placeholder="nombre de la bodega"
                  textoAceptar={esAuditor ? "Crear" : "Solicitar"}
                  onAceptar={solicitarBodegaNueva}
                  onCancelar={() => setPidiendoBodegaNueva(false)} />
@@ -527,7 +527,7 @@ export default function Bodegas({ token, usuario, ir }) {
       {pedirMotivo && (
         <Dialogo titulo="Reabrir bodega cerrada"
                  mensaje="Esta acción exige una justificación escrita y queda registrada en el historial. Motivo:"
-                 conCampo multilinea placeholder="revisión solicitada por el chef"
+                 conCampo conVoz multilinea placeholder="revisión solicitada por el chef"
                  textoAceptar="Reabrir" peligro
                  onAceptar={reabrir}
                  onCancelar={() => setPedirMotivo(false)} />
