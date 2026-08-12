@@ -146,6 +146,15 @@ export const abrirBodega = (bodega, token) =>
     body: JSON.stringify({ bodega }),
   }, token);
 
+// Resuelve un nombre dicho/escrito al nombre real del catálogo, sin abrir
+// nada - para poder confirmar "¿abro X?" con el nombre que de verdad se
+// va a usar, no con lo que se haya transcrito tal cual (ver Conteo.jsx).
+export const buscarBodega = (bodega, token) =>
+  pedir("/api/bodegas/buscar", {
+    method: "POST",
+    body: JSON.stringify({ bodega }),
+  }, token);
+
 /** Descarga un reporte generado por el backend. Un <a href> comun no sirve
     aqui: el endpoint exige el token en la cabecera, y un enlace del
     navegador no lo puede enviar (por eso terminaba en una pagina en blanco

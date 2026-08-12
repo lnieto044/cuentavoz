@@ -98,6 +98,73 @@ def test_administrador_crea_bodega_directo_sin_pasar_por_aprobacion(
     assert not any(a["tipo"] == "bodega" for a in pendientes.json())
 
 
+def test_buscar_bodega_resuelve_al_nombre_real_sin_abrir_nada(
+    client: TestClient,
+) -> None:
+    """Bug real: el selector de bodega preguntaba "¿confirma que abro
+    kiosco?" con lo que se dijo tal cual, aunque "KIOSCO" a secas no
+    fuera ninguna bodega real (solo existen "KIOSCO TAQUILLA AYB",
+    "KIOSCO PISCIGIROS AYB", etc.) - /api/bodegas/buscar debe resolver al
+    nombre real (o decir que no encontró nada) SIN crear ninguna sesión."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega, SesionConteo
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        bodega = Bodega(nombre_oficial="KIOSCO TAQUILLA REGIONAL")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=bodega.id))
+        sesion.commit()
+        bodega_id = bodega.id
+
+    headers = _ingresar(client, "luis")
+
+    r = client.post("/api/bodegas/buscar", headers=headers,
+                    json={"bodega": "kiosco taquilla regional"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"encontrada": True, "bodega": "KIOSCO TAQUILLA REGIONAL",
+                        "bodega_id": bodega_id}
+
+    r2 = client.post("/api/bodegas/buscar", headers=headers,
+                     json={"bodega": "un nombre que no existe para nada"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json() == {"encontrada": False, "bodega": None, "bodega_id": None}
+
+    # solo resolvió el nombre - no abrió ninguna sesión de conteo
+    with Sesion() as sesion:
+        assert sesion.query(SesionConteo).filter_by(bodega_id=bodega_id).count() == 0
+
+
+def test_buscar_bodega_no_adivina_entre_varias_igual_de_buenas(
+    client: TestClient,
+) -> None:
+    """Bug real reportado desde producción: decir "kiosco" a secas
+    "encontraba" (mal) "KIOSCO 2 SUMINISTROS" - "kiosco" es substring de
+    esa Y de "KIOSCO TAQUILLA AYB" por igual, así que ninguna gana sola.
+    Mejor decir "no la encuentro" (y ofrecer crearla) que abrir una
+    bodega que no era la que la persona quería."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        a = Bodega(nombre_oficial="KIOSCO DOS SUMINISTROS")
+        b = Bodega(nombre_oficial="KIOSCO TAQUILLA AYB")
+        sesion.add_all([a, b])
+        sesion.flush()
+        sesion.add_all([
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=a.id),
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=b.id),
+        ])
+        sesion.commit()
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/buscar", headers=headers, json={"bodega": "kiosco"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"encontrada": False, "bodega": None, "bodega_id": None}
+
+
 def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(
     client: TestClient,
 ) -> None:

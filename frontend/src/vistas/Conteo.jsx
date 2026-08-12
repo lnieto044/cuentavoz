@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { enviarTurno, abrirBodega, pedir, descargarReporte, esFalloRed } from "../api";
+import { enviarTurno, abrirBodega, buscarBodega, pedir, descargarReporte, esFalloRed } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
 import { interpretarLocal } from "../interpreteLocal";
 import Marco from "../Marco";
@@ -305,14 +305,35 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     });
   }
 
-  function preguntarConfirmacionBodega(nombreDictado) {
+  /** Antes esto preguntaba "¿confirma X?" con lo que se acababa de
+      transcribir tal cual - decir "kiosco" confirmaba "kiosco" como si
+      fuera una bodega real, cuando lo que existe es "KIOSCO TAQUILLA
+      AYB". Ahora primero RESUELVE el nombre contra el catálogo
+      (/api/bodegas/buscar, sin abrir nada todavía) y confirma con el
+      nombre real que de verdad se va a abrir; si no encuentra nada,
+      ofrece crearla en vez de confirmar algo que no existe. */
+  async function preguntarConfirmacionBodega(nombreDictado) {
     if (!nombreDictado || !nombreDictado.trim()) return;
-    hablar(`¿Confirma que abro ${nombreDictado.toLowerCase()}?`);
+    let resuelto;
+    try {
+      resuelto = await buscarBodega(nombreDictado, token);
+    } catch (e) {
+      setErr(e.message);
+      return;
+    }
+    if (!resuelto.encontrada) {
+      hablar(`No encuentro ${nombreDictado.toLowerCase()}. Puede solicitarla como bodega nueva.`);
+      setBodegaNoEncontrada(nombreDictado.trim());
+      return;
+    }
+    const nombreReal = resuelto.bodega;
+    setTextoBodega(nombreReal);
+    hablar(`¿Confirma que abro ${nombreReal.toLowerCase()}?`);
     rec.current = escuchar({
       alTexto: (respuesta) => {
         const r = respuesta.toLowerCase().trim();
         if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es)\b/.test(r)) {
-          abrir(nombreDictado);
+          abrir(nombreReal);
         } else if (/^no\b/.test(r)) {
           setTextoBodega("");
           setMsgBodega("Cancelado. Diga el nombre de nuevo, o escríbalo.");

@@ -547,6 +547,21 @@ def listar_bodegas(propias: int = 0, u: Usuario = Depends(usuario_actual)):
     return salida
 
 
+@app.post("/api/bodegas/buscar")
+def buscar_bodega_endpoint(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
+    """Solo resuelve el nombre, no abre nada - para que el selector de
+    bodega pueda preguntar "¿confirma que abro X?" con el nombre REAL que
+    de verdad se va a abrir, en vez de repetir a ciegas lo que se
+    reconoció (decir «kiosco» no debe confirmarse como si "KIOSCO" fuera
+    una bodega real, cuando lo que existe es "KIOSCO TAQUILLA AYB")."""
+    from servicios.conciliacion import buscar_bodega
+    with Sesion() as s:
+        b = buscar_bodega(s, a.bodega)
+        if b is None:
+            return {"encontrada": False, "bodega": None, "bodega_id": None}
+        return {"encontrada": True, "bodega": b.nombre_oficial, "bodega_id": b.id}
+
+
 @app.post("/api/bodegas/abrir")
 async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
     from servicios.conciliacion import buscar_bodega
