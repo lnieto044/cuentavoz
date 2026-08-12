@@ -347,6 +347,15 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       encuentra nada, ofrece crearla. */
   async function preguntarConfirmacionBodega(nombreDictado) {
     if (!nombreDictado || !nombreDictado.trim()) return;
+    // Quien llamó (el micrófono inicial, o la ronda anterior de "¿cuál de
+    // todas?") ya entregó su resultado final y debería estar apagándose
+    // solo - pero si queda "vivo" un instante de más, puede recoger la
+    // respuesta que sigue (el "confirmo" de la pregunta de abajo) y
+    // procesarla otra vez como si fuera un nombre de bodega nuevo (por
+    // ejemplo, ofreciendo crear una bodega llamada "Confirmo."). abort()
+    // corta ese micrófono anterior de una vez, para que solo quede
+    // escuchando el que se abre a continuación.
+    rec.current?.abort();
     setOpcionesBodega(null);
     let resuelto;
     try {
@@ -384,7 +393,9 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
           abrir(nombreReal);
         } else if (/^no\b/.test(r)) {
           setTextoBodega("");
-          setMsgBodega("Cancelado. Diga el nombre de nuevo, o escríbalo.");
+          const msg = "Gracias, queda pendiente. Cuando quiera abrir una bodega, dígame el nombre.";
+          setMsgBodega(msg);
+          hablar(msg);
         } else {
           setErr("No le entendí un «sí» o un «no». Use «Abrir por nombre exacto».");
         }
