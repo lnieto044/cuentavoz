@@ -279,24 +279,48 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   }
 
   /** Para elegir bodega (a diferencia del conteo, que confirma hablado
-      antes de guardar): esto solo llena el buscador con lo que se
-      reconoció, sin abrir nada todavía. Nombres poco comunes ("Piscilago")
-      son justo donde más se equivoca el reconocimiento de voz del
-      navegador - mejor que la persona vea el texto y confirme con
-      "Abrir por nombre exacto" (o corrija a mano) que descubrirlo recién
-      cuando el agente responde "no la encuentro" con otra cosa distinta. */
+      antes de guardar): esto llena el buscador con lo que se reconoció Y
+      pregunta en voz alta "¿confirma X?" - un "sí" abre directo, un "no"
+      descarta sin tocar nada. Nombres poco comunes ("Piscilago") son
+      justo donde más se equivoca el reconocimiento de voz del navegador;
+      "Abrir por nombre exacto" sigue ahí como respaldo si prefiere
+      escribir o corregir a mano en vez de confirmar hablado. */
   function alMicrofonoBodega() {
     if (estado === "escuchando") {
       rec.current?.stop();
       return;
     }
     setErr("");
+    setMsgBodega("");
     rec.current = escuchar({
-      alTexto: (t) => setTextoBodega(t),
+      alTexto: (t) => {
+        setTextoBodega(t);
+        preguntarConfirmacionBodega(t);
+      },
       alEstado: (e, parcial) => {
         setEstado(e);
         if (parcial) setTextoBodega(parcial);
       },
+      alError: setErr,
+    });
+  }
+
+  function preguntarConfirmacionBodega(nombreDictado) {
+    if (!nombreDictado || !nombreDictado.trim()) return;
+    hablar(`¿Confirma que abro ${nombreDictado.toLowerCase()}?`);
+    rec.current = escuchar({
+      alTexto: (respuesta) => {
+        const r = respuesta.toLowerCase().trim();
+        if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es)\b/.test(r)) {
+          abrir(nombreDictado);
+        } else if (/^no\b/.test(r)) {
+          setTextoBodega("");
+          setMsgBodega("Cancelado. Diga el nombre de nuevo, o escríbalo.");
+        } else {
+          setErr("No le entendí un «sí» o un «no». Use «Abrir por nombre exacto».");
+        }
+      },
+      alEstado: (e) => setEstado(e),
       alError: setErr,
     });
   }
@@ -324,9 +348,10 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
             </small>
           </div>
           <p className="pista" style={{ marginBottom: 8 }}>
-            Lo que reconozca aparece abajo para escribir — revíselo (nombres
-            como «Piscilago» a veces se transcriben mal) y confirme con
-            «Abrir por nombre exacto».
+            Lo que reconozca aparece abajo, se lo pregunta de vuelta y usted
+            confirma diciendo «sí» (nombres como «Piscilago» a veces se
+            transcriben mal) — o corríjalo a mano y use «Abrir por nombre
+            exacto».
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <input
