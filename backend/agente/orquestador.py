@@ -450,7 +450,14 @@ def _abrir(est, texto_bodega, turno, usuario):
                 if b:
                     break
         if b is None:
-            turno["respuesta_hablada"] = "No encuentro esa bodega. ¿Me repite el nombre?"
+            # igual que un articulo que no esta en el catalogo: en vez de
+            # dejar a la persona repitiendo el nombre sin salida, se ofrece
+            # pedir la bodega nueva (queda pendiente de aprobacion, ver
+            # /api/bodegas/crear-pendiente).
+            turno["intencion"] = "crear_bodega"
+            turno["bodega_texto"] = texto_bodega
+            turno["respuesta_hablada"] = (f"No encuentro «{texto_bodega}». ¿La creamos? "
+                                          "Quedará pendiente de aprobación del administrador.")
             return turno
         # la misma regla que /api/bodegas/abrir: decirlo por voz no debe
         # abrir puertas que el mismo pedido por REST tiene cerradas. Sin

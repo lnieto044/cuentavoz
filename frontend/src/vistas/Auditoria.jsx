@@ -469,7 +469,9 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
               <b style={{ color: "var(--azul)" }}>{a.nombre}</b>
               <br />
               <span style={{ fontSize: ".85rem" }}>
-                {a.tipo === "producto" ? "Producto nuevo" : "Bodega nueva"} · {a.unidad_medida || ""}
+                {a.tipo === "producto"
+                  ? `Producto nuevo · ${a.unidad_medida || ""}`
+                  : "Bodega nueva"}
               </span>
               <br />
               <small style={{ color: "var(--grafito)", fontStyle: "italic" }}>

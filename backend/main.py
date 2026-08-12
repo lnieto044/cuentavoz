@@ -439,6 +439,30 @@ async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
     return {"sesion_id": sid, "bodega": nombre, "referencias": refs, "bodega_id": bid}
 
 
+class CrearBodegaIn(BaseModel):
+    nombre: str
+
+
+@app.post("/api/bodegas/crear-pendiente")
+def crear_bodega_pendiente(p: CrearBodegaIn, u: Usuario = Depends(usuario_actual)):
+    """Igual que crear_producto_pendiente: la bodega no se crea de una,
+    queda pendiente de aprobacion del administrador (Aprobacion tipo
+    "bodega", ya soportada en aprobar()/rechazar()) - asi el catalogo de
+    bodegas no crece con lo que cualquiera escriba sin control."""
+    nombre = p.nombre.upper().strip()
+    if not nombre:
+        raise HTTPException(400, "Dígame el nombre de la bodega.")
+    with Sesion() as s:
+        if s.query(Bodega).filter_by(nombre_oficial=nombre).first():
+            raise HTTPException(409, "Ya existe una bodega con ese nombre.")
+        s.add(Aprobacion(tipo="bodega", nombre=nombre, creado_por_id=u.id))
+        s.commit()
+    registrar(u, "CREACION", f"Bodega {nombre} solicitada, pendiente de aprobacion")
+    return {"ok": True,
+            "respuesta_hablada": f"Solicitud de {nombre.lower()} enviada. Queda "
+                                 "pendiente de aprobación del administrador."}
+
+
 def _ultima_sesion(s, bodega_id: int, tipo: str):
     return (s.query(SesionConteo).filter_by(bodega_id=bodega_id, tipo=tipo)
             .order_by(SesionConteo.id.desc()).first())

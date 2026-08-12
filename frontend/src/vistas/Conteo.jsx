@@ -54,6 +54,8 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   const [todas, setTodas] = useState(null);
   const [textoBodega, setTextoBodega] = useState("");
   const [buscarOtra, setBuscarOtra] = useState(false);
+  const [bodegaNoEncontrada, setBodegaNoEncontrada] = useState(null);
+  const [msgBodega, setMsgBodega] = useState("");
   const [dicho, setDicho] = useState("");
   const [respuesta, setRespuesta] = useState(
     "Abra una bodega para empezar a contar."
@@ -149,6 +151,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
 
   async function abrir(nombre = textoBodega) {
     setErr("");
+    setBodegaNoEncontrada(null);
     try {
       const r = await abrirBodega(nombre, token);
       setBodega(r);
@@ -158,7 +161,26 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       refrescar();
     } catch (e) {
       setErr(e.message);
+      // igual que un articulo que no esta en el catalogo (ver
+      // FormularioCrearProducto): en vez de dejar a la persona sin salida,
+      // se ofrece pedir la bodega nueva - queda pendiente de aprobacion.
+      if (e.message === "No encuentro esa bodega." && nombre.trim()) {
+        setBodegaNoEncontrada(nombre.trim());
+      }
     }
+  }
+
+  async function solicitarBodegaNueva() {
+    if (!bodegaNoEncontrada) return;
+    setErr("");
+    try {
+      const r = await pedir("/api/bodegas/crear-pendiente", {
+        method: "POST", body: JSON.stringify({ nombre: bodegaNoEncontrada }),
+      }, token);
+      setBodegaNoEncontrada(null);
+      setMsgBodega(r.respuesta_hablada || "Solicitud enviada.");
+      hablar(r.respuesta_hablada);
+    } catch (e) { setErr(e.message); }
   }
 
   /** Un turno de conversación: el ciclo completo del agente.
@@ -329,6 +351,21 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
                 <button className="btn" onClick={() => abrir()}>Abrir por nombre exacto</button>
               </div>
               {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
+              {msgBodega && <p className="msg-ok" style={{ marginTop: 10 }}>{msgBodega}</p>}
+              {bodegaNoEncontrada && (
+                <div className="banner" style={{ marginTop: 10 }}>
+                  <span className="ico">!</span>
+                  <span>
+                    <b>¿Crear «{bodegaNoEncontrada}»?</b>
+                    <span>No existe en el catálogo. Queda pendiente de aprobación del
+                          administrador; el conteo no se detiene por esto.</span>
+                  </span>
+                  <button className="btn" style={{ flex: "none" }}
+                          onClick={solicitarBodegaNueva}>
+                    Solicitar bodega nueva
+                  </button>
+                </div>
+              )}
 
               {todas === null ? (
                 <p className="cargando" style={{ marginTop: 10 }}>Cargando bodegas…</p>
