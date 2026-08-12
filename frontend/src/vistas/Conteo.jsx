@@ -76,6 +76,15 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   const [offline, setOffline] = useState(!navigator.onLine);
   const [cola, setCola] = useState(() => leerCola(sesionId));
   const rec = useRef(null);
+  // Cada vez que se abre un micrófono para el flujo de bodega (nombre
+  // dictado, "¿cuál de todas?", "¿confirma?") sube en 1: el reconocedor
+  // anterior a veces tarda en apagarse del todo y llega a entregar un
+  // resultado extra y tardío (p. ej. recoger también el "confirmo" de la
+  // pregunta siguiente). Cada escucha guarda SU número; si para cuando
+  // responde ya no es el número vigente, se descarta sin hacer nada -
+  // así lo tardío nunca se confunde con una bodega nueva ni con una
+  // respuesta a la pregunta equivocada.
+  const idEscuchaBodega = useRef(0);
 
   // guarda el catalogo liviano en el equipo mientras hay señal, para que
   // el modo sin conexión pueda seguir sugiriendo nombres oficiales.
@@ -323,10 +332,12 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     setErr("");
     setMsgBodega("");
     setOpcionesBodega(null);
+    const miId = ++idEscuchaBodega.current;
     rec.current = escuchar({
       alTexto: (t) => {
+        if (miId !== idEscuchaBodega.current) return;
         setTextoBodega(t);
-        preguntarConfirmacionBodega(t);
+        preguntarConfirmacionBodega(t, miId);
       },
       alEstado: (e, parcial) => {
         setEstado(e);
@@ -344,26 +355,29 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       nombre real que de verdad se va a abrir. Si lo dicho es ambiguo
       ("restaurante" a secas encaja en dos bodegas reales por igual), se
       ofrecen las opciones en vez de fallar en seco; si de verdad no
-      encuentra nada, ofrece crearla. */
-  async function preguntarConfirmacionBodega(nombreDictado) {
+      encuentra nada, ofrece crearla.
+
+      "miId" identifica ESTA escucha en particular (viene de
+      idEscuchaBodega, ver el comentario junto a esa ref): antes de tocar
+      cualquier estado se revisa que siga siendo la vigente, porque el
+      micrófono anterior a veces entrega su resultado tarde - sin este
+      control, ese resultado tardío se procesaba como una bodega nueva
+      dictada (por ejemplo, el "confirmo" de la pregunta de abajo llegaba
+      aquí como si alguien hubiera dicho "confirmo" como nombre de
+      bodega). */
+  async function preguntarConfirmacionBodega(nombreDictado, miId) {
     if (!nombreDictado || !nombreDictado.trim()) return;
-    // Quien llamó (el micrófono inicial, o la ronda anterior de "¿cuál de
-    // todas?") ya entregó su resultado final y debería estar apagándose
-    // solo - pero si queda "vivo" un instante de más, puede recoger la
-    // respuesta que sigue (el "confirmo" de la pregunta de abajo) y
-    // procesarla otra vez como si fuera un nombre de bodega nuevo (por
-    // ejemplo, ofreciendo crear una bodega llamada "Confirmo."). abort()
-    // corta ese micrófono anterior de una vez, para que solo quede
-    // escuchando el que se abre a continuación.
-    rec.current?.abort();
+    if (miId === undefined) miId = ++idEscuchaBodega.current;
     setOpcionesBodega(null);
     let resuelto;
     try {
       resuelto = await buscarBodega(nombreDictado, token);
     } catch (e) {
+      if (miId !== idEscuchaBodega.current) return;
       setErr(e.message);
       return;
     }
+    if (miId !== idEscuchaBodega.current) return;
     if (!resuelto.encontrada) {
       if (resuelto.opciones?.length) {
         const nombres = resuelto.opciones.map((o) => o.bodega.toLowerCase());
@@ -372,8 +386,13 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
         // se puede elegir tocando una tarjeta, o siguiendo la conversación
         // y diciendo el nombre completo - que vuelve a pasar por aquí,
         // ahora sí resolviendo a una sola.
+        const miIdOpciones = ++idEscuchaBodega.current;
         rec.current = escuchar({
-          alTexto: (t) => { setTextoBodega(t); preguntarConfirmacionBodega(t); },
+          alTexto: (t) => {
+            if (miIdOpciones !== idEscuchaBodega.current) return;
+            setTextoBodega(t);
+            preguntarConfirmacionBodega(t, miIdOpciones);
+          },
           alEstado: (e) => setEstado(e),
           alError: setErr,
         });
@@ -386,8 +405,10 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     const nombreReal = resuelto.bodega;
     setTextoBodega(nombreReal);
     hablar(`¿Confirma que abro ${nombreReal.toLowerCase()}?`);
+    const miIdConfirmar = ++idEscuchaBodega.current;
     rec.current = escuchar({
       alTexto: (respuesta) => {
+        if (miIdConfirmar !== idEscuchaBodega.current) return;
         const r = respuesta.toLowerCase().trim();
         if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es)\b/.test(r)) {
           abrir(nombreReal);
