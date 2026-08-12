@@ -553,13 +553,21 @@ def buscar_bodega_endpoint(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
     bodega pueda preguntar "¿confirma que abro X?" con el nombre REAL que
     de verdad se va a abrir, en vez de repetir a ciegas lo que se
     reconoció (decir «kiosco» no debe confirmarse como si "KIOSCO" fuera
-    una bodega real, cuando lo que existe es "KIOSCO TAQUILLA AYB")."""
-    from servicios.conciliacion import buscar_bodega
+    una bodega real, cuando lo que existe es "KIOSCO TAQUILLA AYB").
+
+    Si hay varias candidatas igual de razonables ("restaurante" a secas
+    encaja en "RESTAURANTE FUENTES AYB" Y "RESTAURANTE FUENTES SUMIN"),
+    se devuelven como opciones en vez de decir "no la encuentro" a secas
+    - así la persona puede elegir la que quería, no repetir a ciegas."""
+    from servicios.conciliacion import buscar_bodegas_candidatas
     with Sesion() as s:
-        b = buscar_bodega(s, a.bodega)
-        if b is None:
-            return {"encontrada": False, "bodega": None, "bodega_id": None}
-        return {"encontrada": True, "bodega": b.nombre_oficial, "bodega_id": b.id}
+        candidatas = buscar_bodegas_candidatas(s, a.bodega)
+        if len(candidatas) == 1:
+            b = candidatas[0]
+            return {"encontrada": True, "bodega": b.nombre_oficial, "bodega_id": b.id,
+                    "opciones": []}
+        opciones = [{"bodega": c.nombre_oficial, "bodega_id": c.id} for c in candidatas[:6]]
+        return {"encontrada": False, "bodega": None, "bodega_id": None, "opciones": opciones}
 
 
 @app.post("/api/bodegas/abrir")

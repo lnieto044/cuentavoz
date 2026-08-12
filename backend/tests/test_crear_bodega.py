@@ -124,26 +124,26 @@ def test_buscar_bodega_resuelve_al_nombre_real_sin_abrir_nada(
                     json={"bodega": "kiosco taquilla regional"})
     assert r.status_code == 200, r.text
     assert r.json() == {"encontrada": True, "bodega": "KIOSCO TAQUILLA REGIONAL",
-                        "bodega_id": bodega_id}
+                        "bodega_id": bodega_id, "opciones": []}
 
     r2 = client.post("/api/bodegas/buscar", headers=headers,
                      json={"bodega": "un nombre que no existe para nada"})
     assert r2.status_code == 200, r2.text
-    assert r2.json() == {"encontrada": False, "bodega": None, "bodega_id": None}
+    assert r2.json() == {"encontrada": False, "bodega": None, "bodega_id": None, "opciones": []}
 
     # solo resolvió el nombre - no abrió ninguna sesión de conteo
     with Sesion() as sesion:
         assert sesion.query(SesionConteo).filter_by(bodega_id=bodega_id).count() == 0
 
 
-def test_buscar_bodega_no_adivina_entre_varias_igual_de_buenas(
+def test_buscar_bodega_ofrece_opciones_en_vez_de_adivinar(
     client: TestClient,
 ) -> None:
     """Bug real reportado desde producción: decir "kiosco" a secas
     "encontraba" (mal) "KIOSCO 2 SUMINISTROS" - "kiosco" es substring de
     esa Y de "KIOSCO TAQUILLA AYB" por igual, así que ninguna gana sola.
-    Mejor decir "no la encuentro" (y ofrecer crearla) que abrir una
-    bodega que no era la que la persona quería."""
+    En vez de solo decir "no la encuentro", ahora ofrece las dos como
+    opciones para que la persona elija cuál era."""
     from bd import Sesion
     from modelos import Bodega, Usuario, AsignacionBodega
 
@@ -158,11 +158,47 @@ def test_buscar_bodega_no_adivina_entre_varias_igual_de_buenas(
             AsignacionBodega(usuario_id=auxiliar.id, bodega_id=b.id),
         ])
         sesion.commit()
+        ids = {a.id, b.id}
 
     headers = _ingresar(client, "luis")
     r = client.post("/api/bodegas/buscar", headers=headers, json={"bodega": "kiosco"})
     assert r.status_code == 200, r.text
-    assert r.json() == {"encontrada": False, "bodega": None, "bodega_id": None}
+    d = r.json()
+    assert d["encontrada"] is False
+    assert d["bodega"] is None
+    assert {o["bodega_id"] for o in d["opciones"]} == ids
+    assert {o["bodega"] for o in d["opciones"]} == {"KIOSCO DOS SUMINISTROS",
+                                                     "KIOSCO TAQUILLA AYB"}
+
+
+def test_buscar_bodega_restaurante_ofrece_las_dos_reales(
+    client: TestClient,
+) -> None:
+    """Mismo caso que reportó la usuaria en vivo: decir "restaurante" a
+    secas, con "RESTAURANTE FUENTES AYB" y "RESTAURANTE FUENTES SUMIN"
+    en el catálogo, debe ofrecer ambas - no fallar en seco."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        ayb = Bodega(nombre_oficial="RESTAURANTE FUENTES AYB")
+        sumin = Bodega(nombre_oficial="RESTAURANTE FUENTES SUMIN")
+        sesion.add_all([ayb, sumin])
+        sesion.flush()
+        sesion.add_all([
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=ayb.id),
+            AsignacionBodega(usuario_id=auxiliar.id, bodega_id=sumin.id),
+        ])
+        sesion.commit()
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/buscar", headers=headers, json={"bodega": "restaurante"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["encontrada"] is False
+    nombres = {o["bodega"] for o in d["opciones"]}
+    assert nombres == {"RESTAURANTE FUENTES AYB", "RESTAURANTE FUENTES SUMIN"}
 
 
 def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(

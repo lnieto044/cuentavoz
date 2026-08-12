@@ -54,48 +54,50 @@ def normalizar(t: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
-def buscar_bodega(s, texto: str) -> Bodega | None:
-    """La misma bodega para el nombre dicho o escrito, en un solo lugar
-    (antes /api/bodegas/abrir y el agente conversacional cada uno tenia
-    su propia version, y se desincronizaban). Nunca adivina entre varias
-    candidatas igual de buenas: mejor decir "no la encuentro" que abrir
-    la bodega equivocada. Prioriza SIEMPRE la coincidencia exacta - sin
-    esto, decir solo "Zoológico" abria "ZOOLOGICO SUMINISTROS" en vez de
-    la bodega "ZOOLOGICO" que de verdad se pidio, porque el nombre corto
-    es substring del largo."""
+def buscar_bodegas_candidatas(s, texto: str) -> list[Bodega]:
+    """Todas las bodegas razonables para lo dicho/escrito, de más a menos
+    específica - vacía si no hay ninguna, un solo elemento si es
+    inequívoco, varios si es ambiguo ("restaurante" a secas encaja por
+    igual en "RESTAURANTE FUENTES AYB" y "RESTAURANTE FUENTES SUMIN": ahí
+    quien llama debe ofrecer las opciones, no adivinar cuál de las dos)."""
     clave = normalizar(texto)
     if not clave:
-        return None
-    b = s.query(Bodega).filter(Bodega.nombre_oficial == clave).first()
-    if b:
-        return b
-    # coincidencia parcial: solo cuenta si es la UNICA bodega que
-    # contiene la frase dicha. "kiosco" a secas es substring de "KIOSCO
-    # 2 SUMINISTROS", "KIOSCO TAQUILLA AYB" y varias mas - quedarse con
-    # la primera que apareciera abria la bodega equivocada sin avisar.
+        return []
+    exacta = s.query(Bodega).filter(Bodega.nombre_oficial == clave).first()
+    if exacta:
+        return [exacta]
+    # coincidencia parcial: "kiosco" a secas es substring de "KIOSCO 2
+    # SUMINISTROS", "KIOSCO TAQUILLA AYB" y varias más - todas cuentan.
     contienen = s.query(Bodega).filter(Bodega.nombre_oficial.contains(clave)).all()
-    if len(contienen) == 1:
-        return contienen[0]
-    if len(contienen) > 1:
-        return None
+    if contienen:
+        return contienen
     # ultimo recurso: cuantas palabras dichas (de mas de 3 letras) tiene
-    # cada bodega - gana la que mas comparte, pero solo si es la UNICA
-    # con el maximo. "autoservicios las fuentes" perdia "fuentes" antes y
+    # cada bodega - "autoservicios las fuentes" perdia "fuentes" antes y
     # se quedaba con la primera bodega que solo compartiera
     # "autoservicios"; ahora esa comparte 1 palabra y "AUTOSERVICIOS LAS
-    # FUENTES" comparte 2, así que gana sin ambigüedad. Pero un empate
-    # real (dos candidatas con el mismo maximo) tampoco se adivina.
+    # FUENTES" comparte 2, así que gana sola. Un empate real (dos
+    # candidatas con el mismo máximo) se devuelve como ambigüedad.
     palabras = [p for p in clave.split() if len(p) > 3]
     if not palabras:
-        return None
+        return []
     candidatas = [(sum(1 for p in palabras if p in c.nombre_oficial), c)
                   for c in s.query(Bodega).all()]
     candidatas = [(n, c) for n, c in candidatas if n > 0]
     if not candidatas:
-        return None
+        return []
     maximo = max(n for n, _ in candidatas)
-    mejores = [c for n, c in candidatas if n == maximo]
-    return mejores[0] if len(mejores) == 1 else None
+    return [c for n, c in candidatas if n == maximo]
+
+
+def buscar_bodega(s, texto: str) -> Bodega | None:
+    """La misma bodega para el nombre dicho o escrito, en un solo lugar
+    (antes /api/bodegas/abrir y el agente conversacional cada uno tenia
+    su propia version, y se desincronizaban). Nunca adivina entre varias
+    candidatas igual de buenas: mejor decir "no la encuentro" (o, para
+    quien necesite las opciones, ver buscar_bodegas_candidatas) que abrir
+    la bodega equivocada."""
+    candidatas = buscar_bodegas_candidatas(s, texto)
+    return candidatas[0] if len(candidatas) == 1 else None
 
 
 def buscar_articulo(texto: str, bodega_id=None) -> list[dict]:

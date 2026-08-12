@@ -55,6 +55,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   const [textoBodega, setTextoBodega] = useState("");
   const [buscarOtra, setBuscarOtra] = useState(false);
   const [bodegaNoEncontrada, setBodegaNoEncontrada] = useState(null);
+  const [opcionesBodega, setOpcionesBodega] = useState(null);
   const [msgBodega, setMsgBodega] = useState("");
   const [dicho, setDicho] = useState("");
   const [respuesta, setRespuesta] = useState(
@@ -152,6 +153,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
   async function abrir(nombre = textoBodega) {
     setErr("");
     setBodegaNoEncontrada(null);
+    setOpcionesBodega(null);
     try {
       const r = await abrirBodega(nombre, token);
       setBodega(r);
@@ -168,6 +170,34 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
         setBodegaNoEncontrada(nombre.trim());
       }
     }
+  }
+
+  /** El botón "Abrir por nombre exacto" (y Enter en el campo) escribía
+      directo a abrir(), que con un nombre ambiguo ("restaurante" a
+      secas, cuando hay cinco "RESTAURANTE ...") solo sabía decir "no la
+      encuentro" y ofrecer crear una bodega duplicada - nunca mostraba
+      las que sí existían. Esto resuelve primero, igual que la voz. */
+  async function abrirPorBoton() {
+    if (!textoBodega.trim()) return;
+    setErr("");
+    setBodegaNoEncontrada(null);
+    setOpcionesBodega(null);
+    let resuelto;
+    try {
+      resuelto = await buscarBodega(textoBodega, token);
+    } catch (e) {
+      setErr(e.message);
+      return;
+    }
+    if (resuelto.encontrada) {
+      abrir(resuelto.bodega);
+      return;
+    }
+    if (resuelto.opciones?.length) {
+      setOpcionesBodega(resuelto.opciones);
+      return;
+    }
+    setBodegaNoEncontrada(textoBodega.trim());
   }
 
   async function solicitarBodegaNueva() {
@@ -292,6 +322,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
     }
     setErr("");
     setMsgBodega("");
+    setOpcionesBodega(null);
     rec.current = escuchar({
       alTexto: (t) => {
         setTextoBodega(t);
@@ -310,10 +341,13 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       fuera una bodega real, cuando lo que existe es "KIOSCO TAQUILLA
       AYB". Ahora primero RESUELVE el nombre contra el catálogo
       (/api/bodegas/buscar, sin abrir nada todavía) y confirma con el
-      nombre real que de verdad se va a abrir; si no encuentra nada,
-      ofrece crearla en vez de confirmar algo que no existe. */
+      nombre real que de verdad se va a abrir. Si lo dicho es ambiguo
+      ("restaurante" a secas encaja en dos bodegas reales por igual), se
+      ofrecen las opciones en vez de fallar en seco; si de verdad no
+      encuentra nada, ofrece crearla. */
   async function preguntarConfirmacionBodega(nombreDictado) {
     if (!nombreDictado || !nombreDictado.trim()) return;
+    setOpcionesBodega(null);
     let resuelto;
     try {
       resuelto = await buscarBodega(nombreDictado, token);
@@ -322,6 +356,20 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
       return;
     }
     if (!resuelto.encontrada) {
+      if (resuelto.opciones?.length) {
+        const nombres = resuelto.opciones.map((o) => o.bodega.toLowerCase());
+        hablar(`Hay varias: ${nombres.join(", ")}. ¿Cuál de todas?`);
+        setOpcionesBodega(resuelto.opciones);
+        // se puede elegir tocando una tarjeta, o siguiendo la conversación
+        // y diciendo el nombre completo - que vuelve a pasar por aquí,
+        // ahora sí resolviendo a una sola.
+        rec.current = escuchar({
+          alTexto: (t) => { setTextoBodega(t); preguntarConfirmacionBodega(t); },
+          alEstado: (e) => setEstado(e),
+          alError: setErr,
+        });
+        return;
+      }
       hablar(`No encuentro ${nombreDictado.toLowerCase()}. Puede solicitarla como bodega nueva.`);
       setBodegaNoEncontrada(nombreDictado.trim());
       return;
@@ -380,10 +428,10 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
                        border: "1px solid var(--borde)", borderRadius: 12 }}
               value={textoBodega}
               onChange={(e) => setTextoBodega(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && abrir()}
+              onKeyDown={(e) => e.key === "Enter" && abrirPorBoton()}
               placeholder="nombre de la bodega…"
             />
-            <button className="btn" onClick={() => abrir()}>Abrir por nombre exacto</button>
+            <button className="btn" onClick={abrirPorBoton}>Abrir por nombre exacto</button>
           </div>
           {err && <p className="error" style={{ marginBottom: 10 }}>{err}</p>}
           {msgBodega && <p className="msg-ok" style={{ marginBottom: 10 }}>{msgBodega}</p>}
@@ -399,6 +447,23 @@ export default function Conteo({ token, sesionId = 1, ir, usuario }) {
                       onClick={solicitarBodegaNueva}>
                 Solicitar bodega nueva
               </button>
+            </div>
+          )}
+          {opcionesBodega && (
+            <div style={{ marginBottom: 14 }}>
+              <p className="pista" style={{ marginBottom: 8 }}>
+                Hay varias que encajan con lo dicho — toque una, o diga el
+                nombre completo:
+              </p>
+              <div className="opciones">
+                {opcionesBodega.map((o, i) => (
+                  <button key={o.bodega_id} className="opcion"
+                          onClick={() => { setOpcionesBodega(null); abrir(o.bodega); }}>
+                    <span className="n">Opción {i + 1}</span>
+                    <h4>{o.bodega}</h4>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {asignadas === null ? (
