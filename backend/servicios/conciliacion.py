@@ -19,7 +19,12 @@ def _cobertura(consulta: str, candidato: str) -> float:
     """Cuantas palabras significativas de la consulta aparecen en el nombre.
 
     Compara por raiz de 4 letras, para que BLANCA encuentre BLANCO
-    y CAZUELAS encuentre CAZUELA."""
+    y CAZUELAS encuentre CAZUELA. El lado "p.startswith(q[:4])" exige que
+    la raiz de la palabra del CATALOGO tenga esas 4 letras de verdad: sin
+    ese piso, una palabra corta del catalogo como "RES" (de "COSTILLA DE
+    RES") volvia "raiz" a ella misma y cualquier palabra dicha que
+    empezara igual - como "RESTAURANTE" - contaba como coincidencia
+    completa, aunque no tengan nada que ver."""
     tc = _tokens(consulta)
     if not tc:
         return 0.0
@@ -27,7 +32,7 @@ def _cobertura(consulta: str, candidato: str) -> float:
     aciertos = 0
     for p in tc:
         raiz = p[:4]
-        if any(q.startswith(raiz) or p.startswith(q[:4]) for q in tn):
+        if any(q.startswith(raiz) or (len(q) >= 4 and p.startswith(q[:4])) for q in tn):
             aciertos += 1
     return aciertos / len(tc) * 100
 
