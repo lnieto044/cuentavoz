@@ -2148,35 +2148,17 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
         socket.getaddrinfo = getaddrinfo_original
 
 
-@app.get("/api/soporte/_diag_red")
-def _diag_red(u: Usuario = Depends(usuario_actual)):
-    """TEMPORAL - se quita apenas se entienda por qué el correo real no
-    sale. Prueba una conexión HTTPS de verdad contra varios destinos
-    distintos, para ver si el problema es de todo el contenedor o solo
-    de los proveedores de correo."""
-    resultado = {}
-    for host in ("https://api.resend.com", "https://smtp.gmail.com:443",
-                 "https://www.google.com", "https://api.github.com",
-                 "https://generativelanguage.googleapis.com"):
-        try:
-            with urllib.request.urlopen(host, timeout=6) as resp:
-                resultado[host] = f"OK {resp.status}"
-        except Exception as e:
-            resultado[host] = f"{type(e).__name__}: {e}"
-    return resultado
-
-
 @app.post("/api/soporte/mensaje-administrador")
 def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
-    """"Escribirle al administrador", pero sin depender de que el equipo
-    tenga un cliente de correo instalado (el enlace mailto: le mostraba a
-    la persona el cuadro del sistema operativo "seleccionar una
-    aplicación para abrir este vínculo" cuando no lo tenía, en vez de
-    algo propio de CuentaVoz). El mensaje siempre queda trazado - se ve
-    en Ajustes → Registro de trazabilidad - y además se intenta un
-    correo real (vía Resend) si el servidor tiene RESEND_API_KEY
-    configurada; si no la tiene, no falla, solo se queda en la
-    trazabilidad."""
+    """"Escribirle al administrador". El mensaje siempre queda trazado -
+    se ve en Ajustes → Registro de trazabilidad - y además se intenta un
+    correo real (vía Brevo) si el servidor tiene BREVO_API_KEY
+    configurada. Sin esa credencial (el caso normal por ahora: no
+    depende de registrar una cuenta con un tercero), el frontend abre el
+    correo ya instalado en el dispositivo de quien envía, con el mensaje
+    listo - así igual llega un correo real, desde la cuenta de esa
+    persona, sin que CuentaVoz tenga que gestionar ningún servicio de
+    correo por su cuenta."""
     mensaje = (body.get("mensaje") or "").strip()
     if not mensaje:
         raise HTTPException(400, "Escriba el mensaje antes de enviarlo.")
@@ -2190,13 +2172,8 @@ def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
         raise HTTPException(404, "No hay un administrador disponible por ahora.")
     registrar(u, "SOPORTE", f"{u.nombre} le escribió a {nombre_admin}: {mensaje}")
     cuerpo = f"Mensaje enviado desde CuentaVoz por {u.nombre}.\n\n{mensaje}"
-    correo_enviado, motivo = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
-    resp = {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
-    if not correo_enviado:
-        # TEMPORAL mientras se calibra el envío real - se quita apenas
-        # quede funcionando, no debe llegar así a un uso normal.
-        resp["_debug_motivo"] = motivo
-    return resp
+    correo_enviado, _motivo = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
+    return {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
 
 
 @app.get("/api/soporte/administrador")

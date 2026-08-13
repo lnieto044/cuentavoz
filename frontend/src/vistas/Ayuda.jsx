@@ -79,9 +79,19 @@ export default function Ayuda({ token, usuario, ir }) {
         method: "POST", body: JSON.stringify({ mensaje }),
       }, token);
       const nombre = _capitalizar(admin?.nombre) || "el administrador";
+      // El servidor no manda el correo por sí mismo (necesitaría una
+      // cuenta de un servicio externo) - en vez de eso, abre el correo YA
+      // instalado en este dispositivo con todo listo, para que la
+      // persona lo mande con su propia cuenta, sin que CuentaVoz tenga
+      // que registrar nada de terceros.
+      if (!r?.correo_enviado && admin?.correo) {
+        const asunto = encodeURIComponent("Mensaje desde CuentaVoz");
+        const cuerpo = encodeURIComponent(`De: ${usuario?.nombre || "usted"}\n\n${mensaje}`);
+        window.location.href = `mailto:${admin.correo}?subject=${asunto}&body=${cuerpo}`;
+      }
       const listo = r?.correo_enviado
         ? `Correo enviado a ${nombre}.`
-        : `Mensaje enviado a ${nombre}. Quedó en el registro de trazabilidad.`;
+        : `Mensaje registrado. Se abrió su correo para enviarlo a ${nombre}.`;
       setMsg(listo);
       hablar(listo);
     } catch (e) { setMsg(e.message); }
