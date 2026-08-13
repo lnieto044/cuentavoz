@@ -80,8 +80,13 @@ export default function Ayuda({ token, ir }) {
   // cuando el botón para hacerlo está ahí mismo, a la vista).
   function _accionLocalDeAyuda(texto) {
     const t = quitarTildes(texto.toLowerCase()).replace(/[.,;:!¿?¡]/g, "").trim();
-    if (/\badministrador\b/.test(t) && /\b(escribir|escribale|contactar|mensaje)\b/.test(t)) return "escribir";
-    if (/\bproblema\b/.test(t) && /\breportar\b/.test(t)) return "reportar";
+    // "\bescrib" (sin \b de cierre) para que agarre CUALQUIER conjugación
+    // - "escribir", "escríbale", y sobre todo "escribirle" (como dice el
+    // botón mismo: "Escribirle al administrador") - un \b\escribir\b no
+    // hacía match dentro de "escribirle" porque ahí "escribir" no es una
+    // palabra completa, es solo el principio de una más larga.
+    if (/\badministrador\b/.test(t) && /\b(escrib\w*|contactar|mensaje)\b/.test(t)) return "escribir";
+    if (/\bproblema\b|\berror\b/.test(t) && /\breport\w*/.test(t)) return "reportar";
     return null;
   }
 
