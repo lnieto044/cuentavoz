@@ -1999,6 +1999,9 @@ def _narrar_actividad(t):
     if t.accion == "AJUSTE":
         return f"{p} actualizó la configuración del sistema"
     if t.accion == "SOPORTE":
+        if " le escribió a " in d:
+            destinatario = d.split(" le escribió a ")[1].split(":")[0]
+            return f"{p} le escribió a {destinatario.title()}"
         return f"{p} reportó un problema"
     return f"{p}: {d}"
 
@@ -2086,6 +2089,29 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
     detalle = (body.get("detalle") or "").strip() or "Sin detalle."
     registrar(u, "SOPORTE", f"{u.nombre} reporto: {detalle}", "alerta")
     return {"ok": True}
+
+
+@app.post("/api/soporte/mensaje-administrador")
+def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
+    """"Escribirle al administrador", pero sin depender de que el equipo
+    tenga un cliente de correo instalado (el enlace mailto: le mostraba a
+    la persona el cuadro del sistema operativo "seleccionar una
+    aplicación para abrir este vínculo" cuando no lo tenía, en vez de
+    algo propio de CuentaVoz). El mensaje queda igual de trazado que un
+    reporte de problema - se ve en Ajustes → Registro de trazabilidad -
+    sin inventar un envío de correo real que esta app no puede garantizar."""
+    mensaje = (body.get("mensaje") or "").strip()
+    if not mensaje:
+        raise HTTPException(400, "Escriba el mensaje antes de enviarlo.")
+    with Sesion() as s:
+        admin = (s.query(Usuario)
+                .filter(Usuario.perfil == "auditor", Usuario.activo == 1, Usuario.id != u.id)
+                .first())
+        nombre_admin = admin.nombre if admin else None
+    if not nombre_admin:
+        raise HTTPException(404, "No hay un administrador disponible por ahora.")
+    registrar(u, "SOPORTE", f"{u.nombre} le escribió a {nombre_admin}: {mensaje}")
+    return {"ok": True, "administrador": nombre_admin}
 
 
 @app.get("/api/soporte/administrador")

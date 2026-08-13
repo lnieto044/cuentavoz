@@ -25,12 +25,14 @@ const COMANDOS = [
   ["«Hoy preparamos cincuenta ajiacos»", "pedir insumos por receta"],
 ];
 
-export default function Ayuda({ token, ir }) {
+export default function Ayuda({ token, usuario, ir }) {
   const [salud, setSalud] = useState(null);
   const [busca, setBusca] = useState("");
   const [reportando, setReportando] = useState(false);
   const [msg, setMsg] = useState("");
   const [pedirDetalle, setPedirDetalle] = useState(false);
+  const [escribiendoAdmin, setEscribiendoAdmin] = useState(false);
+  const [enviandoAdmin, setEnviandoAdmin] = useState(false);
   const [admin, setAdmin] = useState(null);
   // Si lo escrito/dicho no encuentra nada en las preguntas frecuentes ni
   // en la guía de comandos, la respuesta del agente general - mismo
@@ -59,6 +61,36 @@ export default function Ayuda({ token, ir }) {
       setMsg("Reportado a la mesa de ayuda. Quedó en el registro de trazabilidad.");
     } catch (e) { setMsg(e.message); }
     setReportando(false);
+  }
+
+  // Reemplaza el enlace mailto: de antes - dependía de que el equipo
+  // tuviera un cliente de correo instalado, y sin uno mostraba el cuadro
+  // genérico del sistema operativo ("seleccionar una aplicación para
+  // abrir este vínculo") en vez de algo propio de CuentaVoz. Este envío
+  // queda en el registro de trazabilidad, con el mismo aviso honesto que
+  // ya usa "Reportar un problema": no promete un correo real que la app
+  // no puede garantizar.
+  async function enviarMensajeAdministrador(mensaje) {
+    setEscribiendoAdmin(false);
+    if (!mensaje || !mensaje.trim()) return;
+    setEnviandoAdmin(true);
+    try {
+      await pedir("/api/soporte/mensaje-administrador", {
+        method: "POST", body: JSON.stringify({ mensaje }),
+      }, token);
+      const listo = `Mensaje enviado a ${_capitalizar(admin?.nombre) || "el administrador"}. Quedó en el registro de trazabilidad.`;
+      setMsg(listo);
+      hablar(listo);
+    } catch (e) { setMsg(e.message); }
+    setEnviandoAdmin(false);
+  }
+
+  // admin.nombre y usuario.nombre llegan en minúscula (el resto de la
+  // pantalla los capitaliza con CSS) - aquí van dentro de texto plano de
+  // un mensaje, así que hay que capitalizarlos en JS.
+  function _capitalizar(nombre) {
+    if (!nombre) return "";
+    return nombre.split(" ").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
   }
 
   function _hayCoincidenciaLocal(texto) {
@@ -99,10 +131,7 @@ export default function Ayuda({ token, ir }) {
     if (miId === undefined) miId = ++idEscucha.current;
     setBusca(texto);
     const accion = _accionLocalDeAyuda(texto);
-    if (accion === "escribir" && admin?.correo) {
-      window.location.href = `mailto:${admin.correo}`;
-      return;
-    }
+    if (accion === "escribir" && admin) { setEscribiendoAdmin(true); return; }
     if (accion === "reportar") { setPedirDetalle(true); return; }
     if (_hayCoincidenciaLocal(texto)) { setRespuestaAgente(null); return; }
     setErrorBusca("");
@@ -194,9 +223,9 @@ export default function Ayuda({ token, ir }) {
                   <span style={{ color: "var(--verde)", fontWeight: 700 }}> · disponible</span>
                 </p>
                 <div className="grilla-botones">
-                  <button className="btn"
-                          onClick={() => { window.location.href = `mailto:${admin.correo}`; }}>
-                    Escribirle al administrador
+                  <button className="btn" disabled={enviandoAdmin}
+                          onClick={() => setEscribiendoAdmin(true)}>
+                    {enviandoAdmin ? "Enviando…" : "Escribirle al administrador"}
                   </button>
                 </div>
               </>
@@ -255,6 +284,15 @@ export default function Ayuda({ token, ir }) {
                  textoAceptar="Enviar"
                  onAceptar={reportarProblema}
                  onCancelar={() => setPedirDetalle(false)} />
+      )}
+
+      {escribiendoAdmin && (
+        <Dialogo titulo="Escribirle al administrador"
+                 mensaje={`Para: ${_capitalizar(admin?.nombre) || "Administrador"}\nDe: ${_capitalizar(usuario?.nombre) || "Usted"}\nAsunto: Mensaje desde CuentaVoz\n\nEscriba su mensaje:`}
+                 conCampo conVoz multilinea placeholder="Necesito que me asigne la bodega de Kiosco Taquilla…"
+                 textoAceptar="Enviar"
+                 onAceptar={enviarMensajeAdministrador}
+                 onCancelar={() => setEscribiendoAdmin(false)} />
       )}
     </Marco>
   );
