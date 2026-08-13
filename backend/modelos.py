@@ -189,6 +189,20 @@ class ConfigClave(Base):
     valor = Column(String, nullable=False)
 
 
+class MensajeSoporte(Base):
+    """Un mensaje de "Soporte en vivo" (auxiliar -> administrador) con su
+    respuesta, si ya la dio - la bandeja dentro de la app en Ayuda,
+    aparte del correo real que tambien se manda por fuera (EmailJS)."""
+    __tablename__ = "mensaje_soporte"
+    id = Column(Integer, primary_key=True)
+    remitente_id = Column(Integer, ForeignKey("usuario.id"), nullable=False)
+    destinatario_id = Column(Integer, ForeignKey("usuario.id"), nullable=False)
+    mensaje = Column(String, nullable=False)
+    respuesta = Column(String, nullable=True)
+    creado = Column(DateTime, default=datetime.now)
+    respondido = Column(DateTime, nullable=True)
+
+
 class CredencialWebAuthn(Base):
     """Una llave de acceso (huella, Windows Hello, etc.) registrada en un
     dispositivo para un usuario - el ingreso real por biometria via WebAuthn,

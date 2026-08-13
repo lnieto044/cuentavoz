@@ -71,6 +71,12 @@ export default function Ayuda({ token, usuario, ir }) {
   const [enviandoAdmin, setEnviandoAdmin] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [miPerfil, setMiPerfil] = useState(null);
+  // Bandeja de "Soporte en vivo" dentro de la app: para un auxiliar, sus
+  // mensajes enviados y si ya le respondieron; para el administrador,
+  // los mensajes que le han escrito y cuáles faltan por responder.
+  const [misMensajes, setMisMensajes] = useState([]);
+  const [respondiendoId, setRespondiendoId] = useState(null);
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   // Si lo escrito/dicho no encuentra nada en las preguntas frecuentes ni
   // en la guía de comandos, la respuesta del agente general - mismo
   // patrón que el buscador de Bodegas: un solo cuadro para todo, en vez
@@ -88,7 +94,12 @@ export default function Ayuda({ token, usuario, ir }) {
     // Para la firma del correo a el administrador (nombre, rol y correo
     // de quien escribe) - "usuario" (la sesión) solo trae id/nombre/perfil.
     pedir("/api/usuarios/yo", {}, token).then(setMiPerfil).catch(() => {});
+    cargarMisMensajes();
   }, [token]);
+
+  function cargarMisMensajes() {
+    pedir("/api/soporte/mensajes", {}, token).then(setMisMensajes).catch(() => {});
+  }
 
   async function reportarProblema(detalle) {
     setPedirDetalle(false);
@@ -142,8 +153,35 @@ export default function Ayuda({ token, usuario, ir }) {
       }
       setMsg(listo);
       hablar(listo);
+      cargarMisMensajes();
     } catch (e) { setMsg(e.message); }
     setEnviandoAdmin(false);
+  }
+
+  // El administrador responde un mensaje desde la bandeja de esta
+  // pantalla (no desde su correo) - queda guardado en CuentaVoz Y,
+  // además, se intenta un correo real de vuelta al remitente por el
+  // mismo camino que el mensaje original (EmailJS desde este navegador).
+  async function responderMensaje(respuesta) {
+    const id = respondiendoId;
+    setRespondiendoId(null);
+    if (!respuesta || !respuesta.trim() || !id) return;
+    setEnviandoRespuesta(true);
+    try {
+      const r = await pedir(`/api/soporte/mensajes/${id}/responder`, {
+        method: "POST", body: JSON.stringify({ respuesta }),
+      }, token);
+      const rol = usuario?.perfil === "auditor" ? "Administrador de bodega" : "Auxiliar de inventarios";
+      if (r?.correo_destinatario) {
+        await _enviarPorEmailJS(r.correo_destinatario, _capitalizar(usuario?.nombre) || "Usuario",
+                                 respuesta, rol, miPerfil?.correo);
+      }
+      const listo = `Respuesta enviada a ${_capitalizar(r?.destinatario) || "la persona"}.`;
+      setMsg(listo);
+      hablar(listo);
+      cargarMisMensajes();
+    } catch (e) { setMsg(e.message); }
+    setEnviandoRespuesta(false);
   }
 
   // admin.nombre y usuario.nombre llegan en minúscula (el resto de la
@@ -289,13 +327,57 @@ export default function Ayuda({ token, usuario, ir }) {
                     {enviandoAdmin ? "Enviando…" : "Escribirle al administrador"}
                   </button>
                 </div>
+                {misMensajes.length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    {misMensajes.map((m) => (
+                      <div key={m.id} style={{ padding: "8px 0", borderTop: "1px solid var(--borde)" }}>
+                        <p style={{ fontSize: ".82rem", color: "var(--grafito)" }}>{m.mensaje}</p>
+                        {m.respuesta ? (
+                          <p style={{ fontSize: ".82rem", marginTop: 4 }}>
+                            <strong style={{ color: "var(--azul)" }}>
+                              Respuesta de {_capitalizar(m.para)}:
+                            </strong> {m.respuesta}
+                          </p>
+                        ) : (
+                          <p className="pista" style={{ marginTop: 2 }}>Pendiente de respuesta…</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             ) : admin?.es_usted ? (
-              <p style={{ fontSize: ".88rem" }}>
-                Usted es la administradora de turno: los auxiliares le escriben a
-                usted. Para algo que se salga de su alcance, use la mesa de ayuda
-                de Colsubsidio.
-              </p>
+              <>
+                <p style={{ fontSize: ".88rem" }}>
+                  Usted es la administradora de turno: los auxiliares le escriben a
+                  usted. Para algo que se salga de su alcance, use la mesa de ayuda
+                  de Colsubsidio.
+                </p>
+                {misMensajes.length === 0 ? (
+                  <p className="pista" style={{ marginTop: 8 }}>Sin mensajes por ahora.</p>
+                ) : (
+                  <div style={{ marginTop: 10 }}>
+                    {misMensajes.map((m) => (
+                      <div key={m.id} style={{ padding: "10px 0", borderTop: "1px solid var(--borde)" }}>
+                        <p style={{ fontSize: ".82rem" }}>
+                          <strong style={{ textTransform: "capitalize" }}>{m.de}</strong>: {m.mensaje}
+                        </p>
+                        {m.respuesta ? (
+                          <p style={{ fontSize: ".82rem", color: "var(--verde)", marginTop: 4 }}>
+                            Ya respondido: {m.respuesta}
+                          </p>
+                        ) : (
+                          <button className="btn borde" disabled={enviandoRespuesta}
+                                  style={{ marginTop: 6, fontSize: ".82rem", padding: "6px 14px" }}
+                                  onClick={() => setRespondiendoId(m.id)}>
+                            Responder
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <p style={{ fontSize: ".88rem" }}>
                 No hay otro administrador registrado por ahora. Use la mesa de
@@ -355,6 +437,18 @@ export default function Ayuda({ token, usuario, ir }) {
                  onAceptar={enviarMensajeAdministrador}
                  onCancelar={() => setEscribiendoAdmin(false)} />
       )}
+
+      {respondiendoId && (() => {
+        const original = misMensajes.find((m) => m.id === respondiendoId);
+        return (
+          <Dialogo titulo="Responder mensaje"
+                   mensaje={`Para: ${_capitalizar(original?.de) || "la persona"}\nDe: ${_capitalizar(usuario?.nombre) || "Usted"}\n\nMensaje original:\n${original?.mensaje || ""}\n\nEscriba su respuesta:`}
+                   conCampo conVoz multilinea placeholder="Ya quedó asignada esa bodega, revise en unos minutos…"
+                   textoAceptar="Enviar"
+                   onAceptar={responderMensaje}
+                   onCancelar={() => setRespondiendoId(null)} />
+        );
+      })()}
     </Marco>
   );
 }

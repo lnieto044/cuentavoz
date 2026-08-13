@@ -25,7 +25,7 @@ from bd import Sesion, iniciar_bd
 from modelos import (Usuario, Bodega, Articulo, StockSistema, SesionConteo,
                      Conteo, Alerta, Traza, LineaServicio, AsignacionBodega,
                      Aprobacion, HistorialCierre, ConfigClave,
-                     Receta, RecetaIngrediente, CredencialWebAuthn)
+                     Receta, RecetaIngrediente, CredencialWebAuthn, MensajeSoporte)
 from seguridad import (hash_clave, verificar_clave, crear_token,
                        usuario_actual, requiere_perfil, registrar)
 from agente.orquestador import procesar_turno, ESTADOS, avance
@@ -2166,14 +2166,61 @@ def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
         admin = (s.query(Usuario)
                 .filter(Usuario.perfil == "auditor", Usuario.activo == 1, Usuario.id != u.id)
                 .first())
-        nombre_admin = admin.nombre if admin else None
-        correo_admin = admin.correo if admin else None
-    if not nombre_admin:
-        raise HTTPException(404, "No hay un administrador disponible por ahora.")
+        if not admin:
+            raise HTTPException(404, "No hay un administrador disponible por ahora.")
+        nombre_admin, correo_admin, admin_id = admin.nombre, admin.correo, admin.id
+        s.add(MensajeSoporte(remitente_id=u.id, destinatario_id=admin_id, mensaje=mensaje))
+        s.commit()
     registrar(u, "SOPORTE", f"{u.nombre} le escribió a {nombre_admin}: {mensaje}")
     cuerpo = f"Mensaje enviado desde CuentaVoz por {u.nombre}.\n\n{mensaje}"
     correo_enviado, _motivo = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
     return {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
+
+
+@app.get("/api/soporte/mensajes")
+def mis_mensajes_soporte(u: Usuario = Depends(usuario_actual)):
+    """La bandeja de "Soporte en vivo" dentro de la app: para un auxiliar,
+    lo que ha escrito y si ya le respondieron; para el administrador, lo
+    que le han escrito y lo que falta por responder."""
+    with Sesion() as s:
+        if u.perfil == "auditor":
+            filas = (s.query(MensajeSoporte)
+                    .filter(MensajeSoporte.destinatario_id == u.id)
+                    .order_by(MensajeSoporte.creado.desc()).all())
+        else:
+            filas = (s.query(MensajeSoporte)
+                    .filter(MensajeSoporte.remitente_id == u.id)
+                    .order_by(MensajeSoporte.creado.desc()).all())
+        ids_personas = {m.remitente_id for m in filas} | {m.destinatario_id for m in filas}
+        personas = {p.id: p.nombre for p in s.query(Usuario).filter(Usuario.id.in_(ids_personas)).all()}
+        return [{"id": m.id,
+                 "de": personas.get(m.remitente_id, "?"),
+                 "para": personas.get(m.destinatario_id, "?"),
+                 "mensaje": m.mensaje, "respuesta": m.respuesta,
+                 "creado": m.creado.strftime("%Y-%m-%d %H:%M"),
+                 "respondido": m.respondido.strftime("%Y-%m-%d %H:%M") if m.respondido else None}
+                for m in filas]
+
+
+@app.post("/api/soporte/mensajes/{mensaje_id}/responder")
+def responder_mensaje_soporte(mensaje_id: int, body: dict, u: Usuario = Depends(usuario_actual)):
+    """Solo quien recibió el mensaje puede responderlo - no hace falta
+    pedir perfil "auditor" aparte: si no es el destinatario, no puede."""
+    respuesta = (body.get("respuesta") or "").strip()
+    if not respuesta:
+        raise HTTPException(400, "Escriba la respuesta antes de enviarla.")
+    with Sesion() as s:
+        m = s.get(MensajeSoporte, mensaje_id)
+        if not m or m.destinatario_id != u.id:
+            raise HTTPException(404, "Ese mensaje no existe o no es suyo para responder.")
+        m.respuesta = respuesta
+        m.respondido = datetime.now()
+        s.commit()
+        remitente = s.get(Usuario, m.remitente_id)
+        nombre_remitente = remitente.nombre if remitente else "?"
+        correo_remitente = remitente.correo if remitente else None
+    registrar(u, "SOPORTE", f"{u.nombre} le respondió a {nombre_remitente}: {respuesta}")
+    return {"ok": True, "destinatario": nombre_remitente, "correo_destinatario": correo_remitente}
 
 
 @app.get("/api/soporte/administrador")
