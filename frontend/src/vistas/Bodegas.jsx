@@ -190,8 +190,26 @@ export default function Bodegas({ token, usuario, ir }) {
   // "miId" solo llega cuando la búsqueda vino de buscarPorVoz() (ver ese
   // comentario) - una búsqueda escrita y con clic en "Buscar" no debe
   // quedarse esperando una respuesta hablada que nadie va a dar.
+  // Órdenes sobre los botones de la lista principal ("+ Bodega nueva",
+  // "Exportar estado", "Asignar personas a bodegas") - mismo patrón que
+  // _accionLocalDeResultado/_accionLocalDeDetalle: se revisan antes que
+  // cualquier búsqueda, porque el agente general no sabe qué botones hay
+  // en esta pantalla en particular.
+  function _accionLocalDeLista(texto) {
+    const t = quitarTildes(texto.toLowerCase()).replace(/[.,;:!¿?¡]/g, "").trim();
+    if (/\bbodega\b/.test(t) && /\b(nueva|crear|solicitar)\b/.test(t)) return "nueva";
+    if (/\bexportar\b/.test(t) && esAuditor) return "exportar";
+    if (/\basignar\b/.test(t) && esAuditor) return "asignar";
+    return null;
+  }
   async function buscarArticulo(codigo = "", texto = busca, miId) {
     if (!texto.trim()) return;
+    if (!consulta && !detalle) {
+      const accionLista = _accionLocalDeLista(texto);
+      if (accionLista === "nueva") { setPidiendoBodegaNueva(true); return; }
+      if (accionLista === "exportar") { exportarEstado(); return; }
+      if (accionLista === "asignar") { ir && ir("ajustes", { tabInicial: "usuarios" }); return; }
+    }
     // Si queda una sugerencia de bodega pendiente en pantalla, un "sí"/
     // "no" nuevo la responde - sin importar si llegó como continuación
     // de la misma escucha o como una búsqueda nueva escrita/hablada
