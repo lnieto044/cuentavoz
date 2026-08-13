@@ -1,9 +1,10 @@
 """La API de CuentaVoz. Aqui se conectan la tableta, el agente y la base."""
+import json
 import os
 import re
 import secrets
-import smtplib
-from email.mime.text import MIMEText
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
@@ -2094,33 +2095,32 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
 
 
 def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bool, str]:
-    """Envía un correo de verdad por Gmail SMTP si hay credenciales
-    configuradas (SMTP_CORREO y SMTP_CLAVE_APP - esta última es una
-    contraseña de aplicación de Gmail, no la contraseña normal de la
-    cuenta). Sin esas variables de entorno, no intenta nada: el llamador
-    sigue funcionando igual que antes (solo trazabilidad), el mismo
-    patrón de "se degrada sin romperse" que ya usa el agente sin
+    """Envía un correo de verdad por la API de Resend (HTTPS) si hay
+    credenciales configuradas (RESEND_API_KEY). Se cambió de SMTP directo
+    a esto porque Render bloquea las conexiones salientes por el puerto
+    587 - smtplib fallaba con "Network is unreachable" sin importar que
+    las credenciales de Gmail estuvieran bien. Una API por HTTPS no tiene
+    ese problema. Sin RESEND_API_KEY configurada, no intenta nada: el
+    llamador sigue funcionando igual que antes (solo trazabilidad), el
+    mismo patrón de "se degrada sin romperse" que ya usa el agente sin
     GOOGLE_API_KEY. Devuelve (enviado, motivo-si-fallo) - el motivo es
     temporal mientras se termina de calibrar el envío real."""
-    remitente = os.getenv("SMTP_CORREO", "").strip()
-    # Google muestra la contraseña de aplicación agrupada de a 4
-    # caracteres para que sea fácil de leer ("abcd efgh ijkl mnop"), pero
-    # la contraseña real no tiene esos espacios - si se copia tal cual se
-    # ve en pantalla, el login falla porque el valor no coincide con el
-    # que Google tiene guardado.
-    clave_app = os.getenv("SMTP_CLAVE_APP", "").strip().replace(" ", "")
-    if not remitente or not clave_app or not destinatario:
-        return False, "sin credenciales SMTP_CORREO/SMTP_CLAVE_APP configuradas"
-    msg = MIMEText(cuerpo, "plain", "utf-8")
-    msg["Subject"] = asunto
-    msg["From"] = remitente
-    msg["To"] = destinatario
+    api_key = os.getenv("RESEND_API_KEY", "").strip()
+    remitente = os.getenv("RESEND_FROM", "CuentaVoz <onboarding@resend.dev>").strip()
+    if not api_key or not destinatario:
+        return False, "sin RESEND_API_KEY configurada"
+    payload = json.dumps({"from": remitente, "to": [destinatario],
+                          "subject": asunto, "text": cuerpo}).encode("utf-8")
+    peticion = urllib.request.Request(
+        "https://api.resend.com/emails", data=payload, method="POST",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as s:
-            s.starttls()
-            s.login(remitente, clave_app)
-            s.send_message(msg)
-        return True, ""
+        with urllib.request.urlopen(peticion, timeout=10) as resp:
+            return 200 <= resp.status < 300, ""
+    except urllib.error.HTTPError as e:
+        motivo = f"HTTP {e.code}: {e.read().decode('utf-8', 'ignore')[:300]}"
+        print(f"[correo] no se pudo enviar a {destinatario}: {motivo}")
+        return False, motivo
     except Exception as e:
         motivo = f"{type(e).__name__}: {e}"
         print(f"[correo] no se pudo enviar a {destinatario}: {motivo}")
@@ -2135,8 +2135,9 @@ def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
     aplicación para abrir este vínculo" cuando no lo tenía, en vez de
     algo propio de CuentaVoz). El mensaje siempre queda trazado - se ve
     en Ajustes → Registro de trazabilidad - y además se intenta un
-    correo real si el servidor tiene credenciales SMTP configuradas; si
-    no las tiene, no falla, solo se queda en la trazabilidad."""
+    correo real (vía Resend) si el servidor tiene RESEND_API_KEY
+    configurada; si no la tiene, no falla, solo se queda en la
+    trazabilidad."""
     mensaje = (body.get("mensaje") or "").strip()
     if not mensaje:
         raise HTTPException(400, "Escriba el mensaje antes de enviarlo.")
