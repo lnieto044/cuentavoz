@@ -2141,6 +2141,24 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
         socket.getaddrinfo = getaddrinfo_original
 
 
+@app.get("/api/soporte/_diag_red")
+def _diag_red(u: Usuario = Depends(usuario_actual)):
+    """TEMPORAL - se quita apenas se entienda por qué el correo real no
+    sale. Prueba una conexión HTTPS de verdad contra varios destinos
+    distintos, para ver si el problema es de todo el contenedor o solo
+    de los proveedores de correo."""
+    resultado = {}
+    for host in ("https://api.resend.com", "https://smtp.gmail.com:443",
+                 "https://www.google.com", "https://api.github.com",
+                 "https://generativelanguage.googleapis.com"):
+        try:
+            with urllib.request.urlopen(host, timeout=6) as resp:
+                resultado[host] = f"OK {resp.status}"
+        except Exception as e:
+            resultado[host] = f"{type(e).__name__}: {e}"
+    return resultado
+
+
 @app.post("/api/soporte/mensaje-administrador")
 def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
     """"Escribirle al administrador", pero sin depender de que el equipo
