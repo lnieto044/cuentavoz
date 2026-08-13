@@ -2096,29 +2096,31 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
 
 
 def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bool, str]:
-    """Envía un correo de verdad por la API de Resend (HTTPS) si hay
-    credenciales configuradas (RESEND_API_KEY). Se cambió de SMTP directo
-    a esto porque Render bloquea las conexiones salientes por el puerto
-    587 - smtplib fallaba con "Network is unreachable" sin importar que
-    las credenciales de Gmail estuvieran bien. Una API por HTTPS no tiene
-    ese problema. Sin RESEND_API_KEY configurada, no intenta nada: el
-    llamador sigue funcionando igual que antes (solo trazabilidad), el
-    mismo patrón de "se degrada sin romperse" que ya usa el agente sin
-    GOOGLE_API_KEY. Devuelve (enviado, motivo-si-fallo) - el motivo es
-    temporal mientras se termina de calibrar el envío real."""
-    api_key = os.getenv("RESEND_API_KEY", "").strip()
-    remitente = os.getenv("RESEND_FROM", "CuentaVoz <onboarding@resend.dev>").strip()
-    if not api_key or not destinatario:
-        return False, "sin RESEND_API_KEY configurada"
-    payload = json.dumps({"from": remitente, "to": [destinatario],
-                          "subject": asunto, "text": cuerpo}).encode("utf-8")
+    """Envía un correo de verdad por la API de Brevo (HTTPS) si hay
+    credenciales configuradas (BREVO_API_KEY). Antes se intentó SMTP
+    directo a Gmail (Render bloquea el puerto 587, "Network is
+    unreachable") y luego la API de Resend (Cloudflare la rechazaba con
+    "error code: 1010", probablemente por la reputación de las IPs
+    compartidas de Render) - ninguna de las dos depende del código, así
+    que se cambió de proveedor otra vez. Sin BREVO_API_KEY configurada,
+    no intenta nada: el llamador sigue funcionando igual que antes (solo
+    trazabilidad), el mismo patrón de "se degrada sin romperse" que ya
+    usa el agente sin GOOGLE_API_KEY. Devuelve (enviado, motivo-si-fallo)
+    - el motivo es temporal mientras se termina de calibrar el envío
+    real."""
+    api_key = os.getenv("BREVO_API_KEY", "").strip()
+    remitente = os.getenv("BREVO_FROM", os.getenv("SMTP_CORREO", "")).strip()
+    if not api_key or not remitente or not destinatario:
+        return False, "sin BREVO_API_KEY/BREVO_FROM configuradas"
+    payload = json.dumps({
+        "sender": {"name": "CuentaVoz", "email": remitente},
+        "to": [{"email": destinatario}],
+        "subject": asunto, "textContent": cuerpo,
+    }).encode("utf-8")
     peticion = urllib.request.Request(
-        "https://api.resend.com/emails", data=payload, method="POST",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
-                 # Sin esto, Cloudflare (delante de la API de Resend)
-                 # rechaza la conexión con un "error code: 1010" - el
-                 # User-Agent por defecto de urllib ("Python-urllib/3.x")
-                 # queda marcado como firma de bot.
+        "https://api.brevo.com/v3/smtp/email", data=payload, method="POST",
+        headers={"api-key": api_key, "Content-Type": "application/json",
+                 "Accept": "application/json",
                  "User-Agent": "CuentaVoz/1.0 (+https://cuentavoz.onrender.com)"})
     # El contenedor de Render no tiene ruta de salida por IPv6, pero la
     # resolución de nombres a veces sí devuelve una dirección IPv6 (y
