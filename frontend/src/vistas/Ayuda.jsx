@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { pedir, preguntarAsistente } from "../api";
-import { escuchar, hablar } from "../voz";
+import { escuchar, hablar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 
@@ -72,13 +72,33 @@ export default function Ayuda({ token, ir }) {
     setRespuestaAgente(null);
   }
 
-  // Al confirmar (Enter, o al terminar de dictar): si lo escrito/dicho no
-  // encuentra nada en las preguntas frecuentes ni en la guía de comandos,
-  // cae al agente general - un solo cuadro para todo.
+  // Los botones de "Soporte en vivo" ("Escribirle al administrador",
+  // "Reportar un problema") también son órdenes reconocibles - se
+  // revisan antes que cualquier otra cosa, porque el agente general no
+  // sabe qué botones hay en esta pantalla en particular (por eso decía
+  // "no puedo enviarle mensajes... esa función no está disponible", aun
+  // cuando el botón para hacerlo está ahí mismo, a la vista).
+  function _accionLocalDeAyuda(texto) {
+    const t = quitarTildes(texto.toLowerCase()).replace(/[.,;:!¿?¡]/g, "").trim();
+    if (/\badministrador\b/.test(t) && /\b(escribir|escribale|contactar|mensaje)\b/.test(t)) return "escribir";
+    if (/\bproblema\b/.test(t) && /\breportar\b/.test(t)) return "reportar";
+    return null;
+  }
+
+  // Al confirmar (Enter, o al terminar de dictar): primero las órdenes
+  // sobre los botones de esta pantalla; si no aplica ninguna y lo dicho
+  // no encuentra nada en las preguntas frecuentes ni en la guía de
+  // comandos, cae al agente general - un solo cuadro para todo.
   async function confirmarBusqueda(texto, miId) {
     if (!texto || !texto.trim()) return;
     if (miId === undefined) miId = ++idEscucha.current;
     setBusca(texto);
+    const accion = _accionLocalDeAyuda(texto);
+    if (accion === "escribir" && admin?.correo) {
+      window.location.href = `mailto:${admin.correo}`;
+      return;
+    }
+    if (accion === "reportar") { setPedirDetalle(true); return; }
     if (_hayCoincidenciaLocal(texto)) { setRespuestaAgente(null); return; }
     setErrorBusca("");
     const r = await preguntarAsistente(texto, "ayuda", token);
