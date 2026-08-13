@@ -18,13 +18,17 @@ def _tokens(t: str) -> list[str]:
 def _cobertura(consulta: str, candidato: str) -> float:
     """Cuantas palabras significativas de la consulta aparecen en el nombre.
 
-    Compara por raiz de 4 letras, para que BLANCA encuentre BLANCO
-    y CAZUELAS encuentre CAZUELA. El lado "p.startswith(q[:4])" exige que
-    la raiz de la palabra del CATALOGO tenga esas 4 letras de verdad: sin
-    ese piso, una palabra corta del catalogo como "RES" (de "COSTILLA DE
-    RES") volvia "raiz" a ella misma y cualquier palabra dicha que
-    empezara igual - como "RESTAURANTE" - contaba como coincidencia
-    completa, aunque no tengan nada que ver."""
+    Compara por raiz de 4 letras, para que BLANCA encuentre BLANCO y
+    CAZUELAS encuentre CAZUELA - en los DOS sentidos exige que la raiz
+    tenga esas 4 letras de verdad (no baste una palabra de 3): sin ese
+    piso en el lado del candidato, una palabra corta del catalogo como
+    "RES" (de "COSTILLA DE RES") volvia "raiz" a ella misma y cualquier
+    palabra dicha que empezara igual - como "RESTAURANTE" - contaba como
+    coincidencia; sin el mismo piso del lado de lo dicho, decir "ver"
+    (de una frase suelta como "sí para ver el detalle", no una busqueda
+    de verdad) encontraba "VERDE"/"VERDURAS" en articulos reales sin
+    relacion alguna. Una palabra de 3 letras solo cuenta si coincide
+    EXACTA con alguna del candidato."""
     tc = _tokens(consulta)
     if not tc:
         return 0.0
@@ -32,7 +36,8 @@ def _cobertura(consulta: str, candidato: str) -> float:
     aciertos = 0
     for p in tc:
         raiz = p[:4]
-        if any(q.startswith(raiz) or (len(q) >= 4 and p.startswith(q[:4])) for q in tn):
+        if any(p == q or (len(p) >= 4 and q.startswith(raiz))
+               or (len(q) >= 4 and p.startswith(q[:4])) for q in tn):
             aciertos += 1
     return aciertos / len(tc) * 100
 

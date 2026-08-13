@@ -80,6 +80,40 @@ def test_sin_ningun_parecido_cae_al_agente_general(
     assert cuerpo["destino"] != "conteo"
 
 
+def test_frase_suelta_no_confunde_un_articulo_de_baja_confianza(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """Bug real reportado: decir una frase conversacional ("seguir
+    contando", eco de un botón de otra pantalla) coincidía por
+    casualidad con un artículo real que comparte una raíz de 4 letras
+    (aquí, "SEGUNDOS" comparte "SEGU" con "seguir") - una coincidencia
+    de baja confianza que el buscador de Bodegas debe descartar, a
+    diferencia de Conteo/Pedido, que sí aceptan ese mismo umbral más
+    flojo porque ahí lo dictado siempre es, a propósito, un nombre de
+    artículo."""
+    from bd import Sesion
+    from modelos import Articulo, StockSistema
+
+    with Sesion() as sesion:
+        art = Articulo(codigo="ART-REG-002", nombre_oficial="TIMER 60 SEGUNDOS DIGITAL",
+                        unidad_medida="unidad")
+        sesion.add(art)
+        sesion.flush()
+        sesion.add(StockSistema(articulo_codigo=art.codigo,
+                                bodega_id=datos_regresion["bodega_asignada_id"], cantidad_sd=1))
+        sesion.commit()
+
+    r = client.get(
+        "/api/articulos/consulta",
+        params={"q": "seguir contando"},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo.get("codigo") != "ART-REG-002"
+    assert "SEGUNDOS" not in (cuerpo.get("resumen") or "")
+
+
 def test_orden_de_abrir_una_bodega_navega_a_conteo_desde_el_mismo_buscador(
     client: TestClient, datos_regresion: dict[str, object]
 ) -> None:

@@ -1086,7 +1086,26 @@ def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_act
             "accion": r.get("accion"), "destino": r.get("destino"),
             "pestana": r.get("pestana"), "bodega": r.get("bodega"),
         }
-    cand = buscar_articulo(q)
+    cand_todos = buscar_articulo(q)
+    # Este buscador acepta CUALQUIER frase (nombre de ingrediente, de
+    # bodega, una pregunta, una orden) - no solo un nombre de artículo
+    # dictado a propósito, como sí es el caso en Conteo/Pedido (donde
+    # este mismo umbral global de 45 sigue igual, sin tocar). Con ese
+    # umbral más flojo aquí, frases sueltas sin relación con ningún
+    # producto ("seguir contando", "no entendí", "espera") coincidían
+    # por casualidad con productos reales que comparten una raíz de 4
+    # letras (SEGUir/SEGUndos, ENTEndí/ENTEro...) - una coincidencia
+    # LEGÍTIMA en el sentido estructural (la misma que hace que BLANCA
+    # encuentre BLANCO), pero sin ninguna relación real de significado.
+    # Probado contra el catálogo real: una búsqueda de artículo genuina,
+    # hasta parcial o descuidada ("tomate", "vino", "tabla picar"),
+    # siempre puntuó 84 o más; el ruido de frases sueltas se quedó entre
+    # 45 y 80. 82 separa limpio los dos grupos.
+    UMBRAL_CONFIANZA_BODEGAS = 82
+    # ya eligió una alternativa específica (clic en un chip de "¿era este
+    # otro?") - se respeta tal cual, sin el filtro extra: ahí la persona
+    # ya confirmó cuál quería, así que la confianza original no importa.
+    cand = cand_todos if codigo else [c for c in cand_todos if c["confianza"] >= UMBRAL_CONFIANZA_BODEGAS]
     if not cand:
         # lo dicho no es ningun articulo del catalogo - pero si SI es el
         # nombre de una bodega (p. ej. alguien dice "restaurante" en este
