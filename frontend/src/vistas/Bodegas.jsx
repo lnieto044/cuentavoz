@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { pedir, BASE, leerToken, descargarReporte, preguntarAsistente } from "../api";
-import { escuchar, hablar } from "../voz";
+import { escuchar, hablar, esAfirmacion, esNegacion, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 
@@ -148,11 +148,33 @@ export default function Bodegas({ token, usuario, ir }) {
       alError: setMsg,
     });
   }
+  // Frases que activan un botón YA VISIBLE en el resultado de una
+  // búsqueda anterior ("volver al tablero", "ver movimientos"...), en
+  // vez de tratarse como una búsqueda nueva. Van ANTES que cualquier
+  // otra cosa: "tablero" es también parte de un producto real
+  // ("BORRADOR PARA TABLERO FELPA"), así que sin este chequeo "volver al
+  // tablero" perdía contra ese artículo en la búsqueda por palabras y
+  // nunca se reconocía como la orden que era.
+  function _accionLocalDeResultado(texto) {
+    const t = quitarTildes(texto.toLowerCase()).replace(/[.,;:!¿?¡]/g, "").trim();
+    if (/\b(volver|tablero|atras|regresar)\b/.test(t)) return "volver";
+    if (/\bmovimientos?\b/.test(t)) return "movimientos";
+    if (/\brecetas?\b/.test(t)) return "receta";
+    if (/\breporte\b/.test(t)) return "reporte";
+    return null;
+  }
   // "miId" solo llega cuando la búsqueda vino de buscarPorVoz() (ver ese
   // comentario) - una búsqueda escrita y con clic en "Buscar" no debe
   // quedarse esperando una respuesta hablada que nadie va a dar.
   async function buscarArticulo(codigo = "", texto = busca, miId) {
     if (!texto.trim()) return;
+    if (consulta?.bodegas?.length > 0) {
+      const accion = _accionLocalDeResultado(texto);
+      if (accion === "volver") { volverAlTablero(); return; }
+      if (accion === "movimientos") { verMovimientos(); return; }
+      if (accion === "receta") { verEnRecetas(); return; }
+      if (accion === "reporte" && esAuditor) { generarReporteArticulo(); return; }
+    }
     setBusca(texto);
     setMovimientos(null);
     setEnRecetas(null);
@@ -180,10 +202,9 @@ export default function Bodegas({ token, usuario, ir }) {
       rec.current = escuchar({
         alTexto: (respuesta) => {
           if (miId !== idEscuchaBusqueda.current) return;
-          const t = respuesta.toLowerCase().trim();
-          if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es|ver)\b/.test(t)) {
+          if (esAfirmacion(respuesta, ["ver"])) {
             verDetalle(r.sugerencia_bodega_id);
-          } else if (/^no\b/.test(t)) {
+          } else if (esNegacion(respuesta)) {
             const msg = "Listo, queda ahí. Puede seguir buscando cuando quiera.";
             setMsg(msg);
             hablar(msg);

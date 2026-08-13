@@ -1,9 +1,6 @@
 import { useState, useRef } from "react";
-import { escuchar, hablar } from "./voz";
+import { escuchar, hablar, esAfirmacion, esNegacion } from "./voz";
 import { interpretarLocal } from "./interpreteLocal";
-
-const AFIRMA = /^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es)\b/;
-const NIEGA = /^no\b/;
 
 /** Reemplaza a window.prompt()/window.confirm(): un modal con el estilo
     propio de la app, en vez del cuadro genérico y feo del navegador.
@@ -48,10 +45,9 @@ export default function Dialogo({
       alTexto: (respuesta) => {
         if (miId !== idEscucha.current) return;
         setConfirmando(false);
-        const r = respuesta.toLowerCase().trim();
-        if (AFIRMA.test(r)) {
+        if (esAfirmacion(respuesta)) {
           aceptar(valorDictado);
-        } else if (NIEGA.test(r)) {
+        } else if (esNegacion(respuesta)) {
           setValor("");
           setErrorVoz("Cancelado. Dígalo de nuevo cuando quiera, o escríbalo.");
         } else {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { enviarTurno, abrirBodega, buscarBodega, pedir, descargarReporte, esFalloRed } from "../api";
-import { escuchar, hablar, vozDisponible } from "../voz";
+import { escuchar, hablar, vozDisponible, esAfirmacion, esNegacion } from "../voz";
 import { interpretarLocal } from "../interpreteLocal";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
@@ -433,10 +433,9 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
     rec.current = escuchar({
       alTexto: (respuesta) => {
         if (miIdConfirmar !== idEscuchaBodega.current) return;
-        const r = respuesta.toLowerCase().trim();
-        if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es)\b/.test(r)) {
+        if (esAfirmacion(respuesta)) {
           abrir(nombreReal);
-        } else if (/^no\b/.test(r)) {
+        } else if (esNegacion(respuesta)) {
           setTextoBodega("");
           const msg = "Gracias, queda pendiente. Cuando quiera abrir una bodega, dígame el nombre.";
           setMsgBodega(msg);

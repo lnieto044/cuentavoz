@@ -1,5 +1,10 @@
 /** Escuchar y hablar. Las dos piezas de la capa de voz. */
 import { BASE, leerToken } from "./api";
+// quitarTildes/esAfirmacion/esNegacion viven en su propio módulo sin
+// dependencias (ni de "./api" ni del navegador) para poder probarlas con
+// node --test igual que interpreteLocal.js - se reexportan aquí para que
+// quien ya las importaba desde "./voz" siga funcionando igual.
+export { quitarTildes, esAfirmacion, esNegacion } from "./confirmacionVoz.js";
 
 const IDIOMA_ESCUCHA = "es-CO";     // como reconoce lo que usted dice: fijo
 let vozNeuronal = "kore";           // que voz neuronal usa CuentaVoz al hablar: elegible
