@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import { pedir, BASE, leerToken, descargarReporte } from "../api";
+import { pedir, BASE, leerToken, descargarReporte, preguntarAsistente } from "../api";
 import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
-import AsistenteVoz from "../AsistenteVoz";
 
 const ETIQUETA = {
   pendiente: ["PENDIENTE", "gris"], en_conteo: ["EN CONTEO", "azul"],
@@ -27,6 +26,10 @@ export default function Bodegas({ token, usuario, ir }) {
   const [articulosBodega, setArticulosBodega] = useState(null);
   const [buscaArticuloBodega, setBuscaArticuloBodega] = useState("");
   const [escuchandoBodega, setEscuchandoBodega] = useState(false);
+  // Cuando lo buscado en el detalle no es ningún artículo de ESTA bodega,
+  // la respuesta del agente general (pregunta suelta u orden de navegar)
+  // - mismo patrón que "consulta" en la lista principal.
+  const [respuestaAgenteDetalle, setRespuestaAgenteDetalle] = useState(null);
   const [msg, setMsg] = useState("");
   const [pedirMotivo, setPedirMotivo] = useState(false);
   const [pidiendoBodegaNueva, setPidiendoBodegaNueva] = useState(false);
@@ -80,6 +83,7 @@ export default function Bodegas({ token, usuario, ir }) {
     setDetalleId(id);
     setArticulosBodega(null);
     setBuscaArticuloBodega("");
+    setRespuestaAgenteDetalle(null);
     setCargandoDetalle(true);
     try {
       setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token));
@@ -93,13 +97,53 @@ export default function Bodegas({ token, usuario, ir }) {
   }
   async function buscarEnBodega(texto) {
     setBuscaArticuloBodega(texto);
+    setRespuestaAgenteDetalle(null);
     if (texto && !articulosBodega) {
       setArticulosBodega(await pedir(`/api/bodegas/${detalleId}/articulos`, {}, token));
     }
   }
+  function _filtrarArticulosBodega(texto, lista) {
+    const palabras = texto.toLowerCase().replace(/[,;.]/g, " ").split(/\s+/).filter(Boolean);
+    if (!palabras.length) return lista || [];
+    return (lista || []).filter((a) => {
+      const nombre = a.articulo.toLowerCase();
+      return palabras.every((p) => nombre.includes(p));
+    });
+  }
+  // Al confirmar (Enter, o al terminar de dictar): si lo escrito/dicho no
+  // encuentra ningún artículo DENTRO de esta bodega, cae al mismo agente
+  // general que ya usa la lista principal - un solo cuadro para todo,
+  // también aquí, en vez de un segundo "Pregúntele al agente" aparte.
+  async function confirmarBusquedaEnBodega(texto, miId) {
+    if (!texto || !texto.trim()) return;
+    if (miId === undefined) miId = ++idEscuchaBusqueda.current;
+    setBuscaArticuloBodega(texto);
+    let lista = articulosBodega;
+    if (!lista) {
+      lista = await pedir(`/api/bodegas/${detalleId}/articulos`, {}, token);
+      if (miId !== idEscuchaBusqueda.current) return;
+      setArticulosBodega(lista);
+    }
+    if (_filtrarArticulosBodega(texto, lista).length > 0) {
+      setRespuestaAgenteDetalle(null);
+      return;
+    }
+    const r = await preguntarAsistente(texto, "bodegas", token);
+    if (miId !== idEscuchaBusqueda.current) return;
+    setRespuestaAgenteDetalle(r);
+    hablar(r.respuesta_hablada);
+    if (r.accion === "navegar" && r.destino && ir) {
+      ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
+    }
+  }
   function buscarEnBodegaPorVoz() {
-    escuchar({
-      alTexto: buscarEnBodega,
+    setMsg("");
+    const miId = ++idEscuchaBusqueda.current;
+    rec.current = escuchar({
+      alTexto: (t) => {
+        if (miId !== idEscuchaBusqueda.current) return;
+        confirmarBusquedaEnBodega(t, miId);
+      },
       alEstado: (e) => setEscuchandoBodega(e === "escuchando"),
       alError: setMsg,
     });
@@ -241,19 +285,6 @@ export default function Bodegas({ token, usuario, ir }) {
                           : detalle ? { texto: chipDetalle[0], tipo: `borde ${chipDetalle[1]}` }
                           : { texto: "EN VIVO", tipo: "verde" }}>
 
-      {/* En la lista principal, el buscador de artículos de abajo YA
-          resuelve todo (ingrediente, bodega, pregunta suelta u orden de
-          navegar - ver consulta_articulo en el backend): tener el
-          "Pregúntele al agente" genérico también ahí duplicaba el cuadro
-          y daba respuestas distintas para lo mismo. En el DETALLE de una
-          bodega, en cambio, no hay otro buscador general (el que hay ahí
-          solo busca artículos DENTRO de esa bodega), así que sigue
-          apareciendo para poder preguntar o navegar por voz igual. */}
-      {detalle && (
-        <AsistenteVoz token={token} vista="bodegas" ir={ir}
-                      placeholder="¿cuántas bodegas están pendientes?, lléveme a reportes…" />
-      )}
-
       {mostrarCargandoDetalle && <p className="cargando">Cargando…</p>}
 
       {!detalle && !mostrarCargandoDetalle && (
@@ -366,14 +397,23 @@ export default function Bodegas({ token, usuario, ir }) {
             <span style={{ color: "var(--grafito)" }}>🔍</span>
             <input value={buscaArticuloBodega}
                    onChange={(e) => buscarEnBodega(e.target.value)}
-                   placeholder="buscar un artículo en esta bodega…"
+                   onKeyDown={(e) => e.key === "Enter" && confirmarBusquedaEnBodega(buscaArticuloBodega)}
+                   placeholder="artículo en esta bodega, o pregúntele algo al agente…"
                    style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className={`mic-btn ${escuchandoBodega ? "escuchando" : ""}`}
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
                     onClick={buscarEnBodegaPorVoz} title="o pregunte por voz">🎤</button>
           </div>
-          <p className="pista" style={{ marginTop: 8, marginBottom: 14 }}>o pregunte por voz</p>
+          <p className="pista" style={{ marginTop: 8, marginBottom: 14 }}>
+            o pregunte por voz - si no es un artículo de esta bodega, se lo pregunta al agente
+          </p>
+          {respuestaAgenteDetalle && (
+            <>
+              <p className="rotulo">CuentaVoz responde</p>
+              <p className="burbuja" style={{ marginBottom: 14 }}>{respuestaAgenteDetalle.respuesta_hablada}</p>
+            </>
+          )}
 
           <div className="chips">
             <span className="chip">{detalle.referencias} referencias</span>
@@ -470,7 +510,7 @@ export default function Bodegas({ token, usuario, ir }) {
             </div>
           </div>
 
-          {articulosBodega && (
+          {articulosBodega && !respuestaAgenteDetalle && (
             <div style={{ marginTop: 16 }}>
               <h3 style={{ margin: 0 }}>
                 {buscaArticuloBodega
@@ -481,20 +521,12 @@ export default function Bodegas({ token, usuario, ir }) {
                 <table>
                   <thead><tr><th>Código</th><th>Artículo</th><th>Unidad</th><th>SD</th></tr></thead>
                   <tbody>
-                    {articulosBodega
-                      .filter((a) => {
-                        const palabras = buscaArticuloBodega.toLowerCase()
-                          .replace(/[,;.]/g, " ").split(/\s+/).filter(Boolean);
-                        if (!palabras.length) return true;
-                        const nombre = a.articulo.toLowerCase();
-                        return palabras.every((p) => nombre.includes(p));
-                      })
-                      .map((a) => (
-                        <tr key={a.codigo}>
-                          <td>{a.codigo}</td><td>{a.articulo}</td>
-                          <td>{a.unidad}</td><td>{a.sd.toLocaleString("es-CO")}</td>
-                        </tr>
-                      ))}
+                    {_filtrarArticulosBodega(buscaArticuloBodega, articulosBodega).map((a) => (
+                      <tr key={a.codigo}>
+                        <td>{a.codigo}</td><td>{a.articulo}</td>
+                        <td>{a.unidad}</td><td>{a.sd.toLocaleString("es-CO")}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
