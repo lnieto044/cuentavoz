@@ -2093,18 +2093,24 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
     return {"ok": True}
 
 
-def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> bool:
+def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bool, str]:
     """Envía un correo de verdad por Gmail SMTP si hay credenciales
     configuradas (SMTP_CORREO y SMTP_CLAVE_APP - esta última es una
     contraseña de aplicación de Gmail, no la contraseña normal de la
     cuenta). Sin esas variables de entorno, no intenta nada: el llamador
     sigue funcionando igual que antes (solo trazabilidad), el mismo
     patrón de "se degrada sin romperse" que ya usa el agente sin
-    GOOGLE_API_KEY."""
+    GOOGLE_API_KEY. Devuelve (enviado, motivo-si-fallo) - el motivo es
+    temporal mientras se termina de calibrar el envío real."""
     remitente = os.getenv("SMTP_CORREO", "").strip()
-    clave_app = os.getenv("SMTP_CLAVE_APP", "").strip()
+    # Google muestra la contraseña de aplicación agrupada de a 4
+    # caracteres para que sea fácil de leer ("abcd efgh ijkl mnop"), pero
+    # la contraseña real no tiene esos espacios - si se copia tal cual se
+    # ve en pantalla, el login falla porque el valor no coincide con el
+    # que Google tiene guardado.
+    clave_app = os.getenv("SMTP_CLAVE_APP", "").strip().replace(" ", "")
     if not remitente or not clave_app or not destinatario:
-        return False
+        return False, "sin credenciales SMTP_CORREO/SMTP_CLAVE_APP configuradas"
     msg = MIMEText(cuerpo, "plain", "utf-8")
     msg["Subject"] = asunto
     msg["From"] = remitente
@@ -2114,9 +2120,11 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> bool:
             s.starttls()
             s.login(remitente, clave_app)
             s.send_message(msg)
-        return True
-    except Exception:
-        return False
+        return True, ""
+    except Exception as e:
+        motivo = f"{type(e).__name__}: {e}"
+        print(f"[correo] no se pudo enviar a {destinatario}: {motivo}")
+        return False, motivo
 
 
 @app.post("/api/soporte/mensaje-administrador")
@@ -2142,8 +2150,13 @@ def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
         raise HTTPException(404, "No hay un administrador disponible por ahora.")
     registrar(u, "SOPORTE", f"{u.nombre} le escribió a {nombre_admin}: {mensaje}")
     cuerpo = f"Mensaje enviado desde CuentaVoz por {u.nombre}.\n\n{mensaje}"
-    correo_enviado = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
-    return {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
+    correo_enviado, motivo = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
+    resp = {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
+    if not correo_enviado:
+        # TEMPORAL mientras se calibra el envío real - se quita apenas
+        # quede funcionando, no debe llegar así a un uso normal.
+        resp["_debug_motivo"] = motivo
+    return resp
 
 
 @app.get("/api/soporte/administrador")
