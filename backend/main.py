@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -2114,6 +2115,17 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
     peticion = urllib.request.Request(
         "https://api.resend.com/emails", data=payload, method="POST",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
+    # El contenedor de Render no tiene ruta de salida por IPv6, pero la
+    # resolución de nombres a veces sí devuelve una dirección IPv6 (y
+    # Python la intenta primero) - eso da exactamente "Network is
+    # unreachable" aunque el IPv4 normal funcione bien. Se fuerza IPv4
+    # solo durante esta conexión puntual.
+    getaddrinfo_original = socket.getaddrinfo
+
+    def _forzar_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+        return getaddrinfo_original(host, port, socket.AF_INET, type, proto, flags)
+
+    socket.getaddrinfo = _forzar_ipv4
     try:
         with urllib.request.urlopen(peticion, timeout=10) as resp:
             return 200 <= resp.status < 300, ""
@@ -2125,6 +2137,8 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
         motivo = f"{type(e).__name__}: {e}"
         print(f"[correo] no se pudo enviar a {destinatario}: {motivo}")
         return False, motivo
+    finally:
+        socket.getaddrinfo = getaddrinfo_original
 
 
 @app.post("/api/soporte/mensaje-administrador")
