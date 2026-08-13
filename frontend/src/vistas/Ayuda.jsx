@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { pedir } from "../api";
+import { useEffect, useState, useRef } from "react";
+import { pedir, preguntarAsistente } from "../api";
+import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
-import AsistenteVoz from "../AsistenteVoz";
 
 const FAQ = [
   ["¿Cómo corrijo un conteo ya confirmado?",
@@ -32,6 +32,16 @@ export default function Ayuda({ token, ir }) {
   const [msg, setMsg] = useState("");
   const [pedirDetalle, setPedirDetalle] = useState(false);
   const [admin, setAdmin] = useState(null);
+  // Si lo escrito/dicho no encuentra nada en las preguntas frecuentes ni
+  // en la guía de comandos, la respuesta del agente general - mismo
+  // patrón que el buscador de Bodegas: un solo cuadro para todo, en vez
+  // de dos cuadros separados (uno para el agente, otro para filtrar)
+  // que además se veían mal juntos, uno encima del otro.
+  const [respuestaAgente, setRespuestaAgente] = useState(null);
+  const [escuchando, setEscuchando] = useState(false);
+  const [errorBusca, setErrorBusca] = useState("");
+  const rec = useRef(null);
+  const idEscucha = useRef(0);
 
   useEffect(() => {
     pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
@@ -51,6 +61,48 @@ export default function Ayuda({ token, ir }) {
     setReportando(false);
   }
 
+  function _hayCoincidenciaLocal(texto) {
+    const t = texto.trim().toLowerCase();
+    return FAQ.some(([p, r]) => p.toLowerCase().includes(t) || r.toLowerCase().includes(t))
+        || COMANDOS.some(([c, d]) => c.toLowerCase().includes(t) || d.toLowerCase().includes(t));
+  }
+
+  function alEscribir(texto) {
+    setBusca(texto);
+    setRespuestaAgente(null);
+  }
+
+  // Al confirmar (Enter, o al terminar de dictar): si lo escrito/dicho no
+  // encuentra nada en las preguntas frecuentes ni en la guía de comandos,
+  // cae al agente general - un solo cuadro para todo.
+  async function confirmarBusqueda(texto, miId) {
+    if (!texto || !texto.trim()) return;
+    if (miId === undefined) miId = ++idEscucha.current;
+    setBusca(texto);
+    if (_hayCoincidenciaLocal(texto)) { setRespuestaAgente(null); return; }
+    setErrorBusca("");
+    const r = await preguntarAsistente(texto, "ayuda", token);
+    if (miId !== idEscucha.current) return;
+    setRespuestaAgente(r);
+    hablar(r.respuesta_hablada);
+    if (r.accion === "navegar" && r.destino && ir) {
+      ir(r.destino, { tabInicial: r.pestana || undefined });
+    }
+  }
+
+  function buscarPorVoz() {
+    setErrorBusca("");
+    const miId = ++idEscucha.current;
+    rec.current = escuchar({
+      alTexto: (t) => {
+        if (miId !== idEscucha.current) return;
+        confirmarBusqueda(t, miId);
+      },
+      alEstado: (e) => setEscuchando(e === "escuchando"),
+      alError: setErrorBusca,
+    });
+  }
+
   const q = busca.trim().toLowerCase();
   const faqFiltrado = q ? FAQ.filter(([p, r]) =>
     p.toLowerCase().includes(q) || r.toLowerCase().includes(q)) : FAQ;
@@ -65,13 +117,25 @@ export default function Ayuda({ token, ir }) {
 
   return (
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
-      <AsistenteVoz token={token} vista="ayuda" ir={ir}
-                    placeholder="pregúntele al agente, por ejemplo: ¿qué hago si sale una alerta?" />
       <div className="card">
-        <input value={busca} onChange={(e) => setBusca(e.target.value)}
-               placeholder="O escriba aquí para filtrar las preguntas frecuentes de abajo…"
-               style={{ width: "100%", padding: "12px 14px",
-                        border: "1px solid var(--borde)", borderRadius: 12 }} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <input value={busca} onChange={(e) => alEscribir(e.target.value)}
+                 onKeyDown={(e) => e.key === "Enter" && confirmarBusqueda(busca)}
+                 placeholder="pregúntele al agente, o escriba para filtrar las preguntas frecuentes…"
+                 style={{ flex: 1, padding: "12px 14px",
+                          border: "1px solid var(--borde)", borderRadius: 12 }} />
+          <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
+                  style={{ width: 46, height: 46, fontSize: "1.2rem" }}
+                  onClick={buscarPorVoz} title="o pregunte por voz">🎤</button>
+        </div>
+        <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
+        {respuestaAgente && (
+          <>
+            <p className="rotulo" style={{ marginTop: 10 }}>CuentaVoz responde</p>
+            <p className="burbuja">{respuestaAgente.respuesta_hablada}</p>
+          </>
+        )}
+        {errorBusca && <p className="error" style={{ marginTop: 8 }}>{errorBusca}</p>}
       </div>
       <div className="conteo-cols">
         <div className="card">
