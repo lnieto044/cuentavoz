@@ -25,6 +25,36 @@ const COMANDOS = [
   ["«Hoy preparamos cincuenta ajiacos»", "pedir insumos por receta"],
 ];
 
+// Envía "Escribirle al administrador" de verdad, sin abrir otra
+// aplicación ni depender de una cuenta de correo propia de CuentaVoz: la
+// Public Key de EmailJS está hecha para ir en el código del frontend
+// (a diferencia de una clave de API común, no es secreta - así lo
+// documenta EmailJS). El correo sale desde el navegador de quien
+// escribe, usando la cuenta de Gmail conectada en el panel de EmailJS -
+// por eso no pasa por la red de Render, que es lo que bloqueaba el SMTP
+// directo a Gmail y la API de Resend.
+const EMAILJS_SERVICE_ID = "service_9dgu33i";
+const EMAILJS_TEMPLATE_ID = "template_9ddkqpa";
+const EMAILJS_PUBLIC_KEY = "raCRzjMA9m2ymYuwk";
+
+async function _enviarPorEmailJS(destinatario, nombreRemitente, mensaje) {
+  try {
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: { to_email: destinatario, name: nombreRemitente, message: mensaje },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function Ayuda({ token, usuario, ir }) {
   const [salud, setSalud] = useState(null);
   const [busca, setBusca] = useState("");
@@ -79,19 +109,22 @@ export default function Ayuda({ token, usuario, ir }) {
         method: "POST", body: JSON.stringify({ mensaje }),
       }, token);
       const nombre = _capitalizar(admin?.nombre) || "el administrador";
-      // El servidor no manda el correo por sí mismo (necesitaría una
-      // cuenta de un servicio externo) - en vez de eso, abre el correo YA
-      // instalado en este dispositivo con todo listo, para que la
-      // persona lo mande con su propia cuenta, sin que CuentaVoz tenga
-      // que registrar nada de terceros.
-      if (!r?.correo_enviado && admin?.correo) {
+      let listo;
+      if (r?.correo_enviado) {
+        listo = `Correo enviado a ${nombre}.`;
+      } else if (admin?.correo &&
+                 await _enviarPorEmailJS(admin.correo, usuario?.nombre || "Usuario", mensaje)) {
+        listo = `Correo enviado a ${nombre}.`;
+      } else if (admin?.correo) {
+        // Último respaldo si EmailJS tampoco responde: abre el correo ya
+        // instalado en el dispositivo con todo listo.
         const asunto = encodeURIComponent("Mensaje desde CuentaVoz");
         const cuerpo = encodeURIComponent(`De: ${usuario?.nombre || "usted"}\n\n${mensaje}`);
         window.location.href = `mailto:${admin.correo}?subject=${asunto}&body=${cuerpo}`;
+        listo = `Mensaje registrado. Se abrió su correo para enviarlo a ${nombre}.`;
+      } else {
+        listo = "Mensaje registrado.";
       }
-      const listo = r?.correo_enviado
-        ? `Correo enviado a ${nombre}.`
-        : `Mensaje registrado. Se abrió su correo para enviarlo a ${nombre}.`;
       setMsg(listo);
       hablar(listo);
     } catch (e) { setMsg(e.message); }
