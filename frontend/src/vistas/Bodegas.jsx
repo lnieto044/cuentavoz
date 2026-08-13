@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { pedir, BASE, leerToken, descargarReporte } from "../api";
 import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
@@ -31,6 +31,12 @@ export default function Bodegas({ token, usuario, ir }) {
   const [pedirMotivo, setPedirMotivo] = useState(false);
   const [pidiendoBodegaNueva, setPidiendoBodegaNueva] = useState(false);
   const esAuditor = usuario?.perfil === "auditor";
+  const rec = useRef(null);
+  // Igual que en el selector de bodega de Conteo: cada escucha de esta
+  // búsqueda lleva su propio número, y si el micrófono anterior entrega
+  // su resultado tarde (mientras todavía se está diciendo la sugerencia)
+  // se descarta en vez de procesarse como una búsqueda nueva.
+  const idEscuchaBusqueda = useRef(0);
 
   useEffect(() => {
     // si falla, resuelve a [] en vez de dejar lista en null para siempre:
@@ -98,26 +104,64 @@ export default function Bodegas({ token, usuario, ir }) {
       alError: setMsg,
     });
   }
-  async function buscarArticulo(codigo = "", texto = busca) {
+  // "miId" solo llega cuando la búsqueda vino de buscarPorVoz() (ver ese
+  // comentario) - una búsqueda escrita y con clic en "Buscar" no debe
+  // quedarse esperando una respuesta hablada que nadie va a dar.
+  async function buscarArticulo(codigo = "", texto = busca, miId) {
     if (!texto.trim()) return;
     setBusca(texto);
     setMovimientos(null);
     setEnRecetas(null);
     const r = await pedir(
       `/api/articulos/consulta?q=${encodeURIComponent(texto)}&codigo=${codigo}`, {}, token);
+    if (miId !== undefined && miId !== idEscuchaBusqueda.current) return;
     setConsulta(r);
-    hablar(r.resumen);
     // Un solo buscador para todo: si ni fue un artículo ni una bodega,
     // el backend ya lo intentó como pregunta suelta o como orden de
     // navegar ("llévame a reportes", "abra kiosco taquilla ayb") - si
     // trae una acción, se seguía igual que hace AsistenteVoz.
     if (r.accion === "navegar" && r.destino && ir) {
+      hablar(r.resumen);
       ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
+      return;
     }
+    // Si la búsqueda fue por voz y salió una bodega sugerida, no basta
+    // con decir la sugerencia y dejarla ahí esperando un clic: se
+    // pregunta y se escucha la respuesta, igual que ya hace Conteo al
+    // confirmar una bodega - "tocar el botón" no debería ser la única
+    // forma de seguir cuando se llegó hasta aquí hablando.
+    if (miId !== undefined && r.sugerencia_bodega_id) {
+      await hablar(`${r.resumen} Diga «sí» para ver el detalle.`);
+      if (miId !== idEscuchaBusqueda.current) return;
+      rec.current = escuchar({
+        alTexto: (respuesta) => {
+          if (miId !== idEscuchaBusqueda.current) return;
+          const t = respuesta.toLowerCase().trim();
+          if (/^(si|sí|claro|dale|correcto|confirmo|eso es|así es|asi es|ver)\b/.test(t)) {
+            verDetalle(r.sugerencia_bodega_id);
+          } else if (/^no\b/.test(t)) {
+            const msg = "Listo, queda ahí. Puede seguir buscando cuando quiera.";
+            setMsg(msg);
+            hablar(msg);
+          } else {
+            setMsg("No le entendí un «sí» o un «no». Use el botón «Ver esta bodega».");
+          }
+        },
+        alEstado: (e) => setEscuchando(e === "escuchando"),
+        alError: setMsg,
+      });
+      return;
+    }
+    hablar(r.resumen);
   }
   function buscarPorVoz() {
-    escuchar({
-      alTexto: (t) => buscarArticulo("", t),
+    setMsg("");
+    const miId = ++idEscuchaBusqueda.current;
+    rec.current = escuchar({
+      alTexto: (t) => {
+        if (miId !== idEscuchaBusqueda.current) return;
+        buscarArticulo("", t, miId);
+      },
       alEstado: (e) => setEscuchando(e === "escuchando"),
       alError: setMsg,
     });
