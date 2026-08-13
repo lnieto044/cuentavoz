@@ -37,7 +37,7 @@ const EMAILJS_SERVICE_ID = "service_9dgu33i";
 const EMAILJS_TEMPLATE_ID = "template_9ddkqpa";
 const EMAILJS_PUBLIC_KEY = "raCRzjMA9m2ymYuwk";
 
-async function _enviarPorEmailJS(destinatario, nombreRemitente, mensaje) {
+async function _enviarPorEmailJS(destinatario, nombreRemitente, mensaje, rol, correoRemitente) {
   try {
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
@@ -46,7 +46,10 @@ async function _enviarPorEmailJS(destinatario, nombreRemitente, mensaje) {
         service_id: EMAILJS_SERVICE_ID,
         template_id: EMAILJS_TEMPLATE_ID,
         user_id: EMAILJS_PUBLIC_KEY,
-        template_params: { to_email: destinatario, name: nombreRemitente, message: mensaje },
+        template_params: {
+          to_email: destinatario, name: nombreRemitente, message: mensaje,
+          rol: rol || "", correo_remitente: correoRemitente || "",
+        },
       }),
     });
     return res.ok;
@@ -64,6 +67,7 @@ export default function Ayuda({ token, usuario, ir }) {
   const [escribiendoAdmin, setEscribiendoAdmin] = useState(false);
   const [enviandoAdmin, setEnviandoAdmin] = useState(false);
   const [admin, setAdmin] = useState(null);
+  const [miPerfil, setMiPerfil] = useState(null);
   // Si lo escrito/dicho no encuentra nada en las preguntas frecuentes ni
   // en la guía de comandos, la respuesta del agente general - mismo
   // patrón que el buscador de Bodegas: un solo cuadro para todo, en vez
@@ -78,6 +82,9 @@ export default function Ayuda({ token, usuario, ir }) {
   useEffect(() => {
     pedir("/api/salud", {}, token).then(setSalud).catch(() => setSalud({ api: "caido" }));
     pedir("/api/soporte/administrador", {}, token).then(setAdmin).catch(() => {});
+    // Para la firma del correo a el administrador (nombre, rol y correo
+    // de quien escribe) - "usuario" (la sesión) solo trae id/nombre/perfil.
+    pedir("/api/usuarios/yo", {}, token).then(setMiPerfil).catch(() => {});
   }, [token]);
 
   async function reportarProblema(detalle) {
@@ -109,11 +116,16 @@ export default function Ayuda({ token, usuario, ir }) {
         method: "POST", body: JSON.stringify({ mensaje }),
       }, token);
       const nombre = _capitalizar(admin?.nombre) || "el administrador";
+      // Misma etiqueta que usa el resto de la app (BarraLateral, MiPerfil,
+      // Ingreso) para el rol - así la firma del correo dice lo mismo que
+      // ve la persona dentro de CuentaVoz.
+      const rol = usuario?.perfil === "auditor" ? "Administrador de bodega" : "Auxiliar de inventarios";
       let listo;
       if (r?.correo_enviado) {
         listo = `Correo enviado a ${nombre}.`;
       } else if (admin?.correo &&
-                 await _enviarPorEmailJS(admin.correo, usuario?.nombre || "Usuario", mensaje)) {
+                 await _enviarPorEmailJS(admin.correo, _capitalizar(usuario?.nombre) || "Usuario",
+                                          mensaje, rol, miPerfil?.correo)) {
         listo = `Correo enviado a ${nombre}.`;
       } else if (admin?.correo) {
         // Último respaldo si EmailJS tampoco responde: abre el correo ya
