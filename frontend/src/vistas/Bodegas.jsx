@@ -67,6 +67,10 @@ export default function Bodegas({ token, usuario, ir }) {
   const cuenta = (e) => (lista || []).filter((b) => b.estado === e).length;
 
   async function verDetalle(id) {
+    // Si se llega desde la sugerencia de bodega del buscador de
+    // ingredientes, "consulta" sigue puesto - sin limpiarlo, la sección
+    // de detalle no se muestra (su condición exige "!consulta").
+    setConsulta(null);
     setDetalleId(id);
     setArticulosBodega(null);
     setBuscaArticuloBodega("");
@@ -222,12 +226,12 @@ export default function Bodegas({ token, usuario, ir }) {
                 <span className="ico">💡</span>
                 <span>
                   <b>{consulta.sugerencia_bodega}</b> es el nombre de una bodega, no de un artículo.
-                  <span> Este buscador es para ingredientes — para abrirla y empezar a
-                        contar, vaya a Conteo.</span>
+                  <span> Este buscador es para ingredientes — vea su detalle para
+                        revisarla antes de abrirla.</span>
                 </span>
                 <button className="btn" style={{ flex: "none" }}
-                        onClick={() => ir && ir("conteo", { bodegaSugerida: consulta.sugerencia_bodega })}>
-                  Ir a Conteo
+                        onClick={() => verDetalle(consulta.sugerencia_bodega_id)}>
+                  Ver esta bodega
                 </button>
               </div>
             )}

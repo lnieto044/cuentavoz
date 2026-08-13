@@ -1,8 +1,8 @@
 """/api/articulos/consulta: cuando lo dicho no es un artículo pero sí
-parece el nombre de una bodega, debe sugerir ir a Conteo en vez de
-responder solo "no encontré" - sin esto, alguien que dice el nombre de
-una bodega en el buscador de ingredientes (la pantalla equivocada) se
-queda sin saber por qué no encontró nada."""
+parece el nombre de una bodega, debe sugerir su detalle (con el id para
+poder verlo) en vez de responder solo "no encontré" - sin esto, alguien
+que dice el nombre de una bodega en el buscador de ingredientes (la
+pantalla equivocada) se queda sin saber por qué no encontró nada."""
 from fastapi.testclient import TestClient
 
 
@@ -17,7 +17,7 @@ def test_sugiere_la_bodega_asignada_cuando_el_nombre_es_exacto(
     assert r.status_code == 200, r.text
     cuerpo = r.json()
     assert cuerpo["sugerencia_bodega"] == datos_regresion["bodega_asignada"]
-    assert "Conteo" in cuerpo["resumen"]
+    assert cuerpo["sugerencia_bodega_id"] == datos_regresion["bodega_asignada_id"]
 
 
 def test_no_le_sugiere_ni_le_nombra_una_bodega_que_no_le_esta_asignada(
@@ -36,6 +36,7 @@ def test_no_le_sugiere_ni_le_nombra_una_bodega_que_no_le_esta_asignada(
     assert r.status_code == 200, r.text
     cuerpo = r.json()
     assert cuerpo["sugerencia_bodega"] is None
+    assert cuerpo["sugerencia_bodega_id"] is None
     assert datos_regresion["bodega_no_asignada"] not in cuerpo["resumen"]
 
 

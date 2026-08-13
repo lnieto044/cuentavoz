@@ -1083,21 +1083,22 @@ def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_act
                 # por qué nombrarle a un auxiliar una bodega ajena.
                 candidatas = [c for c in candidatas if c.id in ids_permitidos]
         if len(candidatas) == 1:
-            nombre = candidatas[0].nombre_oficial
+            b = candidatas[0]
             return {
-                "resumen": (f"No encuentro ese artículo, pero {nombre.title()} "
-                            "sí es una bodega - vaya a Conteo para abrirla."),
-                "bodegas": [], "sugerencia_bodega": nombre,
+                "resumen": (f"No encuentro ese artículo, pero {b.nombre_oficial.title()} "
+                            "sí es una bodega - vea su detalle para abrirla."),
+                "bodegas": [], "sugerencia_bodega": b.nombre_oficial,
+                "sugerencia_bodega_id": b.id,
             }
         if candidatas:
             nombres = ", ".join(c.nombre_oficial.title() for c in candidatas[:4])
             return {
                 "resumen": (f"No encuentro ese artículo. Ese nombre coincide con varias "
-                            f"bodegas ({nombres}) - vaya a Conteo para abrir la que necesita."),
-                "bodegas": [], "sugerencia_bodega": None,
+                            f"bodegas ({nombres}) - búsquelas en Bodegas para ver cuál es."),
+                "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None,
             }
         return {"resumen": "No encontre ese articulo en el catalogo.",
-                "bodegas": [], "sugerencia_bodega": None}
+                "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None}
     # si la persona ya eligio una de las alternativas, usa esa; si no, la mejor
     a = next((c for c in cand if c["codigo"] == codigo), None) or cand[0]
     hoy = datetime.now().date()
