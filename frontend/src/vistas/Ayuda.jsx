@@ -49,6 +49,9 @@ async function _enviarPorEmailJS(destinatario, nombreRemitente, mensaje, rol, co
         template_params: {
           to_email: destinatario, name: nombreRemitente, message: mensaje,
           rol: rol || "", correo_remitente: correoRemitente || "",
+          fecha: new Date().toLocaleString("es-CO", {
+            day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit",
+          }),
         },
       }),
     });
