@@ -75,10 +75,13 @@ export default function Ayuda({ token, usuario, ir }) {
     if (!mensaje || !mensaje.trim()) return;
     setEnviandoAdmin(true);
     try {
-      await pedir("/api/soporte/mensaje-administrador", {
+      const r = await pedir("/api/soporte/mensaje-administrador", {
         method: "POST", body: JSON.stringify({ mensaje }),
       }, token);
-      const listo = `Mensaje enviado a ${_capitalizar(admin?.nombre) || "el administrador"}. Quedó en el registro de trazabilidad.`;
+      const nombre = _capitalizar(admin?.nombre) || "el administrador";
+      const listo = r?.correo_enviado
+        ? `Correo enviado a ${nombre}.`
+        : `Mensaje enviado a ${nombre}. Quedó en el registro de trazabilidad.`;
       setMsg(listo);
       hablar(listo);
     } catch (e) { setMsg(e.message); }

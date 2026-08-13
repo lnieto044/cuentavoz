@@ -36,10 +36,16 @@ export default function Dialogo({
 
   async function preguntarConfirmacion(valorDictado, miId) {
     setConfirmando(true);
+    // Con un campo de varias líneas (un mensaje libre, no un dato corto)
+    // no se repite todo lo dictado - sería una lectura larga, y encima
+    // alarga la ventana en la que la persona ya contestó "sí"/"envíalo"
+    // pero el micrófono todavía no se reabrió (seguía sonando la
+    // pregunta). Una confirmación corta reduce esa ventana.
+    const pregunta = multilinea ? "¿Confirma el mensaje?" : `¿Confirma «${valorDictado}»?`;
     // hay que esperar a que termine de decir la pregunta antes de abrir
     // el micrófono - si arranca apenas empieza a sonar, se pierde el
     // principio de la respuesta.
-    await hablar(`¿Confirma «${valorDictado}»?`);
+    await hablar(pregunta);
     if (miId !== idEscucha.current) return;
     escuchar({
       alTexto: (respuesta) => {

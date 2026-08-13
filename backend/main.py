@@ -2,6 +2,8 @@
 import os
 import re
 import secrets
+import smtplib
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
@@ -2091,15 +2093,42 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
     return {"ok": True}
 
 
+def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> bool:
+    """Envía un correo de verdad por Gmail SMTP si hay credenciales
+    configuradas (SMTP_CORREO y SMTP_CLAVE_APP - esta última es una
+    contraseña de aplicación de Gmail, no la contraseña normal de la
+    cuenta). Sin esas variables de entorno, no intenta nada: el llamador
+    sigue funcionando igual que antes (solo trazabilidad), el mismo
+    patrón de "se degrada sin romperse" que ya usa el agente sin
+    GOOGLE_API_KEY."""
+    remitente = os.getenv("SMTP_CORREO", "").strip()
+    clave_app = os.getenv("SMTP_CLAVE_APP", "").strip()
+    if not remitente or not clave_app or not destinatario:
+        return False
+    msg = MIMEText(cuerpo, "plain", "utf-8")
+    msg["Subject"] = asunto
+    msg["From"] = remitente
+    msg["To"] = destinatario
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as s:
+            s.starttls()
+            s.login(remitente, clave_app)
+            s.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
 @app.post("/api/soporte/mensaje-administrador")
 def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
     """"Escribirle al administrador", pero sin depender de que el equipo
     tenga un cliente de correo instalado (el enlace mailto: le mostraba a
     la persona el cuadro del sistema operativo "seleccionar una
     aplicación para abrir este vínculo" cuando no lo tenía, en vez de
-    algo propio de CuentaVoz). El mensaje queda igual de trazado que un
-    reporte de problema - se ve en Ajustes → Registro de trazabilidad -
-    sin inventar un envío de correo real que esta app no puede garantizar."""
+    algo propio de CuentaVoz). El mensaje siempre queda trazado - se ve
+    en Ajustes → Registro de trazabilidad - y además se intenta un
+    correo real si el servidor tiene credenciales SMTP configuradas; si
+    no las tiene, no falla, solo se queda en la trazabilidad."""
     mensaje = (body.get("mensaje") or "").strip()
     if not mensaje:
         raise HTTPException(400, "Escriba el mensaje antes de enviarlo.")
@@ -2108,10 +2137,13 @@ def mensaje_administrador(body: dict, u: Usuario = Depends(usuario_actual)):
                 .filter(Usuario.perfil == "auditor", Usuario.activo == 1, Usuario.id != u.id)
                 .first())
         nombre_admin = admin.nombre if admin else None
+        correo_admin = admin.correo if admin else None
     if not nombre_admin:
         raise HTTPException(404, "No hay un administrador disponible por ahora.")
     registrar(u, "SOPORTE", f"{u.nombre} le escribió a {nombre_admin}: {mensaje}")
-    return {"ok": True, "administrador": nombre_admin}
+    cuerpo = f"Mensaje enviado desde CuentaVoz por {u.nombre}.\n\n{mensaje}"
+    correo_enviado = _enviar_correo_real(correo_admin, "Mensaje desde CuentaVoz", cuerpo)
+    return {"ok": True, "administrador": nombre_admin, "correo_enviado": correo_enviado}
 
 
 @app.get("/api/soporte/administrador")
