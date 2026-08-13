@@ -27,8 +27,11 @@ export default function AsistenteVoz({ token, vista, ir, placeholder }) {
         // ir() combina el contexto en vez de reemplazarlo: sin fijar
         // tabInicial explicitamente (aunque sea undefined), una pestaña
         // pedida en una navegacion anterior por otro camino se quedaba
-        // pegada y aparecia en un destino que no la tiene.
-        ir(r.destino, { tabInicial: r.pestana || undefined });
+        // pegada y aparecia en un destino que no la tiene. Lo mismo para
+        // bodegaSugerida: sin fijarlo a undefined cuando no aplica, un
+        // "abra kiosco" pedido antes se quedaba pegado y la próxima vez
+        // que se entraba a Conteo por otro camino la abría sola.
+        ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
       }
     } catch (e) {
       setError(e.message);

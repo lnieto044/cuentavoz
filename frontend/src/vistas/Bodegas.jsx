@@ -3,6 +3,7 @@ import { pedir, BASE, leerToken, descargarReporte } from "../api";
 import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import AsistenteVoz from "../AsistenteVoz";
 
 const ETIQUETA = {
   pendiente: ["PENDIENTE", "gris"], en_conteo: ["EN CONTEO", "azul"],
@@ -184,6 +185,15 @@ export default function Bodegas({ token, usuario, ir }) {
            chip={consulta ? { texto: "BÚSQUEDA GLOBAL", tipo: "borde azul" }
                           : detalle ? { texto: chipDetalle[0], tipo: `borde ${chipDetalle[1]}` }
                           : { texto: "EN VIVO", tipo: "verde" }}>
+
+      {/* A diferencia de Inicio/Ajustes/Ayuda/Reportes/Panel, esta pantalla
+          se había quedado sin el "Pregúntele al agente" general - solo
+          tenía buscadores de artículo, sin forma de pedir por voz cosas
+          como "abra kiosco taquilla ayb" o navegar a otra pantalla. Se
+          deja siempre visible (lista, detalle o resultado de búsqueda)
+          para que también funcione al ver el detalle de una bodega. */}
+      <AsistenteVoz token={token} vista="bodegas" ir={ir}
+                    placeholder="abra kiosco taquilla ayb, ¿cuántas bodegas están pendientes?…" />
 
       {mostrarCargandoDetalle && <p className="cargando">Cargando…</p>}
 

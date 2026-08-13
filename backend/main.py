@@ -1,5 +1,6 @@
 """La API de CuentaVoz. Aqui se conectan la tableta, el agente y la base."""
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -350,7 +351,28 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
     if vista == "ayuda":
         faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
         return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
+    if vista == "bodegas":
+        with Sesion() as s:
+            ids_permitidos = _ids_permitidos_para_buscar(s, u)
+            q = s.query(Bodega)
+            if ids_permitidos is not None:
+                q = q.filter(Bodega.id.in_(ids_permitidos))
+            bodegas = q.all()
+            n_pendientes = sum(1 for b in bodegas if b.estado == "pendiente")
+            n_en_conteo = sum(1 for b in bodegas if b.estado == "en_conteo")
+        return (f"Pantalla: Bodegas. Aquí se busca el stock de un artículo en todo "
+                f"el catálogo, y se ve el estado/historial de cada bodega (no se "
+                f"cuenta desde aquí, eso es en Conteo). De las bodegas de esta "
+                f"persona: {n_pendientes} pendientes, {n_en_conteo} en conteo. Si "
+                f"piden abrir o seguir contando una bodega por nombre, se resuelve "
+                f"aparte antes de este mensaje - esto solo se usa para explicar o "
+                f"navegar a otra pantalla.")
     return f"Pantalla: {vista}."
+
+
+_VERBOS_ABRIR_BODEGA = re.compile(
+    r"\b(abr[ae]|abrir|contar|cuenta|siga|sigue|continu[ae]|continuar)\b",
+    re.IGNORECASE)
 
 
 @app.post("/api/agente/asistente")
@@ -359,6 +381,20 @@ def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual))
     (Inicio, Ajustes, Ayuda, Reportes, Panel): responde preguntas sobre lo
     que hay en esa pantalla y navega a otra si se lo piden. Sin el estado
     multi-turno de /api/agente/turno, que es especifico del conteo/pedido."""
+    # Desde Bodegas, "abra/siga contando <nombre>" es una orden concreta y
+    # frecuente - se resuelve aparte, ANTES de Gemini, con la misma
+    # búsqueda restringida que usa el resto de la app (nunca ofrece una
+    # bodega ajena a lo asignado). El verbo es obligatorio: sin él, decir
+    # el nombre de una bodega podría ser una PREGUNTA sobre ella ("¿cómo
+    # va kiosco taquilla ayb?"), no una orden de ir a contarla.
+    if p.vista == "bodegas" and _VERBOS_ABRIR_BODEGA.search(p.texto):
+        from servicios.conciliacion import buscar_bodega
+        with Sesion() as s:
+            bodega = buscar_bodega(s, p.texto, _ids_permitidos_para_buscar(s, u))
+        if bodega:
+            return {"respuesta_hablada": f"Vamos a Conteo a abrir {bodega.nombre_oficial.title()}.",
+                    "accion": "navegar", "destino": "conteo", "pestana": None,
+                    "bodega": bodega.nombre_oficial}
     destinos = dict(_DESTINOS_ASISTENTE)
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:
