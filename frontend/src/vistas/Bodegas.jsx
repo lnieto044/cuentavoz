@@ -192,6 +192,25 @@ export default function Bodegas({ token, usuario, ir }) {
   // quedarse esperando una respuesta hablada que nadie va a dar.
   async function buscarArticulo(codigo = "", texto = busca, miId) {
     if (!texto.trim()) return;
+    // Si queda una sugerencia de bodega pendiente en pantalla, un "sí"/
+    // "no" nuevo la responde - sin importar si llegó como continuación
+    // de la misma escucha o como una búsqueda nueva escrita/hablada
+    // aparte (tocando "Buscar" de nuevo, por ejemplo). Antes, un "sí"
+    // que no llegara EXACTAMENTE como respuesta de esa misma escucha se
+    // trataba como una búsqueda nueva de "sí" a secas, y el agente
+    // general (que no tiene ni idea de la sugerencia pendiente)
+    // respondía cualquier cosa en vez de abrir el detalle.
+    if (consulta?.sugerencia_bodega_id) {
+      if (esAfirmacion(texto, ["ver"])) { verDetalle(consulta.sugerencia_bodega_id); return; }
+      if (esNegacion(texto)) {
+        setConsulta(null);
+        setBusca("");
+        const msg = "Listo, queda ahí. Puede seguir buscando cuando quiera.";
+        setMsg(msg);
+        hablar(msg);
+        return;
+      }
+    }
     if (consulta?.bodegas?.length > 0) {
       const accion = _accionLocalDeResultado(texto);
       if (accion === "volver") { volverAlTablero(); return; }
