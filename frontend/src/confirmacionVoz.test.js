@@ -34,6 +34,19 @@ test("una palabra extra del contexto (ver) confirma solo si se pasa", () => {
   assert.equal(esAfirmacion("ver"), false);
   assert.equal(esAfirmacion("ver", ["ver"]), true);
 });
+test("una conjugacion del verbo extra (el texto del boton) tambien confirma", () => {
+  // Bug real reportado: el boton de un diálogo decía "Enviar", pero solo
+  // la palabra EXACTA "enviar" contaba - decir "envíalo" (como diría una
+  // persona real) no calzaba con nada y quedaba en "no le entendí".
+  assert.equal(esAfirmacion("envíalo", ["Enviar"]), true);
+  assert.equal(esAfirmacion("Enviar.", ["Enviar"]), true);
+  assert.equal(esAfirmacion("envíelo por favor", ["Enviar"]), true);
+  assert.equal(esAfirmacion("mándalo", ["Enviar"]), false); // no es conjugación de "enviar"
+});
+test("una palabra sin relacion con el extra no confirma por casualidad", () => {
+  assert.equal(esAfirmacion("entonces qué", ["Enviar"]), false);
+  assert.equal(esAfirmacion("no envíes nada", ["Enviar"]), false); // "no" niega primero
+});
 test("no NO confirma aunque diga sí en otra parte de la frase", () => {
   assert.equal(esAfirmacion("no, mejor sí despues"), false);
 });

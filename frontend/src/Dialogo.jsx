@@ -45,7 +45,11 @@ export default function Dialogo({
       alTexto: (respuesta) => {
         if (miId !== idEscucha.current) return;
         setConfirmando(false);
-        if (esAfirmacion(respuesta)) {
+        // El botón de este diálogo en particular puede decir "Enviar",
+        // "Solicitar", "Crear"... no solo "Aceptar" - decir esa misma
+        // palabra (en cualquier conjugación) también debe confirmar,
+        // igual que tocar el botón.
+        if (esAfirmacion(respuesta, [textoAceptar])) {
           aceptar(valorDictado);
         } else if (esNegacion(respuesta)) {
           setValor("");
