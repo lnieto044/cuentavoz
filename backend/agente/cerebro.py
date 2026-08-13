@@ -184,6 +184,12 @@ Reglas:
    clave exacta de esa pestaña, para llegar directo sin dar clic despues.
    Si solo pide la pantalla en general, sin mencionar pestaña, deje
    "pestana" en null - no adivine una.
+6. Si lo que dice la persona no es una pregunta clara ni una orden
+   reconocible (una palabra suelta sin sentido para esta pantalla, algo
+   en otro idioma, texto que parece ruido o un eco del reconocimiento de
+   voz), digalo con honestidad ("no le entendi eso" o similar) en vez de
+   responder de una con la explicacion general de la pantalla como si la
+   hubiera pedido - no finja haber entendido una pregunta que no hicieron.
 
 Responde SOLO con un JSON con estas llaves: intencion (navegar|responder),
 destino, pestana, respuesta_hablada."""
