@@ -285,7 +285,7 @@ _DESTINOS_ASISTENTE = {
     "auditoria": "Auditoría", "reportes": "Reportes", "panel": "Panel",
     "ajustes": "Ajustes", "ayuda": "Ayuda", "perfil": "Mi perfil",
 }
-_SOLO_AUDITOR_ASISTENTE = {"auditoria", "reportes", "panel"}
+_SOLO_AUDITOR_ASISTENTE = {"auditoria", "reportes", "panel", "ajustes"}
 
 # pantallas con pestañas propias: para no obligar a la persona a llegar y
 # después dar clic en la pestaña que quería, si la pide de una vez

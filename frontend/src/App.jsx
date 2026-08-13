@@ -27,7 +27,12 @@ export const MENU = [
   { id: "auditoria",    titulo: "Auditoría",     vistas: ["auditoria"], soloAuditor: true },
   { id: "reportes",     titulo: "Reportes",      vistas: ["reportes"], soloAuditor: true },
   { id: "panel",        titulo: "Panel",         vistas: ["panel"], soloAuditor: true },
-  { id: "ajustes",      titulo: "Ajustes",       vistas: ["ajustes"] },
+  // El auxiliar no puede cambiar nada aquí (el umbral y el modo sin
+  // conexión ya estaban bloqueados por el backend con requiere_perfil):
+  // mostrarle la pantalla igual, solo en modo lectura, dejaba ver ajustes
+  // administrativos que no le sirven de nada y no puede tocar - mejor
+  // ocultarla del todo, igual que ya se hace con Auditoría/Reportes/Panel.
+  { id: "ajustes",      titulo: "Ajustes",       vistas: ["ajustes"], soloAuditor: true },
   { id: "ayuda",        titulo: "Ayuda",         vistas: ["ayuda"] },
   { id: "perfil",       titulo: "Mi perfil",     vistas: ["perfil"] },
   { id: "salir",        titulo: "Cerrar sesión", vistas: ["salir"] },
