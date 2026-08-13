@@ -107,6 +107,13 @@ export default function Bodegas({ token, usuario, ir }) {
       `/api/articulos/consulta?q=${encodeURIComponent(texto)}&codigo=${codigo}`, {}, token);
     setConsulta(r);
     hablar(r.resumen);
+    // Un solo buscador para todo: si ni fue un artículo ni una bodega,
+    // el backend ya lo intentó como pregunta suelta o como orden de
+    // navegar ("llévame a reportes", "abra kiosco taquilla ayb") - si
+    // trae una acción, se seguía igual que hace AsistenteVoz.
+    if (r.accion === "navegar" && r.destino && ir) {
+      ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
+    }
   }
   function buscarPorVoz() {
     escuchar({
@@ -190,14 +197,18 @@ export default function Bodegas({ token, usuario, ir }) {
                           : detalle ? { texto: chipDetalle[0], tipo: `borde ${chipDetalle[1]}` }
                           : { texto: "EN VIVO", tipo: "verde" }}>
 
-      {/* A diferencia de Inicio/Ajustes/Ayuda/Reportes/Panel, esta pantalla
-          se había quedado sin el "Pregúntele al agente" general - solo
-          tenía buscadores de artículo, sin forma de pedir por voz cosas
-          como "abra kiosco taquilla ayb" o navegar a otra pantalla. Se
-          deja siempre visible (lista, detalle o resultado de búsqueda)
-          para que también funcione al ver el detalle de una bodega. */}
-      <AsistenteVoz token={token} vista="bodegas" ir={ir}
-                    placeholder="abra kiosco taquilla ayb, ¿cuántas bodegas están pendientes?…" />
+      {/* En la lista principal, el buscador de artículos de abajo YA
+          resuelve todo (ingrediente, bodega, pregunta suelta u orden de
+          navegar - ver consulta_articulo en el backend): tener el
+          "Pregúntele al agente" genérico también ahí duplicaba el cuadro
+          y daba respuestas distintas para lo mismo. En el DETALLE de una
+          bodega, en cambio, no hay otro buscador general (el que hay ahí
+          solo busca artículos DENTRO de esa bodega), así que sigue
+          apareciendo para poder preguntar o navegar por voz igual. */}
+      {detalle && (
+        <AsistenteVoz token={token} vista="bodegas" ir={ir}
+                      placeholder="¿cuántas bodegas están pendientes?, lléveme a reportes…" />
+      )}
 
       {mostrarCargandoDetalle && <p className="cargando">Cargando…</p>}
 

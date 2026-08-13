@@ -255,6 +255,31 @@ def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_tilde(
     assert r.json()["bodega"] == "ALMACEN REGIONAL"
 
 
+def test_abrir_bodega_por_rest_encuentra_el_nombre_aunque_diga_kiosko_con_k(
+    client: TestClient,
+) -> None:
+    """Bug real reportado desde producción: "kiosco" (como está guardado
+    en el catálogo) y "kiosko" (como lo transcribe a veces el
+    reconocimiento de voz, y como también se escribe la palabra en
+    español) no coincidían - K y C no se unificaban en normalizar()."""
+    from bd import Sesion
+    from modelos import Bodega, Usuario, AsignacionBodega
+
+    with Sesion() as sesion:
+        auxiliar = sesion.query(Usuario).filter_by(nombre="luis").one()
+        bodega = Bodega(nombre_oficial="KIOSCO TAQUILLA AYB")
+        sesion.add(bodega)
+        sesion.flush()
+        sesion.add(AsignacionBodega(usuario_id=auxiliar.id, bodega_id=bodega.id))
+        sesion.commit()
+
+    headers = _ingresar(client, "luis")
+    r = client.post("/api/bodegas/abrir", headers=headers,
+                    json={"bodega": "kiosko taquilla ayb"})
+    assert r.status_code == 200, r.text
+    assert r.json()["bodega"] == "KIOSCO TAQUILLA AYB"
+
+
 def test_abrir_bodega_por_rest_ignora_el_punto_final_del_reconocimiento_de_voz(
     client: TestClient,
 ) -> None:

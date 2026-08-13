@@ -375,22 +375,23 @@ _VERBOS_ABRIR_BODEGA = re.compile(
     re.IGNORECASE)
 
 
-@app.post("/api/agente/asistente")
-def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual)):
-    """Version liviana del agente para pantallas que no cuentan ni piden
-    (Inicio, Ajustes, Ayuda, Reportes, Panel): responde preguntas sobre lo
-    que hay en esa pantalla y navega a otra si se lo piden. Sin el estado
-    multi-turno de /api/agente/turno, que es especifico del conteo/pedido."""
+def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
+    """Lo que responde el agente liviano ante una pregunta suelta o una
+    orden de navegar - usado tanto por /api/agente/asistente (Inicio,
+    Ajustes, Ayuda, Reportes, Panel) como, cuando ni un artículo ni una
+    bodega coinciden, por el buscador de Bodegas (ver consulta_articulo):
+    un solo buscador que primero prueba si es un ingrediente, luego si
+    es una bodega, y si no es ninguna de las dos, cae aquí."""
     # Desde Bodegas, "abra/siga contando <nombre>" es una orden concreta y
     # frecuente - se resuelve aparte, ANTES de Gemini, con la misma
     # búsqueda restringida que usa el resto de la app (nunca ofrece una
     # bodega ajena a lo asignado). El verbo es obligatorio: sin él, decir
     # el nombre de una bodega podría ser una PREGUNTA sobre ella ("¿cómo
     # va kiosco taquilla ayb?"), no una orden de ir a contarla.
-    if p.vista == "bodegas" and _VERBOS_ABRIR_BODEGA.search(p.texto):
+    if vista == "bodegas" and _VERBOS_ABRIR_BODEGA.search(texto):
         from servicios.conciliacion import buscar_bodega
         with Sesion() as s:
-            bodega = buscar_bodega(s, p.texto, _ids_permitidos_para_buscar(s, u))
+            bodega = buscar_bodega(s, texto, _ids_permitidos_para_buscar(s, u))
         if bodega:
             return {"respuesta_hablada": f"Vamos a Conteo a abrir {bodega.nombre_oficial.title()}.",
                     "accion": "navegar", "destino": "conteo", "pestana": None,
@@ -399,9 +400,9 @@ def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual))
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:
             destinos.pop(k, None)
-    contexto = _contexto_asistente(p.vista, u)
+    contexto = _contexto_asistente(vista, u)
     from agente.cerebro import pensar_asistente
-    turno = pensar_asistente(contexto, p.texto, destinos, _PESTANAS_ASISTENTE)
+    turno = pensar_asistente(contexto, texto, destinos, _PESTANAS_ASISTENTE)
     destino = turno.get("destino")
     if (turno.get("intencion") or "").lower() == "navegar" and destino in destinos:
         pestana = turno.get("pestana")
@@ -412,6 +413,15 @@ def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual))
                 "accion": "navegar", "destino": destino, "pestana": pestana}
     return {"respuesta_hablada": turno.get("respuesta_hablada", ""),
             "accion": None, "destino": None, "pestana": None}
+
+
+@app.post("/api/agente/asistente")
+def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual)):
+    """Version liviana del agente para pantallas que no cuentan ni piden
+    (Inicio, Ajustes, Ayuda, Reportes, Panel): responde preguntas sobre lo
+    que hay en esa pantalla y navega a otra si se lo piden. Sin el estado
+    multi-turno de /api/agente/turno, que es especifico del conteo/pedido."""
+    return _resolver_asistente(p.vista, p.texto, u)
 
 
 @app.get("/api/sesiones/{sesion_id}/avance")
@@ -1062,6 +1072,20 @@ def catalogo_ligero(u: Usuario = Depends(usuario_actual)):
 @app.get("/api/articulos/consulta")
 def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_actual)):
     from servicios.conciliacion import buscar_articulo, buscar_bodegas_candidatas
+    # Una orden explícita ("abra kiosco taquilla ayb") se resuelve ANTES
+    # que cualquier otra cosa: si se dejara caer primero por la búsqueda
+    # de artículo/bodega, el propio "abra" sumaba como palabra de más en
+    # la coincidencia por palabras contra esa misma bodega y la orden
+    # explícita nunca llegaba a reconocerse como tal - terminaba en la
+    # sugerencia de "vea su detalle", no en abrirla de una vez.
+    if _VERBOS_ABRIR_BODEGA.search(q):
+        r = _resolver_asistente("bodegas", q, u)
+        return {
+            "resumen": r.get("respuesta_hablada", ""),
+            "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None,
+            "accion": r.get("accion"), "destino": r.get("destino"),
+            "pestana": r.get("pestana"), "bodega": r.get("bodega"),
+        }
     cand = buscar_articulo(q)
     if not cand:
         # lo dicho no es ningun articulo del catalogo - pero si SI es el
@@ -1097,8 +1121,19 @@ def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_act
                             f"bodegas ({nombres}) - búsquelas en Bodegas para ver cuál es."),
                 "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None,
             }
-        return {"resumen": "No encontre ese articulo en el catalogo.",
-                "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None}
+        # Ni artículo ni bodega: puede ser una pregunta suelta ("¿cuántas
+        # bodegas están pendientes?") o una orden de navegar ("llévame a
+        # reportes") - un solo buscador para todo, en vez de dos cuadros
+        # de búsqueda separados (uno para ingredientes, otro para
+        # cualquier otra cosa) que además terminaban dando respuestas
+        # distintas para lo mismo.
+        r = _resolver_asistente("bodegas", q, u)
+        return {
+            "resumen": r.get("respuesta_hablada", ""),
+            "bodegas": [], "sugerencia_bodega": None, "sugerencia_bodega_id": None,
+            "accion": r.get("accion"), "destino": r.get("destino"),
+            "pestana": r.get("pestana"), "bodega": r.get("bodega"),
+        }
     # si la persona ya eligio una de las alternativas, usa esa; si no, la mejor
     a = next((c for c in cand if c["codigo"] == codigo), None) or cand[0]
     hoy = datetime.now().date()

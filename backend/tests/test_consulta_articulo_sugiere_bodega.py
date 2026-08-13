@@ -56,9 +56,13 @@ def test_articulo_real_sigue_funcionando_igual(
     assert "sugerencia_bodega" not in cuerpo or cuerpo.get("sugerencia_bodega") is None
 
 
-def test_sin_ningun_parecido_responde_el_mensaje_generico(
+def test_sin_ningun_parecido_cae_al_agente_general(
     client: TestClient, datos_regresion: dict[str, object]
 ) -> None:
+    """Ni artículo ni bodega: en vez de un "no encontré" seco, el mismo
+    buscador cae al agente general (ver _resolver_asistente) - un solo
+    cuadro que responde preguntas sueltas o navega, no dos cuadros
+    separados dando respuestas distintas para lo mismo."""
     r = client.get(
         "/api/articulos/consulta",
         # gibberish elegido para que ninguna de sus palabras sea, ni de
@@ -72,4 +76,24 @@ def test_sin_ningun_parecido_responde_el_mensaje_generico(
     assert r.status_code == 200, r.text
     cuerpo = r.json()
     assert cuerpo["sugerencia_bodega"] is None
-    assert cuerpo["resumen"] == "No encontre ese articulo en el catalogo."
+    assert cuerpo["resumen"]
+    assert cuerpo["destino"] != "conteo"
+
+
+def test_orden_de_abrir_una_bodega_navega_a_conteo_desde_el_mismo_buscador(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """El mismo buscador de ingredientes también entiende una orden
+    explícita de abrir una bodega (no solo sugerirla) - "abra <nombre>"
+    no es ni un artículo ni "solo" el nombre de una bodega, así que cae
+    al agente general, que sí reconoce el verbo."""
+    r = client.get(
+        "/api/articulos/consulta",
+        params={"q": f"abra {datos_regresion['bodega_asignada']}"},
+        headers=datos_regresion["headers"],
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["accion"] == "navegar"
+    assert cuerpo["destino"] == "conteo"
+    assert cuerpo["bodega"] == datos_regresion["bodega_asignada"]

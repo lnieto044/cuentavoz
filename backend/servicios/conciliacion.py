@@ -52,6 +52,12 @@ def normalizar(t: str) -> str:
     t = "".join(c for c in unicodedata.normalize("NFD", t)
                 if unicodedata.category(c) != "Mn")          # sin tildes
     t = t.replace("P/", "PARA ")
+    # "kiosco"/"kiosko" son la misma palabra, dicha o escrita de dos
+    # formas igual de comunes en español - sin esto, decir "kiosko" no
+    # encontraba "KIOSCO TAQUILLA AYB" aunque sea exactamente la misma
+    # bodega. La K es rarísima en el catálogo salvo en estos préstamos
+    # (kilo, kiosco...), así que unificarla con la C no choca con nada.
+    t = t.replace("K", "C")
     # el reconocimiento de voz del navegador suele cerrar la frase con un
     # punto ("Zoológico.") aunque nadie lo haya dicho - sin quitarlo, una
     # bodega real dejaba de encontrarse por un simple "." de mas.
@@ -76,18 +82,26 @@ def buscar_bodegas_candidatas(s, texto: str, ids_permitidos: set[int] | None = N
     if not clave:
         return []
 
-    def _base():
-        q = s.query(Bodega)
-        if ids_permitidos is not None:
-            q = q.filter(Bodega.id.in_(ids_permitidos))
-        return q
+    # El catálogo de bodegas es chico (unas pocas decenas): comparar en
+    # Python, con normalizar() de los DOS lados, es lo que permite que
+    # reglas como K->C funcionen igual para lo dicho y para el nombre
+    # guardado - comparar contra la columna cruda (como antes, con SQL)
+    # solo servía porque el nombre YA estaba guardado en mayúsculas sin
+    # tildes, por pura coincidencia; una regla nueva de normalizar() no
+    # se aplicaba del lado de la base de datos.
+    todas = s.query(Bodega).all()
 
-    exacta = s.query(Bodega).filter(Bodega.nombre_oficial == clave).first()
+    def _permitidas():
+        if ids_permitidos is None:
+            return todas
+        return [b for b in todas if b.id in ids_permitidos]
+
+    exacta = next((b for b in todas if normalizar(b.nombre_oficial) == clave), None)
     if exacta:
         return [exacta]
     # coincidencia parcial: "kiosco" a secas es substring de "KIOSCO 2
     # SUMINISTROS", "KIOSCO TAQUILLA AYB" y varias más - todas cuentan.
-    contienen = _base().filter(Bodega.nombre_oficial.contains(clave)).all()
+    contienen = [b for b in _permitidas() if clave in normalizar(b.nombre_oficial)]
     if contienen:
         return contienen
     # ultimo recurso: cuantas palabras dichas (de mas de 3 letras) tiene
@@ -99,13 +113,13 @@ def buscar_bodegas_candidatas(s, texto: str, ids_permitidos: set[int] | None = N
     palabras = [p for p in clave.split() if len(p) > 3]
     if not palabras:
         return []
-    candidatas = [(sum(1 for p in palabras if p in c.nombre_oficial), c)
-                  for c in _base().all()]
-    candidatas = [(n, c) for n, c in candidatas if n > 0]
+    candidatas = [(sum(1 for p in palabras if p in normalizar(b.nombre_oficial)), b)
+                  for b in _permitidas()]
+    candidatas = [(n, b) for n, b in candidatas if n > 0]
     if not candidatas:
         return []
     maximo = max(n for n, _ in candidatas)
-    return [c for n, c in candidatas if n == maximo]
+    return [b for n, b in candidatas if n == maximo]
 
 
 def buscar_bodega(s, texto: str, ids_permitidos: set[int] | None = None) -> Bodega | None:
