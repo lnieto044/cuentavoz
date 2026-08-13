@@ -186,6 +186,16 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
     }
   }
 
+  // Al llegar desde otra pantalla con una bodega ya resuelta (el "Ir a
+  // Conteo"/"Seguir contando" de Bodegas), se abre de una vez en lugar de
+  // solo dejarla escrita esperando un clic más: a diferencia de lo
+  // dictado por voz, este nombre ya salió de una búsqueda exacta contra
+  // el catálogo, no hay nada que confirmar.
+  useEffect(() => {
+    if (bodegaSugerida) abrir(bodegaSugerida);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** El botón "Abrir por nombre exacto" (y Enter en el campo) escribía
       directo a abrir(), que con un nombre ambiguo ("restaurante" a
       secas, cuando hay cinco "RESTAURANTE ...") solo sabía decir "no la

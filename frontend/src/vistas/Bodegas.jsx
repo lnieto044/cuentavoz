@@ -433,6 +433,16 @@ export default function Bodegas({ token, usuario, ir }) {
           )}
 
           <div className="grilla-botones">
+            {(detalle.estado === "pendiente" || detalle.estado === "en_conteo") && (
+              // Este detalle es solo de lectura (estado/historial) - para
+              // de verdad contar hay que ir a Conteo. Sin este atajo,
+              // alguien que llega aquí buscando "abrir la bodega" se
+              // queda sin poder hacerlo y tiene que volver a decir/buscar
+              // el nombre desde cero en otra pantalla.
+              <button className="btn" onClick={() => ir && ir("conteo", { bodegaSugerida: detalle.bodega })}>
+                {detalle.estado === "en_conteo" ? "Seguir contando" : "Contar esta bodega"}
+              </button>
+            )}
             {esAuditor && detalle.estado === "cerrada" && (
               <button className="btn borde" onClick={() => setPedirMotivo(true)}>Reabrir la bodega</button>
             )}
