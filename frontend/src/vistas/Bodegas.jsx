@@ -114,9 +114,33 @@ export default function Bodegas({ token, usuario, ir }) {
   // encuentra ningún artículo DENTRO de esta bodega, cae al mismo agente
   // general que ya usa la lista principal - un solo cuadro para todo,
   // también aquí, en vez de un segundo "Pregúntele al agente" aparte.
+  // Igual que _accionLocalDeResultado, pero para los botones del DETALLE
+  // de una bodega (Cerrar detalle, Seguir contando...) - se revisan antes
+  // que la búsqueda de artículo/el agente general, porque esos botones
+  // no tienen equivalente en ningún otro lado: decir "cerrar detalle" sin
+  // esto caía en el agente general, que ni sabe qué botones hay en esta
+  // pantalla en particular ("Esa opción no la puedo hacer por voz").
+  function _accionLocalDeDetalle(texto) {
+    const t = quitarTildes(texto.toLowerCase()).replace(/[.,;:!¿?¡]/g, "").trim();
+    if (/\b(cerrar|cierra|salir)\b/.test(t)) return "cerrar";
+    if (/\b(seguir|sigue|continu\w*|contar|cuenta)\b/.test(t)
+        && (detalle?.estado === "pendiente" || detalle?.estado === "en_conteo")) return "contar";
+    if (/\b(reabrir|reabre)\b/.test(t) && esAuditor && detalle?.estado === "cerrada") return "reabrir";
+    if (/\barticulos?\b/.test(t)) return "articulos";
+    if (/\bdescargar\b/.test(t) && esAuditor) return "descargar";
+    if (/\bpanel\b/.test(t) && esAuditor) return "panel";
+    return null;
+  }
   async function confirmarBusquedaEnBodega(texto, miId) {
     if (!texto || !texto.trim()) return;
     if (miId === undefined) miId = ++idEscuchaBusqueda.current;
+    const accion = _accionLocalDeDetalle(texto);
+    if (accion === "cerrar") { setDetalle(null); setDetalleId(null); return; }
+    if (accion === "contar") { ir && ir("conteo", { bodegaSugerida: detalle.bodega }); return; }
+    if (accion === "reabrir") { setPedirMotivo(true); return; }
+    if (accion === "articulos") { verTodosLosArticulos(); return; }
+    if (accion === "descargar") { exportarDetalle(); return; }
+    if (accion === "panel") { ir && ir("panel"); return; }
     setBuscaArticuloBodega(texto);
     let lista = articulosBodega;
     if (!lista) {
