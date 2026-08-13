@@ -2114,7 +2114,12 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
                           "subject": asunto, "text": cuerpo}).encode("utf-8")
     peticion = urllib.request.Request(
         "https://api.resend.com/emails", data=payload, method="POST",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                 # Sin esto, Cloudflare (delante de la API de Resend)
+                 # rechaza la conexión con un "error code: 1010" - el
+                 # User-Agent por defecto de urllib ("Python-urllib/3.x")
+                 # queda marcado como firma de bot.
+                 "User-Agent": "CuentaVoz/1.0 (+https://cuentavoz.onrender.com)"})
     # El contenedor de Render no tiene ruta de salida por IPv6, pero la
     # resolución de nombres a veces sí devuelve una dirección IPv6 (y
     # Python la intenta primero) - eso da exactamente "Network is
