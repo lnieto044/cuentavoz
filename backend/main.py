@@ -329,12 +329,20 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"Exactitud del mes: {exact}%.")
     if vista == "ajustes":
         a = ver_ajustes(u)
-        return (f"Pantalla: Ajustes. Umbral de anomalía: {a['umbral']}%. "
-                f"Modo sin conexión: {'activado' if a['offline'] else 'desactivado'}. "
-                f"Usuarios activos: {a['usuarios_activos']}. "
-                f"Aprobaciones pendientes: {a['aprobaciones_pendientes']}. "
-                f"Versión de CuentaVoz: {a['version']}, modelo del agente: {a['modelo']}. "
-                "Esta pantalla todavía no cambia la configuración por voz, solo explica.")
+        return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
+                f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
+                f"se puede desactivar); exigir confirmación en alertas activado (regla "
+                f"fija); permitir crear productos pendientes activado (regla fija). "
+                f"Sección Conexión y sincronización: modo sin conexión "
+                f"{'activado' if a['offline'] else 'desactivado'}; refresco del tablero "
+                f"en tiempo real; refresco de Power BI cada {a['refresco_pbi']}. "
+                f"Sección Administración: usuarios activos {a['usuarios_activos']}; "
+                f"aprobaciones pendientes {a['aprobaciones_pendientes']}. Sección Acerca "
+                f"de CuentaVoz: versión {a['version']}, modelo del agente {a['modelo']}. "
+                "El umbral y el modo sin conexión solo los puede CAMBIAR un "
+                "administrador, y únicamente con los controles de la pantalla (número y "
+                "botón «Guardar configuración») - esta pantalla todavía no cambia la "
+                "configuración por voz, solo explica lo que hay.")
     if vista == "panel" and u.perfil == "auditor":
         r = analitica.resumen_ejecutivo()
         return (f"Pantalla: Panel gerencial. Exactitud primera pasada: "
