@@ -488,7 +488,17 @@ def _cambiar_modo_sin_conexion(texto: str, u: Usuario) -> dict | None:
 
 
 def _normalizar_nombre(t: str) -> str:
+    """Sin quitar la puntuación, una pausa natural al hablar ("Cebolla,
+    cabezona blanca.") deja una coma que rompe la comparación por
+    substring contra "CEBOLLA CABEZONA BLANCA" (sin coma) - confirmado
+    con una captura real donde por eso no lograba resolver una
+    ambigüedad pendiente aunque dijo el nombre correcto. Mismo arreglo
+    que normalizar() ya tiene en servicios/conciliacion.py, por la
+    misma razón (el reconocimiento de voz también suele cerrar la
+    frase con un punto que nadie dijo)."""
     t = str(t).lower().strip()
+    t = re.sub(r"[.,;:!¿?¡]+", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
     return "".join(c for c in unicodedata.normalize("NFD", t)
                    if unicodedata.category(c) != "Mn")
 
