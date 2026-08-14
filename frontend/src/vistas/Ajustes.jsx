@@ -13,9 +13,9 @@ const _EJEMPLOS_POR_PESTANA = {
     "crea un usuario llamado Juan perfil auxiliar",
     "activa a Juan", "desactiva a Juan",
     "cambia el perfil de Juan a administrador",
-    "asígnale la bodega Panadería a Juan",
-    "quítale la bodega Panadería a Juan",
-    "¿quién tiene la bodega Panadería?",
+    "asígnale la bodega Almacen General a Juan",
+    "quítale la bodega Almacen General a Juan",
+    "¿quién tiene la bodega Almacen General?",
     "¿cuántas bodegas sin asignar hay?",
     "muéstrame la asignación por bodega",
     "oculta la asignación por bodega",
@@ -23,6 +23,8 @@ const _EJEMPLOS_POR_PESTANA = {
   recetas: [
     "crea una receta llamada Sopa, rendimiento 4 porciones, con 2 kilos de papa",
     "agrega 300 gramos de cebolla a la receta Sopa",
+    "quita el ingrediente cebolla de la receta Sopa",
+    "cambia el rendimiento de la receta Sopa a 6 porciones",
     "elimina la receta Sopa",
   ],
   traza: [

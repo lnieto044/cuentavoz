@@ -361,11 +361,17 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "<nombre>, rendimiento <N> porciones, con <cantidad> de <ingrediente>» "
             "(crea la receta con ese primer ingrediente ya resuelto contra el "
             "catálogo), «agrega <cantidad> de <ingrediente> a la receta <nombre>» "
-            "(para sumarle más ingredientes después), y «elimina la receta <nombre>». "
+            "(para sumarle más ingredientes después), «quita el ingrediente "
+            "<ingrediente> de la receta <nombre>», «cambia el rendimiento de la "
+            "receta <nombre> a <N> porciones», y «elimina la receta <nombre>» - la "
+            "preparación (los pasos de cocina) todavía no se puede dictar por voz, "
+            "esa solo se cambia con los controles de la pantalla. "
             "Todo esto SOLO funciona si la orden usa exactamente esas formas («crea un "
             "usuario llamado...», «cambia el perfil de... a...», «asígnale/quítale la "
             "bodega... a...», «crea una receta llamada..., rendimiento... porciones, "
-            "con... de...», «agrega... a la receta...», «elimina la receta...») - si "
+            "con... de...», «agrega... a la receta...», «quita el ingrediente... de "
+            "la receta...», «cambia el rendimiento de la receta... a...», «elimina la "
+            "receta...») - si "
             "el mensaje llega hasta usted es porque esa frase no se dijo así, el "
             "nombre de la persona/bodega no coincidió con ninguna existente, o el "
             "ingrediente no se encontró en el catálogo, así que no invente que ya "
@@ -878,6 +884,90 @@ def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+_QUITAR_INGREDIENTE = re.compile(
+    r"\b(?:qu[ií]ta\w*|elimin\w*|borr\w*)\s+(?:el\s+)?ingredient\w*\s+(?P<ing>.+?)"
+    r"\s+de\s+la\s+receta\s+(?P<receta>.+?)\s*[.!]?\s*$", re.IGNORECASE)
+
+
+def _quitar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Quita/elimina el ingrediente <ingrediente> de la receta <nombre>" -
+    mismo botón «Editar» de Recetas, pero solo para sacar UN ingrediente
+    (no reemplaza toda la lista). Busca el ingrediente entre los que YA
+    tiene esa receta, no contra todo el catálogo - así "quita la
+    cebolla" no confunde una cebolla que ni siquiera está en esa
+    receta. Nunca deja una receta sin ingredientes (la misma regla que
+    ya exige el botón)."""
+    if u.perfil != "auditor":
+        return None
+    m = _QUITAR_INGREDIENTE.search(texto.strip())
+    if not m:
+        return None
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, m.group("receta"))
+        if not r:
+            return None
+        lineas = s.query(RecetaIngrediente).filter_by(receta_id=r.id).all()
+        t_ing = _normalizar_nombre(m.group("ing"))
+        objetivo = None
+        nombre_articulo = None
+        for li in lineas:
+            art = s.get(Articulo, li.articulo_codigo)
+            if not art:
+                continue
+            nombre_art = _normalizar_nombre(art.nombre_oficial)
+            if (re.search(rf"\b{re.escape(nombre_art)}\b", t_ing)
+                    or re.search(rf"\b{re.escape(t_ing)}\b", nombre_art)):
+                objetivo, nombre_articulo = li, art.nombre_oficial
+                break
+        if not objetivo:
+            return {"respuesta_hablada": f"{r.nombre.title()} no tiene un ingrediente llamado "
+                                         f"«{m.group('ing')}».",
+                    "accion": None, "destino": None, "pestana": None}
+        if len(lineas) <= 1:
+            return {"respuesta_hablada": f"No puedo quitar {nombre_articulo.title()}: "
+                                         f"{r.nombre.title()} se quedaría sin ingredientes.",
+                    "accion": None, "destino": None, "pestana": None}
+        s.delete(objetivo)
+        nombre_receta = r.nombre
+        s.commit()
+    registrar(u, "RECETA", f"Receta editada: {nombre_receta} ({nombre_articulo} quitado por voz)", "ok")
+    return {"respuesta_hablada": f"Listo, quité {nombre_articulo.title()} de la receta {nombre_receta}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+_CAMBIAR_RENDIMIENTO = re.compile(
+    r"\bcambia\w*\s+el\s+rendimient\w*\s+de\s+la\s+receta\s+(?P<receta>.+?)"
+    r"\s+a\s+(?P<rend>\d+)\s*porcion\w*\s*[.!]?\s*$", re.IGNORECASE)
+
+
+def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Cambia el rendimiento de la receta <nombre> a <N> porciones" -
+    el otro campo editable del botón «Editar» de Recetas (además de los
+    ingredientes, que ya se agregan/quitan aparte). La preparación
+    (texto libre paso a paso) sigue sin poder dictarse por voz: un
+    párrafo largo mal transcrito es más difícil de detectar que un
+    número equivocado."""
+    if u.perfil != "auditor":
+        return None
+    m = _CAMBIAR_RENDIMIENTO.search(texto.strip())
+    if not m:
+        return None
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, m.group("receta"))
+        if not r:
+            return None
+        nuevo = int(m.group("rend"))
+        if r.rendimiento == nuevo:
+            return {"respuesta_hablada": f"{r.nombre.title()} ya rendía {nuevo} porciones.",
+                    "accion": "actualizar", "destino": None, "pestana": None}
+        r.rendimiento = nuevo
+        nombre = r.nombre
+        s.commit()
+    registrar(u, "RECETA", f"Receta editada: {nombre} (rendimiento -> {nuevo} por voz)", "ok")
+    return {"respuesta_hablada": f"Listo, {nombre.title()} ahora rinde {nuevo} porciones.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
 def _cambiar_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
     """"Cambia el perfil de <nombre> a auxiliar/administrador" - mismo
     botón «Editar» de Gestión de usuarios, solo el campo perfil (el
@@ -1091,7 +1181,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                  or _asignar_bodega_por_voz(texto, u) or _alternar_cobertura_por_voz(texto, u)
                  or _consultar_asignacion_bodega_por_voz(texto, u)
                  or _crear_receta_por_voz(texto, u)
-                 or _agregar_ingrediente_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
+                 or _agregar_ingrediente_por_voz(texto, u) or _quitar_ingrediente_por_voz(texto, u)
+                 or _cambiar_rendimiento_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
         if cambio:
             return cambio
     if vista == "reportes":
