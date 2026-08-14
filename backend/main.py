@@ -1155,7 +1155,8 @@ _AGREGAR_PREPARACION = re.compile(
     r"\s+(?:de\s+|a\s+)?(?:la\s+receta\s+)?(?P<receta>.+?)\s*[:,]\s*(?P<pasos>.+?)\s*$",
     re.IGNORECASE)
 _INTENCION_AGREGAR_PREPARACION = re.compile(
-    r"\bpreparaci[oó]n\b.*\breceta\b|\breceta\b.*\bpreparaci[oó]n\b", re.IGNORECASE)
+    r"\b(?:agr[eé]ga\w*|cambia\w*|pon\w*|dicta\w*|escrib\w*)\b.*\bpreparaci[oó]n\b",
+    re.IGNORECASE)
 
 
 def _agregar_preparacion_por_voz(texto: str, u: Usuario) -> dict | None:
