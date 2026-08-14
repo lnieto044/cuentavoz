@@ -227,6 +227,7 @@ export default function Mensajes({ token, usuario }) {
                  mensaje={`Para: ${capitalizar(original?.de) || "la persona"}\nDe: ${capitalizar(usuario?.nombre) || "Usted"}\n\nMensaje original:\n${original?.mensaje || ""}\n\nEscriba su respuesta:`}
                  conCampo conVoz multilinea placeholder="Ya quedó asignada esa bodega, revise en unos minutos…"
                  valorInicial={respuestaPrellenada}
+                 confirmarAlAbrir={Boolean(respuestaPrellenada)}
                  textoAceptar="Enviar"
                  onAceptar={responderMensaje}
                  onCancelar={() => { setRespondiendoId(null); setRespuestaPrellenada(""); }} />

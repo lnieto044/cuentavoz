@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { escuchar, hablar, esAfirmacion, esNegacion } from "./voz";
 import { interpretarLocal } from "./interpreteLocal";
 
@@ -17,7 +17,7 @@ import { interpretarLocal } from "./interpreteLocal";
 export default function Dialogo({
   titulo, mensaje, conCampo = false, conVoz = false, multilinea = false, tipo = "text",
   valorInicial = "", placeholder = "", textoAceptar = "Aceptar",
-  textoCancelar = "Cancelar", peligro = false, onAceptar, onCancelar,
+  textoCancelar = "Cancelar", peligro = false, confirmarAlAbrir = false, onAceptar, onCancelar,
 }) {
   const [valor, setValor] = useState(valorInicial);
   const [escuchando, setEscuchando] = useState(false);
@@ -107,6 +107,20 @@ export default function Dialogo({
       alError: setErrorVoz,
     });
   }
+
+  // Cuando el valor ya llega armado por voz desde afuera (por ejemplo,
+  // "respóndele a Stephanie que ya quedó asignada la bodega" en la
+  // bandeja de Mensajes), tocar el micrófono de este diálogo para decir
+  // "envíalo" NO debe funcionar como una dictada nueva - eso pisaba el
+  // texto ya armado con la palabra "envíalo" misma. En vez de obligar a
+  // usar el botón, se pregunta la confirmación de una vez al abrir, así
+  // "envíalo"/"sí" ya confirma lo que se armó, sin tocar nada.
+  useEffect(() => {
+    if (confirmarAlAbrir && String(valorInicial || "").trim()) {
+      preguntarConfirmacion(valorInicial, ++idEscucha.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="overlay" onClick={onCancelar}>
