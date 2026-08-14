@@ -25,6 +25,7 @@ const _EJEMPLOS_POR_PESTANA = {
     "agrega 300 gramos de cebolla a la receta Sopa",
     "quita el ingrediente cebolla de la receta Sopa",
     "cambia el rendimiento de la receta Sopa a 6 porciones",
+    "agrega la preparación a la receta Sopa: pele las papas, sofría la cebolla, y cocine todo junto veinte minutos",
     "elimina la receta Sopa",
   ],
   traza: [

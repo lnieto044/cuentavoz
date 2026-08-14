@@ -364,14 +364,16 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "catálogo), «agrega <cantidad> de <ingrediente> a la receta <nombre>» "
             "(para sumarle más ingredientes después), «quita el ingrediente "
             "<ingrediente> de la receta <nombre>», «cambia el rendimiento de la "
-            "receta <nombre> a <N> porciones», y «elimina la receta <nombre>» - la "
-            "preparación (los pasos de cocina) todavía no se puede dictar por voz, "
-            "esa solo se cambia con los controles de la pantalla. "
+            "receta <nombre> a <N> porciones», «agrega la preparación a la receta "
+            "<nombre>: <pasos>» (reemplaza los pasos de cocina completos, tal cual "
+            "se dicten, con los dos puntos como separador del nombre), y «elimina la "
+            "receta <nombre>». "
             "Todo esto SOLO funciona si la orden usa exactamente esas formas («crea un "
             "usuario llamado...», «cambia el perfil de... a...», «asígnale/quítale la "
             "bodega... a...», «crea una receta llamada..., rendimiento... porciones, "
             "con... de...», «agrega... a la receta...», «quita el ingrediente... de "
-            "la receta...», «cambia el rendimiento de la receta... a...», «elimina la "
+            "la receta...», «cambia el rendimiento de la receta... a...», «agrega la "
+            "preparación a la receta...: ...», «elimina la "
             "receta...») - si "
             "el mensaje llega hasta usted es porque esa frase no se dijo así, el "
             "nombre de la persona/bodega no coincidió con ninguna existente, o el "
@@ -977,7 +979,12 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
         return None
     m = _AGREGAR_INGREDIENTE.search(texto.strip())
     if not m:
+        # "preparación" en la frase es de _agregar_preparacion_por_voz,
+        # no de esta - sin la exclusión, "agrega la preparación a la
+        # receta X: ..." caía aquí primero (comparte "agrega...receta")
+        # y nunca le daba la oportunidad a la función correcta.
         if (_INTENCION_AGREGAR_INGREDIENTE.search(texto)
+                and not re.search(r"preparaci[oó]n", texto, re.IGNORECASE)
                 and not _ES_PREGUNTA_PESTANA.search(texto)):
             return {"respuesta_hablada": "Para agregar un ingrediente diga: «agrega» la "
                                          "cantidad «de» el ingrediente «a la receta» el "
@@ -1114,11 +1121,9 @@ _CAMBIAR_RENDIMIENTO = re.compile(
 
 def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
     """"Cambia el rendimiento de la receta <nombre> a <N> porciones" -
-    el otro campo editable del botón «Editar» de Recetas (además de los
-    ingredientes, que ya se agregan/quitan aparte). La preparación
-    (texto libre paso a paso) sigue sin poder dictarse por voz: un
-    párrafo largo mal transcrito es más difícil de detectar que un
-    número equivocado."""
+    otro campo editable del botón «Editar» de Recetas (además de los
+    ingredientes, que se agregan/quitan aparte, y la preparación, que
+    se dicta con _agregar_preparacion_por_voz)."""
     if u.perfil != "auditor":
         return None
     m = _CAMBIAR_RENDIMIENTO.search(texto.strip())
@@ -1142,6 +1147,51 @@ def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
         s.commit()
     registrar(u, "RECETA", f"Receta editada: {nombre} (rendimiento -> {nuevo} por voz)", "ok")
     return {"respuesta_hablada": f"Listo, {nombre.title()} ahora rinde {nuevo} porciones.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+_AGREGAR_PREPARACION = re.compile(
+    r"\b(?:agr[eé]ga\w*|cambia\w*|pon\w*|dicta\w*|escrib\w*)\s+(?:la\s+)?preparaci[oó]n"
+    r"\s+(?:de\s+|a\s+)?(?:la\s+receta\s+)?(?P<receta>.+?)\s*[:,]\s*(?P<pasos>.+?)\s*$",
+    re.IGNORECASE)
+_INTENCION_AGREGAR_PREPARACION = re.compile(
+    r"\bpreparaci[oó]n\b.*\breceta\b|\breceta\b.*\bpreparaci[oó]n\b", re.IGNORECASE)
+
+
+def _agregar_preparacion_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Agrega la preparación a la receta <nombre>: <pasos>" - a
+    diferencia de nombre/ingrediente/rendimiento (frases cortas), aquí
+    todo lo que sigue a los dos puntos ES el dato, tal cual, sin cortar
+    en la primera coma o punto (los pasos de cocina naturalmente tienen
+    varias oraciones: "primero pele las papas. Luego sofría...") - por
+    eso esta es la ÚNICA función de Recetas que NO usa
+    _CORTE_ORDEN_ENCADENADA. Reemplaza la preparación completa (como el
+    textarea del botón «Editar»), no la suma a lo que ya había."""
+    if u.perfil != "auditor":
+        return None
+    m = _AGREGAR_PREPARACION.search(texto.strip())
+    if not m:
+        if (_INTENCION_AGREGAR_PREPARACION.search(texto)
+                and not _ES_PREGUNTA_PESTANA.search(texto)):
+            return {"respuesta_hablada": "Para dictar la preparación diga: «agrega la "
+                                         "preparación a la receta» el nombre, dos puntos, y "
+                                         "los pasos - por ejemplo «agrega la preparación a "
+                                         "la receta Sopa: pele las papas, sofría la cebolla, "
+                                         "y cocine todo junto veinte minutos».",
+                    "accion": None, "destino": None, "pestana": None}
+        return None
+    pasos = re.sub(r"[.,;:!¿?¡]+$", "", m.group("pasos")).strip()
+    if not pasos:
+        return None
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, m.group("receta"))
+        if not r:
+            return None
+        r.preparacion = pasos
+        nombre = r.nombre
+        s.commit()
+    registrar(u, "RECETA", f"Receta editada: {nombre} (preparación dictada por voz)", "ok")
+    return {"respuesta_hablada": f"Listo, guardé la preparación de la receta {nombre}.",
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
@@ -1366,7 +1416,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                  or _consultar_asignacion_bodega_por_voz(texto, u)
                  or _crear_receta_por_voz(texto, u)
                  or _agregar_ingrediente_por_voz(texto, u) or _quitar_ingrediente_por_voz(texto, u)
-                 or _cambiar_rendimiento_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
+                 or _cambiar_rendimiento_por_voz(texto, u) or _agregar_preparacion_por_voz(texto, u)
+                 or _eliminar_receta_por_voz(texto, u))
         if cambio:
             # una orden distinta que sí coincidió significa que la
             # persona siguió para otra cosa - una pregunta ambigua sin
