@@ -521,6 +521,11 @@ function TabRecetas({ token, recetaInicial }) {
   useEffect(cargar, [token]);
 
   useEffect(() => {
+    window.addEventListener("cuentavoz:ajustes-actualizados", cargar);
+    return () => window.removeEventListener("cuentavoz:ajustes-actualizados", cargar);
+  }, [token]);
+
+  useEffect(() => {
     if (recetaInicial && recetas.length && !abrioInicial[0]) {
       abrioInicial[1](true);
       abrir(recetaInicial);

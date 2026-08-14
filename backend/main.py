@@ -349,15 +349,23 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "también puede decir «activa/desactiva a <nombre>» para cambiar el estado de "
             "otra persona, y «crea un usuario llamado <nombre> perfil <auxiliar o "
             "auditor>» para crear una cuenta nueva (con PIN temporal), sin tocar ningún "
-            "botón. Esto último SOLO funciona si la orden usa exactamente esa forma "
-            "(«crea un usuario llamado...») - si el mensaje llega hasta usted es porque "
-            "esa frase no se dijo así, así que no invente que ya creó a nadie: pida que "
-            "lo repitan con ese formato."
+            "botón. En Recetas, un administrador también puede decir «crea una receta "
+            "llamada <nombre>, rendimiento <N> porciones, con <cantidad> de "
+            "<ingrediente>» (crea la receta con ese primer ingrediente ya resuelto "
+            "contra el catálogo), «agrega <cantidad> de <ingrediente> a la receta "
+            "<nombre>» (para sumarle más ingredientes después), y «elimina la receta "
+            "<nombre>». Todo esto SOLO funciona si la orden usa exactamente esas formas "
+            "(«crea un usuario llamado...», «crea una receta llamada..., rendimiento... "
+            "porciones, con... de...», «agrega... a la receta...», «elimina la "
+            "receta...») - si el mensaje llega hasta usted es porque esa frase no se "
+            "dijo así o el ingrediente no se encontró en el catálogo, así que no "
+            "invente que ya creó, agregó o eliminó nada: pida que lo repitan con ese "
+            "formato exacto."
             if u.perfil == "auditor" else
-            "El modo sin conexión, el estado de otras personas y crear usuarios nuevos "
-            "(Gestión de usuarios) solo los puede hacer un administrador - esta persona "
-            "no lo es, así que si lo pide, dígalo con honestidad en vez de decir que ya "
-            "quedó hecho.")
+            "El modo sin conexión, el estado de otras personas, crear usuarios nuevos "
+            "(Gestión de usuarios) y crear/editar/eliminar recetas solo los puede hacer "
+            "un administrador - esta persona no lo es, así que si lo pide, dígalo con "
+            "honestidad en vez de decir que ya quedó hecho.")
         return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
                 f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
                 f"se puede desactivar); exigir confirmación en alertas activado (regla "
@@ -668,6 +676,129 @@ def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+_UNIDADES_RECETA = r"kilos?|kg|litros?|lt|unidades?|und?|gramos?|gr"
+_CREAR_RECETA = re.compile(
+    r"\bcre[ae]\w*\s+(?:una\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
+    r"\s*[,y]*\s*(?:con\s+)?rendimiento\s+(?:de\s+)?(?P<rend>\d+)\s*porciones?"
+    r"\s*[,y]*\s*con\s+(?P<cant>\d+(?:[.,]\d+)?)\s*"
+    rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)\s*[.!]?\s*$",
+    re.IGNORECASE)
+_AGREGAR_INGREDIENTE = re.compile(
+    r"\b(?:agr[eé]ga\w*|a[ñn]ad\w*)\s+(?P<cant>\d+(?:[.,]\d+)?)\s*"
+    rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)"
+    r"\s+a\s+la\s+receta\s+(?P<receta>.+?)\s*[.!]?\s*$",
+    re.IGNORECASE)
+_ELIMINAR_RECETA = re.compile(
+    r"\b(elimin\w*|borr\w*)\s+(?:la\s+)?receta\s+(?P<receta>.+?)\s*[.!]?\s*$",
+    re.IGNORECASE)
+
+
+def _buscar_receta_por_nombre(s, nombre_dicho: str):
+    t = _normalizar_nombre(nombre_dicho)
+    recetas = s.query(Receta).all()
+    return next(
+        (r for r in recetas if re.search(rf"\b{re.escape(_normalizar_nombre(r.nombre))}\b", t)
+         or re.search(rf"\b{re.escape(t)}\b", _normalizar_nombre(r.nombre))),
+        None)
+
+
+def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Crea una receta llamada <nombre>, rendimiento <N> porciones, con
+    <cantidad> de <ingrediente>" - determinístico, con el mismo criterio
+    que crear usuario: un formato de frase concreto, en vez de adivinar
+    de cualquier forma un nombre y una lista de ingredientes que no
+    existen todavía contra qué validar. El ingrediente SÍ se busca
+    contra el catálogo real (misma función que usa Conteo/Pedido) - si
+    no lo encuentra con confianza suficiente, no crea nada a medias."""
+    if u.perfil != "auditor":
+        return None
+    m = _CREAR_RECETA.search(texto.strip())
+    if not m:
+        return None
+    nombre = re.sub(r"[.,;:!¿?¡]+$", "", m.group("nombre")).strip()
+    if not nombre:
+        return None
+    from servicios.conciliacion import buscar_articulo
+    candidatos = buscar_articulo(m.group("ing"))
+    if not candidatos or candidatos[0]["confianza"] < 60:
+        return {"respuesta_hablada": f"No encontré «{m.group('ing')}» en el catálogo. "
+                                     "Dígalo como aparece en la etiqueta.",
+                "accion": None, "destino": None, "pestana": None}
+    articulo = candidatos[0]
+    with Sesion() as s:
+        if s.query(Receta).filter(Receta.nombre.ilike(nombre)).first():
+            return {"respuesta_hablada": f"Ya existe una receta llamada {nombre}.",
+                    "accion": None, "destino": None, "pestana": None}
+        r = Receta(nombre=nombre, rendimiento=int(m.group("rend")), preparacion="")
+        s.add(r)
+        s.flush()
+        s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
+                                cantidad_por_porcion=float(m.group("cant").replace(",", "."))))
+        s.commit()
+    registrar(u, "RECETA", f"Receta creada: {nombre} (1 ingrediente) por voz", "ok")
+    return {"respuesta_hablada": f"Listo, creé la receta {nombre} con {articulo['nombre'].title()}. "
+                                 "Puede agregarle más ingredientes diciendo «agrega... a la "
+                                 f"receta {nombre}», o editarla desde la pantalla.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Agrégale <cantidad> de <ingrediente> a la receta <nombre>" -
+    determinístico. Reusa la misma búsqueda de artículo que crear
+    receta, y conserva los ingredientes que ya tenía (PUT reemplaza
+    toda la lista, así que se lee la receta primero)."""
+    if u.perfil != "auditor":
+        return None
+    m = _AGREGAR_INGREDIENTE.search(texto.strip())
+    if not m:
+        return None
+    from servicios.conciliacion import buscar_articulo
+    candidatos = buscar_articulo(m.group("ing"))
+    if not candidatos or candidatos[0]["confianza"] < 60:
+        return {"respuesta_hablada": f"No encontré «{m.group('ing')}» en el catálogo. "
+                                     "Dígalo como aparece en la etiqueta.",
+                "accion": None, "destino": None, "pestana": None}
+    articulo = candidatos[0]
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, m.group("receta"))
+        if not r:
+            return None
+        lineas = s.query(RecetaIngrediente).filter_by(receta_id=r.id).all()
+        ya_tiene = next((li for li in lineas if li.articulo_codigo == articulo["codigo"]), None)
+        cantidad_nueva = float(m.group("cant").replace(",", "."))
+        if ya_tiene:
+            ya_tiene.cantidad_por_porcion = cantidad_nueva
+        else:
+            s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
+                                    cantidad_por_porcion=cantidad_nueva))
+        s.commit()
+        nombre_receta = r.nombre
+    registrar(u, "RECETA", f"Receta editada: {nombre_receta} (ingrediente agregado por voz)", "ok")
+    return {"respuesta_hablada": f"Listo, agregué {articulo['nombre'].title()} a la receta {nombre_receta}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Elimina la receta <nombre>" - determinístico, busca por nombre
+    completo entre las recetas existentes, igual que aprobaciones."""
+    if u.perfil != "auditor":
+        return None
+    m = _ELIMINAR_RECETA.search(texto.strip())
+    if not m:
+        return None
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, m.group("receta"))
+        if not r:
+            return None
+        rid, nombre = r.id, r.nombre
+        s.query(RecetaIngrediente).filter_by(receta_id=rid).delete()
+        s.delete(r)
+        s.commit()
+    registrar(u, "RECETA", f"Receta eliminada: {nombre} por voz", "ok")
+    return {"respuesta_hablada": f"Listo, eliminé la receta {nombre}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -691,7 +822,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
         cambio = (_cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
-                 or _crear_usuario_por_voz(texto, u))
+                 or _crear_usuario_por_voz(texto, u) or _crear_receta_por_voz(texto, u)
+                 or _agregar_ingrediente_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
         if cambio:
             return cambio
     if vista == "reportes":
