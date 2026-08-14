@@ -7,7 +7,7 @@ import { preguntarAsistente } from "./api";
     una pregunta suelta sobre lo que hay en esta pantalla, o una orden de
     ir a otra - sin el estado de "pendiente"/"opciones" que solo tiene
     sentido en un conteo o un pedido en curso. */
-export default function AsistenteVoz({ token, vista, ir, placeholder, alActualizar }) {
+export default function AsistenteVoz({ token, vista, ir, placeholder, alActualizar, ejemplos }) {
   const [texto, setTexto] = useState("");
   const [respuesta, setRespuesta] = useState("");
   const [error, setError] = useState("");
@@ -65,6 +65,18 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
                 onClick={porVoz} title="pregúntele por voz">🎤</button>
       </div>
       <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
+      {ejemplos && ejemplos.length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary className="pista" style={{ cursor: "pointer" }}>
+            Ver frases exactas que entiende el agente aquí
+          </summary>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+            {ejemplos.map((ej, i) => (
+              <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {pensando && <p className="cargando" style={{ marginTop: 10 }}>Pensando…</p>}
       {respuesta && !pensando && (
         <>

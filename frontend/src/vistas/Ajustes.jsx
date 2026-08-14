@@ -4,6 +4,31 @@ import { escuchar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 
+const _EJEMPLOS_POR_PESTANA = {
+  config: [
+    "activa el modo sin conexión",
+    "desactiva el modo sin conexión",
+  ],
+  usuarios: [
+    "crea un usuario llamado Juan perfil auxiliar",
+    "activa a Juan", "desactiva a Juan",
+    "cambia el perfil de Juan a administrador",
+    "asígnale la bodega Panadería a Juan",
+    "quítale la bodega Panadería a Juan",
+    "¿quién tiene la bodega Panadería?",
+    "¿cuántas bodegas sin asignar hay?",
+  ],
+  recetas: [
+    "crea una receta llamada Sopa, rendimiento 4 porciones, con 2 kilos de papa",
+    "agrega 300 gramos de cebolla a la receta Sopa",
+    "elimina la receta Sopa",
+  ],
+  traza: [
+    "acciones de Luis hoy",
+    "aprobaciones de esta semana",
+  ],
+};
+
 export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
   const [tab, setTab] = useState(tabInicial || "config");
   const esAuditor = usuario?.perfil === "auditor";
@@ -20,6 +45,7 @@ export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
                    tipo: esAuditor ? "azul" : "gris" }}>
       <AsistenteVoz token={token} vista="ajustes" ir={ir}
                     placeholder="¿cuál es el umbral de anomalía?, lléveme a reportes…"
+                    ejemplos={_EJEMPLOS_POR_PESTANA[tab]}
                     alActualizar={() => window.dispatchEvent(new Event("cuentavoz:ajustes-actualizados"))} />
       <div className="chips">
         <button className={`chip ${tab === "config" ? "azul" : ""}`}
