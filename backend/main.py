@@ -34,6 +34,7 @@ from servicios.recetas import (calcular_pedido, comparar_legalizacion,
                                analisis_consumo, detalle_receta)
 from servicios.validacion import umbral_actual
 from servicios import analitica, huella
+from servicios.interprete import _numero as _numero_de_texto
 import reportes
 
 app = FastAPI(title="CuentaVoz", version="1.0.0",
@@ -559,11 +560,12 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
 
 
 _CREAR_USUARIO = re.compile(
-    r"\bcre[ae]\w*\s+(?:un\s+|una\s+)?(?:nuev[oa]\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
+    r"\b(?:cre[ae]\w*\s+)?(?:un\s+|una\s+)?(?:nuev[oa]\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
     r"(?:\s+(?:de\s+|con\s+)?perfil\s+(?P<perfil>auxiliar|auditor|administrador))?"
     r"\s*[.!]?\s*$", re.IGNORECASE)
 _INTENCION_CREAR_USUARIO = re.compile(
-    r"\b(cre[ae]\w*|necesito|quiero)\b.*\busuarios?\b", re.IGNORECASE)
+    r"\b(cre[ae]\w*|necesito|quiero)\b.*\busuarios?\b|\busuario\s+llamad[oa]\b",
+    re.IGNORECASE)
 
 
 def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -738,14 +740,21 @@ def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
 
 
 _UNIDADES_RECETA = r"kilos?|kg|litros?|lt|unidades?|und?|gramos?|gr"
+# El verbo "crea/crear" es OPCIONAL: el reconocimiento de voz a veces
+# recorta la primera palabra si la persona empieza a hablar apenas
+# hace clic en el micrófono, antes de que el navegador esté listo -
+# confirmado con una captura real ("Una receta llamada sopa,
+# rendimiento, cuatro porciones." sin "crea" al inicio). El resto de
+# la frase (receta llamada... rendimiento... con... de...) ya es lo
+# bastante específico para no confundirse con una pregunta suelta.
 _CREAR_RECETA = re.compile(
-    r"\bcre[ae]\w*\s+(?:una\s+)?(?:nuev[oa]\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
-    r"\s*[,y]*\s*(?:con\s+)?rendimiento\s+(?:de\s+)?(?P<rend>\d+)\s*porciones?"
-    r"\s*[,y]*\s*con\s+(?P<cant>\d+(?:[.,]\d+)?)\s*"
+    r"\b(?:cre[ae]\w*\s+)?(?:una\s+)?(?:nuev[oa]\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
+    r"\s*[,y]*\s*(?:con\s+)?rendimiento\s+(?:de\s+)?(?P<rend>.+?)\s*porciones?"
+    r"\s*[,y]*\s*con\s+(?P<cant>.+?)\s*"
     rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)\s*[.!]?\s*$",
     re.IGNORECASE)
 _AGREGAR_INGREDIENTE = re.compile(
-    r"\b(?:agr[eé]ga\w*|a[ñn]ad\w*)\s+(?P<cant>\d+(?:[.,]\d+)?)\s*"
+    r"\b(?:agr[eé]ga\w*|a[ñn]ad\w*)\s+(?P<cant>.+?)\s*"
     rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)"
     r"\s+a\s+la\s+receta\s+(?P<receta>.+?)\s*[.!]?\s*$",
     re.IGNORECASE)
@@ -755,8 +764,16 @@ _ELIMINAR_RECETA = re.compile(
 
 
 def _buscar_receta_por_nombre(s, nombre_dicho: str):
+    """Una coincidencia EXACTA siempre gana primero: con dos recetas
+    "Sopa" y "Sopa de la casa", decir "Sopa de la casa" no debe caer en
+    "Sopa" solo porque su nombre es substring - eso pasaba antes (se
+    quedaba con la PRIMERA que calzara, sin importar el orden de
+    especificidad) y edita/borraba la receta equivocada en silencio."""
     t = _normalizar_nombre(nombre_dicho)
     recetas = s.query(Receta).all()
+    exacta = next((r for r in recetas if _normalizar_nombre(r.nombre) == t), None)
+    if exacta:
+        return exacta
     return next(
         (r for r in recetas if re.search(rf"\b{re.escape(_normalizar_nombre(r.nombre))}\b", t)
          or re.search(rf"\b{re.escape(t)}\b", _normalizar_nombre(r.nombre))),
@@ -764,7 +781,8 @@ def _buscar_receta_por_nombre(s, nombre_dicho: str):
 
 
 _INTENCION_CREAR_RECETA = re.compile(
-    r"\b(cre[ae]\w*|necesito|quiero)\b.*\brecetas?\b", re.IGNORECASE)
+    r"\b(cre[ae]\w*|necesito|quiero)\b.*\brecetas?\b|\breceta\s+llamad[ao]\b",
+    re.IGNORECASE)
 
 
 def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -793,6 +811,16 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
     nombre = re.sub(r"[.,;:!¿?¡]+$", "", m.group("nombre")).strip()
     if not nombre:
         return None
+    # El rendimiento y la cantidad se dicen casi siempre en palabras
+    # ("cuatro porciones", no "4 porciones" - así habla la gente de
+    # verdad), así que se interpretan con el mismo parser de números
+    # que ya usa Conteo/Pedido, no un \d+ que solo entiende dígitos.
+    rend = _numero_de_texto(m.group("rend"))
+    cant = _numero_de_texto(m.group("cant"))
+    if rend is None or cant is None:
+        return {"respuesta_hablada": "No entendí el rendimiento o la cantidad. Dígalos en "
+                                     "número, por ejemplo «cuatro porciones».",
+                "accion": None, "destino": None, "pestana": None}
     from servicios.conciliacion import buscar_articulo
     candidatos = buscar_articulo(m.group("ing"))
     if not candidatos or candidatos[0]["confianza"] < 60:
@@ -804,11 +832,11 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
         if s.query(Receta).filter(Receta.nombre.ilike(nombre)).first():
             return {"respuesta_hablada": f"Ya existe una receta llamada {nombre}.",
                     "accion": None, "destino": None, "pestana": None}
-        r = Receta(nombre=nombre, rendimiento=int(m.group("rend")), preparacion="")
+        r = Receta(nombre=nombre, rendimiento=int(rend), preparacion="")
         s.add(r)
         s.flush()
         s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
-                                cantidad_por_porcion=float(m.group("cant").replace(",", "."))))
+                                cantidad_por_porcion=float(cant)))
         s.commit()
     registrar(u, "RECETA", f"Receta creada: {nombre} (1 ingrediente) por voz", "ok")
     return {"respuesta_hablada": f"Listo, creé la receta {nombre} con {articulo['nombre'].title()}. "
@@ -837,6 +865,11 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
                                          "nombre de la receta.",
                     "accion": None, "destino": None, "pestana": None}
         return None
+    cantidad_nueva = _numero_de_texto(m.group("cant"))
+    if cantidad_nueva is None:
+        return {"respuesta_hablada": "No entendí la cantidad. Dígala en número, por "
+                                     "ejemplo «trescientos gramos».",
+                "accion": None, "destino": None, "pestana": None}
     from servicios.conciliacion import buscar_articulo
     candidatos = buscar_articulo(m.group("ing"))
     if not candidatos or candidatos[0]["confianza"] < 60:
@@ -850,7 +883,6 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
             return None
         lineas = s.query(RecetaIngrediente).filter_by(receta_id=r.id).all()
         ya_tiene = next((li for li in lineas if li.articulo_codigo == articulo["codigo"]), None)
-        cantidad_nueva = float(m.group("cant").replace(",", "."))
         if ya_tiene:
             ya_tiene.cantidad_por_porcion = cantidad_nueva
         else:
@@ -937,7 +969,7 @@ def _quitar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
 
 _CAMBIAR_RENDIMIENTO = re.compile(
     r"\bcambia\w*\s+el\s+rendimient\w*\s+de\s+la\s+receta\s+(?P<receta>.+?)"
-    r"\s+a\s+(?P<rend>\d+)\s*porcion\w*\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s+a\s+(?P<rend>.+?)\s*porcion\w*\s*[.!]?\s*$", re.IGNORECASE)
 
 
 def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -952,11 +984,16 @@ def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
     m = _CAMBIAR_RENDIMIENTO.search(texto.strip())
     if not m:
         return None
+    nuevo = _numero_de_texto(m.group("rend"))
+    if nuevo is None:
+        return {"respuesta_hablada": "No entendí el rendimiento. Dígalo en número, por "
+                                     "ejemplo «seis porciones».",
+                "accion": None, "destino": None, "pestana": None}
+    nuevo = int(nuevo)
     with Sesion() as s:
         r = _buscar_receta_por_nombre(s, m.group("receta"))
         if not r:
             return None
-        nuevo = int(m.group("rend"))
         if r.rendimiento == nuevo:
             return {"respuesta_hablada": f"{r.nombre.title()} ya rendía {nuevo} porciones.",
                     "accion": "actualizar", "destino": None, "pestana": None}

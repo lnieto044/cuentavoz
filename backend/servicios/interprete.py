@@ -13,7 +13,11 @@ NUMEROS = {
     "diecinueve": 19, "veinte": 20, "veinticinco": 25, "treinta": 30,
     "cuarenta": 40, "cincuenta": 50, "sesenta": 60, "setenta": 70,
     "ochenta": 80, "noventa": 90, "cien": 100, "ciento": 100,
-    "doscientos": 200, "quinientos": 500, "mil": 1000,
+    "doscientos": 200, "doscientas": 200, "trescientos": 300, "trescientas": 300,
+    "cuatrocientos": 400, "cuatrocientas": 400, "quinientos": 500, "quinientas": 500,
+    "seiscientos": 600, "seiscientas": 600, "setecientos": 700, "setecientas": 700,
+    "ochocientos": 800, "ochocientas": 800, "novecientos": 900, "novecientas": 900,
+    "mil": 1000,
 }
 UNIDADES = {
     "kilo": "Kilogram", "kilos": "Kilogram", "kilogramo": "Kilogram",
