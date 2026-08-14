@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
+import { escuchar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 
@@ -726,6 +727,8 @@ function TabTraza({ token }) {
   const [accion, setAccion] = useState("");
   const [rango, setRango] = useState("hoy");
   const [msg, setMsg] = useState("");
+  const [todasPersonas, setTodasPersonas] = useState([]);
+  const [escuchandoFiltro, setEscuchandoFiltro] = useState(false);
 
   function cargar() {
     const q = new URLSearchParams();
@@ -735,12 +738,54 @@ function TabTraza({ token }) {
     pedir(`/api/trazabilidad?${q}`, {}, token).then(setTraza).catch(() => {});
   }
   useEffect(cargar, [token, persona, accion, rango]);
+  // Lista COMPLETA de personas (no solo las que aparecen en el filtro
+  // actual) para que el filtro por voz reconozca un nombre aunque el
+  // rango/persona ya aplicado lo haya dejado fuera de "traza".
+  useEffect(() => {
+    pedir("/api/usuarios", {}, token).then((us) => setTodasPersonas(us.map((x) => x.nombre)))
+      .catch(() => {});
+  }, [token]);
 
   const acciones = ["", "INGRESO", "APERTURA", "CONTEO", "CORRECCION", "FIRMA",
                     "AUDITORIA", "CIERRE", "REAPERTURA", "APROBACION", "ALERTA",
                     "REPORTE", "PEDIDO", "RECETA", "LEGALIZACION", "AJUSTE", "USUARIO",
                     "ASIGNACION", "SEGURIDAD", "PERFIL", "SOPORTE"];
   const personas = [...new Set(traza.map((t) => t.persona))].sort();
+
+  // "Muéstrame las acciones de Luis hoy" - determinístico y local,
+  // sin pasar por el agente general: solo reconoce palabras contra las
+  // listas que YA existen en esta pantalla (rango, tipos de acción,
+  // personas), así que no hace falta ninguna llamada a Gemini para
+  // filtrar.
+  function _interpretarFiltroVoz(texto) {
+    const t = quitarTildes(texto.toLowerCase());
+    if (/\btodo\b/.test(t)) setRango("");
+    else if (/\bhoy\b/.test(t)) setRango("hoy");
+    else if (/semana/.test(t)) setRango("semana");
+    else if (/\bmes\b/.test(t)) setRango("mes");
+
+    if (/todas las acciones/.test(t)) setAccion("");
+    else {
+      const accionEncontrada = acciones.find((a) => a && t.includes(a.toLowerCase()));
+      if (accionEncontrada) setAccion(accionEncontrada);
+    }
+
+    if (/todas las personas/.test(t)) setPersona("");
+    else {
+      const personaEncontrada = todasPersonas.find(
+        (p) => p && t.includes(quitarTildes(p.toLowerCase())));
+      if (personaEncontrada) setPersona(personaEncontrada);
+    }
+  }
+
+  function escucharFiltro() {
+    setMsg("");
+    escuchar({
+      alTexto: _interpretarFiltroVoz,
+      alEstado: (e) => setEscuchandoFiltro(e === "escuchando"),
+      alError: setMsg,
+    });
+  }
 
   async function exportar() {
     setMsg("");
@@ -775,6 +820,9 @@ function TabTraza({ token }) {
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
           {acciones.map((a) => <option key={a} value={a}>{a || "Todas las acciones"}</option>)}
         </select>
+        <button className={`mic-btn ${escuchandoFiltro ? "escuchando" : ""}`}
+                style={{ width: 40, height: 40, fontSize: "1.05rem" }}
+                onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»">🎤</button>
         <button className="btn borde" style={{ marginLeft: "auto" }} onClick={exportar}>
           Exportar
         </button>

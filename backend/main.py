@@ -347,11 +347,17 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "administrador: decir «activa/desactiva el modo sin conexión» lo aplica de "
             "una, sin tocar el interruptor. En Gestión de usuarios, un administrador "
             "también puede decir «activa/desactiva a <nombre>» para cambiar el estado de "
-            "otra persona, sin tocar el botón."
+            "otra persona, y «crea un usuario llamado <nombre> perfil <auxiliar o "
+            "auditor>» para crear una cuenta nueva (con PIN temporal), sin tocar ningún "
+            "botón. Esto último SOLO funciona si la orden usa exactamente esa forma "
+            "(«crea un usuario llamado...») - si el mensaje llega hasta usted es porque "
+            "esa frase no se dijo así, así que no invente que ya creó a nadie: pida que "
+            "lo repitan con ese formato."
             if u.perfil == "auditor" else
-            "El modo sin conexión y el estado de otras personas (Gestión de usuarios) "
-            "solo los puede cambiar un administrador - esta persona no lo es, así que si "
-            "lo pide, dígalo con honestidad en vez de decir que ya quedó cambiado.")
+            "El modo sin conexión, el estado de otras personas y crear usuarios nuevos "
+            "(Gestión de usuarios) solo los puede hacer un administrador - esta persona "
+            "no lo es, así que si lo pide, dígalo con honestidad en vez de decir que ya "
+            "quedó hecho.")
         return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
                 f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
                 f"se puede desactivar); exigir confirmación en alertas activado (regla "
@@ -498,6 +504,49 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+_CREAR_USUARIO = re.compile(
+    r"\bcre[ae]\w*\s+(?:un\s+|una\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
+    r"(?:\s+(?:de\s+|con\s+)?perfil\s+(?P<perfil>auxiliar|auditor|administrador))?"
+    r"\s*[.!]?\s*$", re.IGNORECASE)
+
+
+def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Crea un usuario llamado <nombre> perfil <auxiliar/auditor>" -
+    determinístico, sin pasar por Gemini. A diferencia de
+    activar/desactivar (que busca un nombre YA existente), aquí no hay
+    nada contra qué validar el nombre, así que se exige un formato de
+    frase concreto en vez de adivinar de cualquier forma - más fácil de
+    aprender a decir que arriesgar un nombre mal extraído. Sin perfil
+    dicho, queda auxiliar (el caso más común y el de menor alcance)."""
+    if u.perfil != "auditor":
+        return None
+    m = _CREAR_USUARIO.search(texto.strip())
+    if not m:
+        return None
+    nombre = re.sub(r"[.,;:!¿?¡]+$", "", m.group("nombre")).strip().lower()
+    if not nombre:
+        return None
+    perfil_dicho = (m.group("perfil") or "").lower()
+    perfil = "auditor" if perfil_dicho in ("auditor", "administrador") else "auxiliar"
+    with Sesion() as s:
+        if s.query(Usuario).filter_by(nombre=nombre).first():
+            return {"respuesta_hablada": f"Ya existe un usuario llamado {nombre.capitalize()}.",
+                    "accion": None, "destino": None, "pestana": None}
+        pin_generado = secrets.token_urlsafe(6)
+        nuevo = Usuario(nombre=nombre, perfil=perfil,
+                        clave_hash=hash_clave(pin_generado), correo="")
+        s.add(nuevo)
+        s.commit()
+        s.refresh(nuevo)
+        nuevo.codigo = f"CS-{48000 + nuevo.id}"
+        s.commit()
+    registrar(u, "USUARIO", f"Usuario {nombre} creado ({perfil}) por voz", "ok")
+    return {"respuesta_hablada": f"Listo, creé a {nombre.capitalize()} como {perfil}. "
+                                 f"Su PIN temporal es {pin_generado} - dígaselo para que "
+                                 "lo cambie en Mi perfil.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
 _VERBOS_GENERAR_REPORTE = re.compile(
     r"\b(gener[ae]|generar|exporta|exportar|crea|crear|descarga|descargar|saca|sacar)\b",
     re.IGNORECASE)
@@ -641,7 +690,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "accion": "navegar", "destino": "conteo", "pestana": None,
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
-        cambio = _cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
+        cambio = (_cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
+                 or _crear_usuario_por_voz(texto, u))
         if cambio:
             return cambio
     if vista == "reportes":
