@@ -797,8 +797,8 @@ function TabTraza({ token }) {
       .catch(() => {});
   }, [token]);
 
-  const acciones = ["", "INGRESO", "APERTURA", "CONTEO", "CORRECCION", "FIRMA",
-                    "AUDITORIA", "CIERRE", "REAPERTURA", "APROBACION", "ALERTA",
+  const acciones = ["", "INGRESO", "APERTURA", "CONTEO", "CORRECCION", "CREACION",
+                    "FIRMA", "AUDITORIA", "CIERRE", "REAPERTURA", "APROBACION", "ALERTA",
                     "REPORTE", "PEDIDO", "RECETA", "LEGALIZACION", "AJUSTE", "USUARIO",
                     "ASIGNACION", "SEGURIDAD", "PERFIL", "SOPORTE"];
   const personas = [...new Set(traza.map((t) => t.persona))].sort();
