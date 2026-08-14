@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pedir } from "../api";
-import { hablar } from "../voz";
+import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
@@ -15,8 +15,12 @@ export default function Mensajes({ token, usuario }) {
   const [mensajes, setMensajes] = useState(null);
   const [miPerfil, setMiPerfil] = useState(null);
   const [respondiendoId, setRespondiendoId] = useState(null);
+  const [respuestaPrellenada, setRespuestaPrellenada] = useState("");
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false);
   const [msg, setMsg] = useState("");
+  const [escuchandoOrden, setEscuchandoOrden] = useState(false);
+  const [ordenVoz, setOrdenVoz] = useState("");
+  const idEscuchaOrden = useRef(0);
   const esAdmin = usuario?.perfil === "auditor";
 
   useEffect(() => {
@@ -31,6 +35,7 @@ export default function Mensajes({ token, usuario }) {
   async function responderMensaje(respuesta) {
     const id = respondiendoId;
     setRespondiendoId(null);
+    setRespuestaPrellenada("");
     if (!respuesta || !respuesta.trim() || !id) return;
     setEnviandoRespuesta(true);
     try {
@@ -47,6 +52,53 @@ export default function Mensajes({ token, usuario }) {
       cargar();
     } catch (e) { setMsg(e.message); }
     setEnviandoRespuesta(false);
+  }
+
+  // "Respóndele a Stephanie que ya quedó asignada la bodega" - con un
+  // solo mensaje pendiente no hace falta nombrar a nadie, lo dicho es
+  // directamente la respuesta. Con varios, busca el nombre de quien
+  // escribió dentro de la frase (mismo patrón de emparejar por nombre
+  // que ya usa el resto de la app) y separa el resto como el texto de
+  // la respuesta.
+  function _extraerRespuestaPorVoz(texto, listaPendientes) {
+    if (listaPendientes.length === 1) {
+      return { mensaje: listaPendientes[0], texto: texto.trim() };
+    }
+    const t = quitarTildes(texto.toLowerCase());
+    const encontrado = listaPendientes.find(
+      (m) => m.de && t.includes(quitarTildes(m.de.toLowerCase())));
+    if (!encontrado) return { mensaje: null, texto: null };
+    const patron = new RegExp(`^.*?\\b${encontrado.de}\\b\\s*(que|:)?\\s*`, "i");
+    const textoFinal = texto.replace(patron, "").trim() || texto.trim();
+    return { mensaje: encontrado, texto: textoFinal };
+  }
+
+  function alTextoOrdenVoz(texto, miId) {
+    if (miId !== idEscuchaOrden.current || !texto) return;
+    setOrdenVoz(texto);
+    const pendientesLista = (mensajes || []).filter((m) => !m.respuesta);
+    if (pendientesLista.length === 0) return;
+    const { mensaje, texto: respuestaTexto } = _extraerRespuestaPorVoz(texto, pendientesLista);
+    if (!mensaje) {
+      const nombres = pendientesLista.map((m) => capitalizar(m.de)).join(", ");
+      const aviso = `Hay varios mensajes pendientes: ${nombres}. Diga el nombre de quién le escribió.`;
+      setMsg(aviso);
+      hablar(aviso);
+      return;
+    }
+    setRespuestaPrellenada(respuestaTexto);
+    setRespondiendoId(mensaje.id);
+    setOrdenVoz("");
+  }
+
+  function escucharOrdenVoz() {
+    setMsg("");
+    const miId = ++idEscuchaOrden.current;
+    escuchar({
+      alTexto: (t) => alTextoOrdenVoz(t, miId),
+      alEstado: (e) => setEscuchandoOrden(e === "escuchando"),
+      alError: setMsg,
+    });
   }
 
   const original = mensajes?.find((m) => m.id === respondiendoId);
@@ -82,6 +134,29 @@ export default function Mensajes({ token, usuario }) {
             <b>{respondidos}</b>
             <i>ya resueltos</i>
           </div>
+        </div>
+      )}
+
+      {esAdmin && pendientes > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3>Responder por voz</h3>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input value={ordenVoz} onChange={(e) => setOrdenVoz(e.target.value)}
+                   onKeyDown={(e) => e.key === "Enter" && alTextoOrdenVoz(ordenVoz, idEscuchaOrden.current)}
+                   placeholder={pendientes === 1
+                     ? "Diga o escriba la respuesta…"
+                     : "«Respóndele a Stephanie que ya quedó asignada la bodega…»"}
+                   style={{ flex: 1, padding: "12px 14px",
+                            border: "1px solid var(--borde)", borderRadius: 12 }} />
+            <button className={`mic-btn ${escuchandoOrden ? "escuchando" : ""}`}
+                    style={{ width: 46, height: 46, fontSize: "1.2rem" }}
+                    onClick={escucharOrdenVoz} title="responder por voz">🎤</button>
+          </div>
+          <p className="pista" style={{ marginTop: 8 }}>
+            {pendientes === 1
+              ? "Un solo mensaje pendiente: lo que diga se usa directo como respuesta."
+              : "Varios mensajes pendientes: diga primero el nombre de quién le escribió."}
+          </p>
         </div>
       )}
 
@@ -137,7 +212,7 @@ export default function Mensajes({ token, usuario }) {
                 ) : esAdmin ? (
                   <button className="btn borde" disabled={enviandoRespuesta}
                           style={{ marginTop: 12, fontSize: ".85rem", padding: "6px 16px" }}
-                          onClick={() => setRespondiendoId(m.id)}>
+                          onClick={() => { setRespuestaPrellenada(""); setRespondiendoId(m.id); }}>
                     Responder
                   </button>
                 ) : null}
@@ -151,9 +226,10 @@ export default function Mensajes({ token, usuario }) {
         <Dialogo titulo="Responder mensaje"
                  mensaje={`Para: ${capitalizar(original?.de) || "la persona"}\nDe: ${capitalizar(usuario?.nombre) || "Usted"}\n\nMensaje original:\n${original?.mensaje || ""}\n\nEscriba su respuesta:`}
                  conCampo conVoz multilinea placeholder="Ya quedó asignada esa bodega, revise en unos minutos…"
+                 valorInicial={respuestaPrellenada}
                  textoAceptar="Enviar"
                  onAceptar={responderMensaje}
-                 onCancelar={() => setRespondiendoId(null)} />
+                 onCancelar={() => { setRespondiendoId(null); setRespuestaPrellenada(""); }} />
       )}
     </Marco>
   );
