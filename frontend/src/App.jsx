@@ -13,6 +13,7 @@ import Reportes from "./vistas/Reportes";
 import Panel from "./vistas/Panel";
 import Ajustes from "./vistas/Ajustes";
 import Ayuda from "./vistas/Ayuda";
+import Mensajes from "./vistas/Mensajes";
 import MiPerfil from "./vistas/MiPerfil";
 import CerrarSesion from "./vistas/CerrarSesion";
 
@@ -34,6 +35,7 @@ export const MENU = [
   // ocultarla del todo, igual que ya se hace con Auditoría/Reportes/Panel.
   { id: "ajustes",      titulo: "Ajustes",       vistas: ["ajustes"], soloAuditor: true },
   { id: "ayuda",        titulo: "Ayuda",         vistas: ["ayuda"] },
+  { id: "mensajes",     titulo: "Mensajes",      vistas: ["mensajes"] },
   { id: "perfil",       titulo: "Mi perfil",     vistas: ["perfil"] },
   { id: "salir",        titulo: "Cerrar sesión", vistas: ["salir"] },
 ];
@@ -42,7 +44,7 @@ const VISTAS = {
   inicio: Inicio, pedido: Pedido, conteo: Conteo,
   legalizacion: Legalizacion, bodegas: Bodegas, auditoria: Auditoria,
   reportes: Reportes, panel: Panel, ajustes: Ajustes, ayuda: Ayuda,
-  perfil: MiPerfil,
+  mensajes: Mensajes, perfil: MiPerfil,
 };
 
 /** Qué entrada del menú resaltar para una vista. Garantiza que el menú
