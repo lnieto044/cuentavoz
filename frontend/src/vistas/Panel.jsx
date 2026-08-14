@@ -29,6 +29,10 @@ const mesCorto = (fechaISO) => MESES[Number(fechaISO.slice(5, 7)) - 1];
 
 export default function Panel({ token, ir, tabInicial }) {
   const [tab, setTab] = useState(tabInicial || "resumen");
+  // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
+  // componente - sin esto, el useState de arriba no vuelve a leer
+  // tabInicial y la pestaña se queda en la que ya estaba.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
   const [resumen, setResumen] = useState(null);
   const [alertas, setAlertas] = useState(null);
   const urlPBI = import.meta.env.VITE_POWERBI_URL;

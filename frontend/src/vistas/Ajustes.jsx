@@ -6,6 +6,12 @@ import AsistenteVoz from "../AsistenteVoz";
 export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
   const [tab, setTab] = useState(tabInicial || "config");
   const esAuditor = usuario?.perfil === "auditor";
+  // "llévame a gestión de usuarios" dicho desde esta MISMA pantalla no
+  // remonta el componente (sigue siendo "ajustes"), así que el useState
+  // de arriba no vuelve a leer tabInicial - sin esto, el agente decía
+  // "vamos a Gestión de usuarios" y la pestaña se quedaba en la que ya
+  // estaba.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
 
   return (
     <Marco titulo="Ajustes  ·  configuración del sistema"

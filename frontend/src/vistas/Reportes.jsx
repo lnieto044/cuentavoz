@@ -28,6 +28,10 @@ const ICONO_TITULO = {
 
 export default function Reportes({ token, usuario, ir, tabInicial }) {
   const [tab, setTab] = useState(tabInicial || "consolidado");
+  // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
+  // componente - sin esto, el useState de arriba no vuelve a leer
+  // tabInicial y la pestaña se queda en la que ya estaba.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
 
   return (
     <Marco titulo={tab === "consolidado" ? "Reportes  ·  consolidado de la toma"
