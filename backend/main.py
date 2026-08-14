@@ -530,6 +530,48 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
     return None
 
 
+# Palabras que identifican cada pestaña, para navegar entre ellas sin
+# pasar por Gemini - la cuota de Gemini ha fallado justo en este tipo de
+# orden ("llévame a gestión de usuarios"), dejando la pestaña sin
+# cambiar aunque la respuesta hablada dijera lo contrario.
+_PALABRAS_PESTANA = {
+    "ajustes": {
+        "config": re.compile(r"configuraci[oó]n", re.IGNORECASE),
+        "usuarios": re.compile(r"usuarios?", re.IGNORECASE),
+        "recetas": re.compile(r"recetas?", re.IGNORECASE),
+        "traza": re.compile(r"trazabilidad", re.IGNORECASE),
+    },
+    "reportes": {
+        "consolidado": re.compile(r"consolidado", re.IGNORECASE),
+        "analisis": re.compile(r"an[aá]lisis|consumo", re.IGNORECASE),
+    },
+    "panel": {
+        "resumen": re.compile(r"resumen", re.IGNORECASE),
+        "alertas": re.compile(r"\balertas\b", re.IGNORECASE),
+    },
+}
+_VERBOS_IR_PESTANA = re.compile(
+    r"\b(ir|ll[eé]va(me)?|vamos|ve|muestra(me)?|abre(me)?|ense[ñn]a(me)?)\b",
+    re.IGNORECASE)
+
+
+def _navegar_pestana_por_voz(vista: str, texto: str) -> dict | None:
+    """"Llévame a gestión de usuarios" (o cualquier pestaña de Ajustes,
+    Reportes o Panel) - determinístico, sin pasar por Gemini, para que
+    la navegación entre pestañas no dependa de su cuota. Exige un verbo
+    de ir inequívoco, para no confundir una pregunta ("¿cuántos "
+    "usuarios hay?") con una orden de navegar."""
+    palabras = _PALABRAS_PESTANA.get(vista)
+    if not palabras or not _VERBOS_IR_PESTANA.search(texto):
+        return None
+    for clave, patron in palabras.items():
+        if patron.search(texto):
+            etiqueta = _PESTANAS_ASISTENTE[vista][clave]
+            return {"respuesta_hablada": f"Listo, vamos a {etiqueta}.",
+                    "accion": "navegar", "destino": vista, "pestana": clave}
+    return None
+
+
 _APROBAR_ITEM = re.compile(r"\baprueb\w*|\baprobar\b", re.IGNORECASE)
 _RECHAZAR_ITEM = re.compile(r"\brechaz\w*", re.IGNORECASE)
 
@@ -601,6 +643,9 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         resuelta = _resolver_aprobacion_por_voz(texto, u)
         if resuelta:
             return resuelta
+    navegada = _navegar_pestana_por_voz(vista, texto)
+    if navegada:
+        return navegada
     destinos = dict(_DESTINOS_ASISTENTE)
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:
