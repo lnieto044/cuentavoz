@@ -347,24 +347,33 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "administrador: decir «activa/desactiva el modo sin conexión» lo aplica de "
             "una, sin tocar el interruptor. En Gestión de usuarios, un administrador "
             "también puede decir «activa/desactiva a <nombre>» para cambiar el estado de "
-            "otra persona, y «crea un usuario llamado <nombre> perfil <auxiliar o "
-            "auditor>» para crear una cuenta nueva (con PIN temporal), sin tocar ningún "
-            "botón. En Recetas, un administrador también puede decir «crea una receta "
-            "llamada <nombre>, rendimiento <N> porciones, con <cantidad> de "
-            "<ingrediente>» (crea la receta con ese primer ingrediente ya resuelto "
-            "contra el catálogo), «agrega <cantidad> de <ingrediente> a la receta "
-            "<nombre>» (para sumarle más ingredientes después), y «elimina la receta "
-            "<nombre>». Todo esto SOLO funciona si la orden usa exactamente esas formas "
-            "(«crea un usuario llamado...», «crea una receta llamada..., rendimiento... "
-            "porciones, con... de...», «agrega... a la receta...», «elimina la "
-            "receta...») - si el mensaje llega hasta usted es porque esa frase no se "
-            "dijo así o el ingrediente no se encontró en el catálogo, así que no "
-            "invente que ya creó, agregó o eliminó nada: pida que lo repitan con ese "
-            "formato exacto."
+            "otra persona, «crea un usuario llamado <nombre> perfil <auxiliar o "
+            "auditor>» para crear una cuenta nueva (con PIN temporal), «cambia el "
+            "perfil de <nombre> a auxiliar/administrador» para lo mismo que el botón "
+            "«Editar» (el correo no se cambia por voz), «asígnale/quítale la bodega "
+            "<bodega> a <nombre>» para lo mismo que el botón «Asignar bodegas» pero "
+            "sumando o quitando solo esa bodega, no reemplazando toda la lista, y "
+            "«¿quién tiene la bodega <bodega>?» o «¿cuántas bodegas sin asignar hay?» "
+            "para lo mismo que el botón «Ver asignación por bodega», respondido de "
+            "una en vez de abrir la tabla completa. En Recetas, un administrador "
+            "también puede decir «crea una receta llamada "
+            "<nombre>, rendimiento <N> porciones, con <cantidad> de <ingrediente>» "
+            "(crea la receta con ese primer ingrediente ya resuelto contra el "
+            "catálogo), «agrega <cantidad> de <ingrediente> a la receta <nombre>» "
+            "(para sumarle más ingredientes después), y «elimina la receta <nombre>». "
+            "Todo esto SOLO funciona si la orden usa exactamente esas formas («crea un "
+            "usuario llamado...», «cambia el perfil de... a...», «asígnale/quítale la "
+            "bodega... a...», «crea una receta llamada..., rendimiento... porciones, "
+            "con... de...», «agrega... a la receta...», «elimina la receta...») - si "
+            "el mensaje llega hasta usted es porque esa frase no se dijo así, el "
+            "nombre de la persona/bodega no coincidió con ninguna existente, o el "
+            "ingrediente no se encontró en el catálogo, así que no invente que ya "
+            "creó, cambió, asignó, agregó o eliminó nada: pida que lo repitan con ese "
+            "formato exacto y el nombre completo tal como aparece en la pantalla."
             if u.perfil == "auditor" else
-            "El modo sin conexión, el estado de otras personas, crear usuarios nuevos "
-            "(Gestión de usuarios) y crear/editar/eliminar recetas solo los puede hacer "
-            "un administrador - esta persona no lo es, así que si lo pide, dígalo con "
+            "El modo sin conexión, el estado de otras personas, crear/editar usuarios, "
+            "asignar bodegas y crear/editar/eliminar recetas solo los puede hacer un "
+            "administrador - esta persona no lo es, así que si lo pide, dígalo con "
             "honestidad en vez de decir que ya quedó hecho.")
         return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
                 f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
@@ -474,14 +483,42 @@ def _normalizar_nombre(t: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+_COLA_RELLENO = re.compile(
+    r"\s*,?\s*(?:por\s+favor|porfa\w*|gracias|si\s+puedes|si\s+es\s+posible)"
+    r"\s*[.,!?¿]*\s*$", re.IGNORECASE)
+
+
+def _quitar_relleno(texto: str) -> str:
+    """Los comandos de una sola frase («crea un usuario llamado...»,
+    «crea una receta llamada..., con... de...») quedan anclados al
+    FINAL del texto para extraer nombre/cantidad/ingrediente con
+    precisión - pero cualquier cortesía dicha al final ("...por favor",
+    "...gracias", cosa que la gente realmente dice) caía fuera de ese
+    ancla y el campo capturado se tragaba esas palabras de más (un
+    usuario terminaba llamándose "juan perfil auxiliar por favor" en
+    vez de "juan"). Se quita ANTES de intentar cualquier comando, en un
+    bucle por si hay más de una coletilla seguida ("por favor, gracias")."""
+    anterior = None
+    t = texto
+    while anterior != t:
+        anterior = t
+        t = _COLA_RELLENO.sub("", t)
+    return t
+
+
 def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
     """"Activa/desactiva a <nombre>" desde Gestión de usuarios - mismo
     patrón determinístico que el modo sin conexión (sin pasar por
     Gemini, así no depende de su cuota ni arriesga un cambio real por
     una mala interpretación del modelo). Reusa las mismas reglas que ya
     protegen el PUT /api/usuarios/{id}: nadie se desactiva a sí mismo
-    por voz, y solo un administrador puede tocar a otra persona."""
-    if u.perfil != "auditor" or _MODO_SIN_CONEXION.search(texto):
+    por voz, y solo un administrador puede tocar a otra persona.
+    "Quita" es sinónimo de desactivar aquí, pero "quítale la BODEGA X a
+    Luis" no debe desactivar a Luis por accidente solo porque comparte
+    el verbo - de ahí la exclusión explícita cuando se menciona una
+    bodega, que es harina de otro costal (_asignar_bodega_por_voz)."""
+    if (u.perfil != "auditor" or _MODO_SIN_CONEXION.search(texto)
+            or re.search(r"\bbodega\b", texto, re.IGNORECASE)):
         return None
     if _ACTIVAR.search(texto):
         nuevo = True
@@ -513,7 +550,7 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
 
 
 _CREAR_USUARIO = re.compile(
-    r"\bcre[ae]\w*\s+(?:un\s+|una\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
+    r"\bcre[ae]\w*\s+(?:un\s+|una\s+)?(?:nuev[oa]\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
     r"(?:\s+(?:de\s+|con\s+)?perfil\s+(?P<perfil>auxiliar|auditor|administrador))?"
     r"\s*[.!]?\s*$", re.IGNORECASE)
 
@@ -678,7 +715,7 @@ def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
 
 _UNIDADES_RECETA = r"kilos?|kg|litros?|lt|unidades?|und?|gramos?|gr"
 _CREAR_RECETA = re.compile(
-    r"\bcre[ae]\w*\s+(?:una\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
+    r"\bcre[ae]\w*\s+(?:una\s+)?(?:nuev[oa]\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
     r"\s*[,y]*\s*(?:con\s+)?rendimiento\s+(?:de\s+)?(?P<rend>\d+)\s*porciones?"
     r"\s*[,y]*\s*con\s+(?P<cant>\d+(?:[.,]\d+)?)\s*"
     rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)\s*[.!]?\s*$",
@@ -799,6 +836,146 @@ def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+def _cambiar_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Cambia el perfil de <nombre> a auxiliar/administrador" - mismo
+    botón «Editar» de Gestión de usuarios, solo el campo perfil (el
+    correo no se toca por voz: un correo mal transcrito rompería el
+    contacto sin que se note). Llama la MISMA función que usa el botón
+    (editar_usuario), así que hereda su regla de no poder cambiarse el
+    propio rol - excluida además desde la búsqueda del nombre."""
+    if u.perfil != "auditor" or not re.search(r"\bperfil\b", texto, re.IGNORECASE):
+        return None
+    m = re.search(r"\b(auxiliar|auditor|administrador)\b", texto, re.IGNORECASE)
+    if not m:
+        return None
+    perfil_nuevo = "auditor" if m.group(1).lower() in ("auditor", "administrador") else "auxiliar"
+    t = _normalizar_nombre(texto)
+    with Sesion() as s:
+        candidatos = s.query(Usuario).filter(Usuario.id != u.id).all()
+        encontrado = next(
+            (c for c in candidatos
+             if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t)),
+            None)
+        if not encontrado:
+            return None
+        etiqueta = "administrador" if perfil_nuevo == "auditor" else "auxiliar"
+        if encontrado.perfil == perfil_nuevo:
+            return {"respuesta_hablada": f"{encontrado.nombre.capitalize()} ya era {etiqueta}.",
+                    "accion": "actualizar", "destino": None, "pestana": None}
+        eid, nombre = encontrado.id, encontrado.nombre
+    editar_usuario(usuario_id=eid, datos=EditarUsuarioIn(perfil=perfil_nuevo), u=u)
+    return {"respuesta_hablada": f"Listo, {nombre.capitalize()} ahora es {etiqueta}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+_ASIGNAR_BODEGA = re.compile(
+    r"\bas[ií]gn\w*\s+(?:le\s+)?(?:la\s+)?bodega\s+(?P<bodega>.+?)\s+a\s+(?P<nombre>.+?)"
+    r"\s*[.!]?\s*$", re.IGNORECASE)
+_QUITAR_BODEGA = re.compile(
+    r"\bqu[ií]t\w*\s+(?:le\s+)?(?:la\s+)?bodega\s+(?P<bodega>.+?)\s+a\s+(?P<nombre>.+?)"
+    r"\s*[.!]?\s*$", re.IGNORECASE)
+
+
+def _asignar_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Asígnale/quítale la bodega <bodega> a <nombre>" - mismo botón
+    «Asignar bodegas», pero sumando o quitando SOLO la bodega dicha en
+    vez de reemplazar toda la lista (que es lo que hace el botón, que
+    parte de las bodegas ya marcadas): así una orden de voz nunca borra
+    por accidente asignaciones hechas por otro medio. El nombre de la
+    bodega se busca con el mismo buscador que «abra <bodega>» en
+    Conteo, así que entiende apodos parciales igual ("kiosco taquilla"
+    encuentra "KIOSCO TAQUILLA AYB")."""
+    if u.perfil != "auditor":
+        return None
+    m = _ASIGNAR_BODEGA.search(texto.strip())
+    quitar = False
+    if not m:
+        m = _QUITAR_BODEGA.search(texto.strip())
+        quitar = True
+    if not m:
+        return None
+    from servicios.conciliacion import buscar_bodega
+    t_nombre = _normalizar_nombre(m.group("nombre"))
+    with Sesion() as s:
+        bodega = buscar_bodega(s, m.group("bodega"), None)
+        if not bodega:
+            return {"respuesta_hablada": f"No encontré una bodega llamada «{m.group('bodega')}».",
+                    "accion": None, "destino": None, "pestana": None}
+        candidatos = s.query(Usuario).filter(Usuario.id != u.id).all()
+        persona = next(
+            (c for c in candidatos
+             if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t_nombre)),
+            None)
+        if not persona:
+            return None
+        actuales = {a.bodega_id for a in
+                   s.query(AsignacionBodega).filter_by(usuario_id=persona.id).all()}
+        ya_tenia = bodega.id in actuales
+        if quitar and not ya_tenia:
+            return {"respuesta_hablada": f"{persona.nombre.capitalize()} no tenía asignada "
+                                         f"{bodega.nombre_oficial.title()}.",
+                    "accion": "actualizar", "destino": None, "pestana": None}
+        if not quitar and ya_tenia:
+            return {"respuesta_hablada": f"{persona.nombre.capitalize()} ya tenía asignada "
+                                         f"{bodega.nombre_oficial.title()}.",
+                    "accion": "actualizar", "destino": None, "pestana": None}
+        if quitar:
+            actuales.discard(bodega.id)
+        else:
+            actuales.add(bodega.id)
+        pid, pnombre, bnombre = persona.id, persona.nombre, bodega.nombre_oficial
+        nuevos_ids = list(actuales)
+    asignar_bodegas(usuario_id=pid, body={"bodega_ids": nuevos_ids}, u=u)
+    verbo = "quité" if quitar else "asigné"
+    return {"respuesta_hablada": f"Listo, le {verbo} {bnombre.title()} a {pnombre.capitalize()}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
+_QUIEN_TIENE_BODEGA = re.compile(
+    r"\bqui[eé]n\s+(?:tiene|es\s+responsable\s+de|maneja)\s+(?:la\s+)?bodega\s+"
+    r"(?P<bodega>.+?)\s*[.!?¿]*\s*$", re.IGNORECASE)
+_BODEGAS_SIN_ASIGNAR = re.compile(r"\bbodegas?\b.*\bsin\s+asignar\b", re.IGNORECASE)
+
+
+def _consultar_asignacion_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
+    """Lo mismo que el botón «Ver asignación por bodega», pero como
+    pregunta hablada en vez de abrir la tabla completa de 54 filas:
+    "¿quién tiene la bodega <bodega>?" contesta solo esa fila, y
+    "¿cuántas bodegas sin asignar hay?" resume las que no tiene nadie -
+    de solo lectura, así que no exige ninguna confirmación extra."""
+    if u.perfil != "auditor":
+        return None
+    if _BODEGAS_SIN_ASIGNAR.search(texto):
+        with Sesion() as s:
+            asignadas = {a.bodega_id for a in s.query(AsignacionBodega).all()}
+            sin = [b.nombre_oficial for b in s.query(Bodega).all() if b.id not in asignadas]
+        if not sin:
+            return {"respuesta_hablada": "Todas las bodegas tienen al menos una persona asignada.",
+                    "accion": None, "destino": None, "pestana": None}
+        listado = ", ".join(n.title() for n in sin[:8])
+        extra = f" y {len(sin) - 8} más" if len(sin) > 8 else ""
+        return {"respuesta_hablada": f"{len(sin)} bodegas sin asignar: {listado}{extra}.",
+                "accion": None, "destino": None, "pestana": None}
+    m = _QUIEN_TIENE_BODEGA.search(texto.strip())
+    if not m:
+        return None
+    from servicios.conciliacion import buscar_bodega
+    with Sesion() as s:
+        bodega = buscar_bodega(s, m.group("bodega"), None)
+        if not bodega:
+            return {"respuesta_hablada": f"No encontré una bodega llamada «{m.group('bodega')}».",
+                    "accion": None, "destino": None, "pestana": None}
+        asignados = [s.get(Usuario, a.usuario_id) for a in
+                    s.query(AsignacionBodega).filter_by(bodega_id=bodega.id).all()]
+        nombres = [p.nombre.capitalize() for p in asignados if p]
+        titulo = bodega.nombre_oficial.title()
+    if not nombres:
+        return {"respuesta_hablada": f"{titulo} no tiene a nadie asignado todavía.",
+                "accion": None, "destino": None, "pestana": None}
+    return {"respuesta_hablada": f"{titulo} está asignada a {', '.join(nombres)}.",
+            "accion": None, "destino": None, "pestana": None}
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -806,6 +983,7 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     bodega coinciden, por el buscador de Bodegas (ver consulta_articulo):
     un solo buscador que primero prueba si es un ingrediente, luego si
     es una bodega, y si no es ninguna de las dos, cae aquí."""
+    texto = _quitar_relleno(texto)
     # Desde Bodegas, "abra/siga contando <nombre>" es una orden concreta y
     # frecuente - se resuelve aparte, ANTES de Gemini, con la misma
     # búsqueda restringida que usa el resto de la app (nunca ofrece una
@@ -822,7 +1000,9 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
         cambio = (_cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
-                 or _crear_usuario_por_voz(texto, u) or _crear_receta_por_voz(texto, u)
+                 or _crear_usuario_por_voz(texto, u) or _cambiar_perfil_por_voz(texto, u)
+                 or _asignar_bodega_por_voz(texto, u) or _consultar_asignacion_bodega_por_voz(texto, u)
+                 or _crear_receta_por_voz(texto, u)
                  or _agregar_ingrediente_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
         if cambio:
             return cambio
