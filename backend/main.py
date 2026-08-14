@@ -333,6 +333,22 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"Exactitud del mes: {exact}%.")
     if vista == "ajustes":
         a = ver_ajustes(u)
+        # El permiso real de cambiar el modo sin conexión por voz ya se
+        # resuelve antes de llegar aquí (_cambiar_modo_sin_conexion, que
+        # exige perfil auditor) - este texto solo llega a Gemini cuando
+        # esa orden exacta no aplicó (una pregunta suelta, o quien
+        # pregunta no es administrador). Sin condicionarlo al perfil,
+        # Gemini le decía a CUALQUIERA "ya lo activé" aunque el cambio de
+        # verdad solo lo hace un administrador - la misma deshonestidad
+        # que la Regla 6 ya evita en otras respuestas.
+        permiso_offline = (
+            "El modo sin conexión sí se puede cambiar por voz, pero solo por un "
+            "administrador: decir «activa/desactiva el modo sin conexión» lo aplica de "
+            "una, sin tocar el interruptor."
+            if u.perfil == "auditor" else
+            "El modo sin conexión solo lo puede cambiar un administrador - esta persona "
+            "no lo es, así que si lo pide, dígalo con honestidad en vez de decir que ya "
+            "quedó cambiado.")
         return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
                 f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
                 f"se puede desactivar); exigir confirmación en alertas activado (regla "
@@ -343,10 +359,9 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"Sección Administración: usuarios activos {a['usuarios_activos']}; "
                 f"aprobaciones pendientes {a['aprobaciones_pendientes']}. Sección Acerca "
                 f"de CuentaVoz: versión {a['version']}, modelo del agente {a['modelo']}. "
-                "El umbral y el modo sin conexión solo los puede CAMBIAR un "
-                "administrador, y únicamente con los controles de la pantalla (número y "
-                "botón «Guardar configuración») - esta pantalla todavía no cambia la "
-                "configuración por voz, solo explica lo que hay.")
+                "El umbral solo lo puede CAMBIAR un administrador, y únicamente con los "
+                "controles de la pantalla (número y botón «Guardar configuración») - eso "
+                f"todavía no cambia por voz. {permiso_offline}")
     if vista == "panel" and u.perfil == "auditor":
         r = analitica.resumen_ejecutivo()
         return (f"Pantalla: Panel gerencial. Exactitud primera pasada: "
@@ -386,6 +401,38 @@ _VERBOS_ABRIR_BODEGA = re.compile(
     r"\b(abr[ae]|abrir|contar|cuenta|siga|sigue|continu[ae]|continuar)\b",
     re.IGNORECASE)
 
+_MODO_SIN_CONEXION = re.compile(r"sin conexi[oó]n", re.IGNORECASE)
+_ACTIVAR = re.compile(r"\b(activ[ae]|activar|enciend[ae]|encender|prend[ae]|prender)\b", re.IGNORECASE)
+_DESACTIVAR = re.compile(r"\b(desactiv[ae]|desactivar|apag[ae]|apagar|quit[ae]|quitar)\b", re.IGNORECASE)
+
+
+def _cambiar_modo_sin_conexion(texto: str, u: Usuario) -> dict | None:
+    """Único ajuste que de verdad se puede cambiar por voz en esta
+    pantalla (el resto - umbral, reglas fijas - sigue exigiendo los
+    controles de la pantalla): solo un administrador, y solo si la
+    orden nombra "sin conexión" junto con un verbo de activar/desactivar
+    inequívoco. None si no aplica, para caer al agente general."""
+    if u.perfil != "auditor" or not _MODO_SIN_CONEXION.search(texto):
+        return None
+    if _ACTIVAR.search(texto):
+        nuevo = True
+    elif _DESACTIVAR.search(texto):
+        nuevo = False
+    else:
+        return None
+    with Sesion() as s:
+        existente = s.get(ConfigClave, "offline")
+        valor = "1" if nuevo else "0"
+        if existente:
+            existente.valor = valor
+        else:
+            s.add(ConfigClave(clave="offline", valor=valor))
+        s.commit()
+    estado = "activado" if nuevo else "desactivado"
+    registrar(u, "AJUSTE", f"{u.nombre} {estado} el modo sin conexión por voz", "ok")
+    return {"respuesta_hablada": f"Listo, el modo sin conexión quedó {estado}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
 
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
@@ -408,6 +455,10 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
             return {"respuesta_hablada": f"Vamos a Conteo a abrir {bodega.nombre_oficial.title()}.",
                     "accion": "navegar", "destino": "conteo", "pestana": None,
                     "bodega": bodega.nombre_oficial}
+    if vista == "ajustes":
+        cambio = _cambiar_modo_sin_conexion(texto, u)
+        if cambio:
+            return cambio
     destinos = dict(_DESTINOS_ASISTENTE)
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:

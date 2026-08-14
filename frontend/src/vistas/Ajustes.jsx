@@ -12,7 +12,8 @@ export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
            chip={{ texto: esAuditor ? "ADMINISTRADORA" : "SOLO LECTURA",
                    tipo: esAuditor ? "azul" : "gris" }}>
       <AsistenteVoz token={token} vista="ajustes" ir={ir}
-                    placeholder="¿cuál es el umbral de anomalía?, lléveme a reportes…" />
+                    placeholder="¿cuál es el umbral de anomalía?, lléveme a reportes…"
+                    alActualizar={() => window.dispatchEvent(new Event("cuentavoz:ajustes-actualizados"))} />
       <div className="chips">
         <button className={`chip ${tab === "config" ? "azul" : ""}`}
                 onClick={() => setTab("config")}>Configuración</button>
@@ -66,6 +67,14 @@ function TabConfig({ token, esAuditor }) {
     }).catch(() => {});
   }
   useEffect(cargar, [token]);
+  // El agente de "Pregúntele al agente" (arriba, fuera de esta pestaña)
+  // puede activar/desactivar el modo sin conexión por voz - cuando lo
+  // hace, avisa con este evento para que esta pestaña vuelva a leer el
+  // valor real en vez de quedarse mostrando el de antes.
+  useEffect(() => {
+    window.addEventListener("cuentavoz:ajustes-actualizados", cargar);
+    return () => window.removeEventListener("cuentavoz:ajustes-actualizados", cargar);
+  }, [token]);
 
   async function guardar() {
     try {
@@ -119,7 +128,6 @@ function TabConfig({ token, esAuditor }) {
               <tr><td>Modo sin conexión</td>
                 <td><Interruptor activo={offline} onChange={setOffline} disabled={!esAuditor} /></td></tr>
               <tr><td>Refresco del tablero</td><td><b>tiempo real</b></td></tr>
-              <tr><td>Refresco de Power BI</td><td><b>{cfg.refresco_pbi}</b></td></tr>
             </tbody>
           </table>
         </div>

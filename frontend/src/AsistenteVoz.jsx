@@ -7,7 +7,7 @@ import { preguntarAsistente } from "./api";
     una pregunta suelta sobre lo que hay en esta pantalla, o una orden de
     ir a otra - sin el estado de "pendiente"/"opciones" que solo tiene
     sentido en un conteo o un pedido en curso. */
-export default function AsistenteVoz({ token, vista, ir, placeholder }) {
+export default function AsistenteVoz({ token, vista, ir, placeholder, alActualizar }) {
   const [texto, setTexto] = useState("");
   const [respuesta, setRespuesta] = useState("");
   const [error, setError] = useState("");
@@ -33,6 +33,10 @@ export default function AsistenteVoz({ token, vista, ir, placeholder }) {
         // que se entraba a Conteo por otro camino la abría sola.
         ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
       }
+      // "actualizar": el agente cambió algo de verdad (ej. el modo sin
+      // conexión en Ajustes) - la pantalla que lo pidió es quien sabe
+      // cómo refrescar su propio dato, este componente no.
+      if (r.accion === "actualizar" && alActualizar) alActualizar();
     } catch (e) {
       setError(e.message);
     }
