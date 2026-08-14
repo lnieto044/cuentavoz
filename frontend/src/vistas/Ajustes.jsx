@@ -186,6 +186,13 @@ function TabUsuarios({ token, usuario }) {
     if (verCobertura) cargarCobertura();
   }
   useEffect(cargar, [token]);
+  // El agente ("Pregúntele al agente", arriba de las pestañas) puede
+  // activar/desactivar a alguien por voz - cuando lo hace, avisa con
+  // este evento para que esta lista refleje el cambio sin recargar.
+  useEffect(() => {
+    window.addEventListener("cuentavoz:ajustes-actualizados", cargar);
+    return () => window.removeEventListener("cuentavoz:ajustes-actualizados", cargar);
+  }, [token]);
 
   function cargarCobertura() {
     pedir("/api/bodegas/asignaciones", {}, token).then(setCobertura).catch(() => {});

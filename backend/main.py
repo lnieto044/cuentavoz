@@ -4,6 +4,7 @@ import os
 import re
 import secrets
 import socket
+import unicodedata
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -344,11 +345,13 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
         permiso_offline = (
             "El modo sin conexión sí se puede cambiar por voz, pero solo por un "
             "administrador: decir «activa/desactiva el modo sin conexión» lo aplica de "
-            "una, sin tocar el interruptor."
+            "una, sin tocar el interruptor. En Gestión de usuarios, un administrador "
+            "también puede decir «activa/desactiva a <nombre>» para cambiar el estado de "
+            "otra persona, sin tocar el botón."
             if u.perfil == "auditor" else
-            "El modo sin conexión solo lo puede cambiar un administrador - esta persona "
-            "no lo es, así que si lo pide, dígalo con honestidad en vez de decir que ya "
-            "quedó cambiado.")
+            "El modo sin conexión y el estado de otras personas (Gestión de usuarios) "
+            "solo los puede cambiar un administrador - esta persona no lo es, así que si "
+            "lo pide, dígalo con honestidad en vez de decir que ya quedó cambiado.")
         return (f"Pantalla: Ajustes. Sección Validación de datos: umbral de anomalía "
                 f"{a['umbral']}%; bloquear cantidades negativas activado (regla fija, no "
                 f"se puede desactivar); exigir confirmación en alertas activado (regla "
@@ -434,6 +437,50 @@ def _cambiar_modo_sin_conexion(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+def _normalizar_nombre(t: str) -> str:
+    t = str(t).lower().strip()
+    return "".join(c for c in unicodedata.normalize("NFD", t)
+                   if unicodedata.category(c) != "Mn")
+
+
+def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
+    """"Activa/desactiva a <nombre>" desde Gestión de usuarios - mismo
+    patrón determinístico que el modo sin conexión (sin pasar por
+    Gemini, así no depende de su cuota ni arriesga un cambio real por
+    una mala interpretación del modelo). Reusa las mismas reglas que ya
+    protegen el PUT /api/usuarios/{id}: nadie se desactiva a sí mismo
+    por voz, y solo un administrador puede tocar a otra persona."""
+    if u.perfil != "auditor" or _MODO_SIN_CONEXION.search(texto):
+        return None
+    if _ACTIVAR.search(texto):
+        nuevo = True
+    elif _DESACTIVAR.search(texto):
+        nuevo = False
+    else:
+        return None
+    t = _normalizar_nombre(texto)
+    with Sesion() as s:
+        candidatos = s.query(Usuario).filter(Usuario.id != u.id).all()
+        encontrado = next(
+            (c for c in candidatos
+             if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t)),
+            None)
+        if not encontrado:
+            return None
+        if bool(encontrado.activo) == nuevo:
+            estado = "activo" if nuevo else "inactivo"
+            return {"respuesta_hablada": f"{encontrado.nombre.capitalize()} ya estaba {estado}.",
+                    "accion": "actualizar", "destino": None, "pestana": None}
+        encontrado.activo = int(nuevo)
+        encontrado.version_token = (encontrado.version_token or 0) + 1
+        nombre = encontrado.nombre
+        s.commit()
+    estado = "activado" if nuevo else "desactivado"
+    registrar(u, "USUARIO", f"{nombre} {estado} por voz", "ok")
+    return {"respuesta_hablada": f"Listo, {nombre.capitalize()} quedó {estado}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -456,7 +503,7 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "accion": "navegar", "destino": "conteo", "pestana": None,
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
-        cambio = _cambiar_modo_sin_conexion(texto, u)
+        cambio = _cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
         if cambio:
             return cambio
     destinos = dict(_DESTINOS_ASISTENTE)
