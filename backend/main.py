@@ -553,16 +553,25 @@ _PALABRAS_PESTANA = {
 _VERBOS_IR_PESTANA = re.compile(
     r"\b(ir|ll[eé]va(me)?|vamos|ve|muestra(me)?|abre(me)?|ense[ñn]a(me)?)\b",
     re.IGNORECASE)
+_ES_PREGUNTA_PESTANA = re.compile(r"[¿?]|\bcu[aá]nt|\bqu[eé]\b|\bcu[aá]l|\bpor qu[eé]", re.IGNORECASE)
 
 
 def _navegar_pestana_por_voz(vista: str, texto: str) -> dict | None:
     """"Llévame a gestión de usuarios" (o cualquier pestaña de Ajustes,
     Reportes o Panel) - determinístico, sin pasar por Gemini, para que
-    la navegación entre pestañas no dependa de su cuota. Exige un verbo
-    de ir inequívoco, para no confundir una pregunta ("¿cuántos "
-    "usuarios hay?") con una orden de navegar."""
+    la navegación entre pestañas no dependa de su cuota. También navega
+    si lo dicho es prácticamente el nombre de la pestaña solo ("Gestión
+    de usuarios.", sin decir "llévame a" - la persona lo dice tal como
+    lo lee en la pantalla), siempre que sea corto y no suene a pregunta
+    ("¿cuántos usuarios hay?" no debe navegar, solo responderse)."""
     palabras = _PALABRAS_PESTANA.get(vista)
-    if not palabras or not _VERBOS_IR_PESTANA.search(texto):
+    if not palabras:
+        return None
+    tiene_verbo = bool(_VERBOS_IR_PESTANA.search(texto))
+    limpio = re.sub(r"[.,;:!¿?¡]+$", "", texto.strip())
+    es_solo_el_nombre = (not _ES_PREGUNTA_PESTANA.search(texto)
+                         and 0 < len(limpio.split()) <= 4)
+    if not tiene_verbo and not es_solo_el_nombre:
         return None
     for clave, patron in palabras.items():
         if patron.search(texto):
