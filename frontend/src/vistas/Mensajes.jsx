@@ -50,50 +50,102 @@ export default function Mensajes({ token, usuario }) {
   }
 
   const original = mensajes?.find((m) => m.id === respondiendoId);
+  const pendientes = mensajes?.filter((m) => !m.respuesta).length ?? 0;
+  const respondidos = mensajes?.filter((m) => m.respuesta).length ?? 0;
 
   return (
     <Marco titulo="Mensajes  ·  soporte en vivo"
            chip={{ texto: esAdmin ? "BANDEJA DEL ADMINISTRADOR" : "MIS MENSAJES", tipo: "azul" }}>
-      <div className="card">
-        {msg && <p className="msg-ok" style={{ marginBottom: 10 }}>{msg}</p>}
-        {mensajes === null ? (
-          <p className="pista">Cargando…</p>
-        ) : mensajes.length === 0 ? (
+      {mensajes !== null && mensajes.length > 0 && (
+        <div className="kpis" style={{ marginBottom: 16 }}>
+          <div className="kpi">
+            <div className="kpi-cabeza">
+              <span className="icono-kpi">✉️</span>
+              <small>{esAdmin ? "Mensajes recibidos" : "Mensajes enviados"}</small>
+            </div>
+            <b>{mensajes.length}</b>
+            <i>en total</i>
+          </div>
+          <div className={`kpi ${pendientes ? "oro" : "verde"}`}>
+            <div className="kpi-cabeza">
+              <span className="icono-kpi">{pendientes ? "⏳" : "✅"}</span>
+              <small>Pendientes de respuesta</small>
+            </div>
+            <b>{pendientes}</b>
+            <i>{esAdmin ? "por responder" : "esperando al administrador"}</i>
+          </div>
+          <div className="kpi verde">
+            <div className="kpi-cabeza">
+              <span className="icono-kpi">💬</span>
+              <small>Respondidos</small>
+            </div>
+            <b>{respondidos}</b>
+            <i>ya resueltos</i>
+          </div>
+        </div>
+      )}
+
+      {msg && <p className="msg-ok" style={{ marginBottom: 10 }}>{msg}</p>}
+
+      {mensajes === null ? (
+        <div className="card"><p className="pista">Cargando…</p></div>
+      ) : mensajes.length === 0 ? (
+        <div className="card">
           <p className="vacio">
             {esAdmin ? "Nadie le ha escrito todavía." : "No ha escrito ningún mensaje todavía."}
           </p>
-        ) : (
-          mensajes.map((m) => (
-            <div key={m.id} style={{ padding: "14px 0", borderBottom: "1px solid var(--borde)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <strong style={{ textTransform: "capitalize", color: "var(--azul-prof)" }}>
-                  {esAdmin ? m.de : `Para ${m.para}`}
-                </strong>
-                <span className="pista">{m.creado}</span>
-              </div>
-              <p style={{ fontSize: ".9rem", marginTop: 4 }}>{m.mensaje}</p>
-              {m.respuesta ? (
-                <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: "3px solid var(--azul)" }}>
-                  <p style={{ fontSize: ".86rem" }}>
-                    <strong style={{ color: "var(--azul)" }}>
-                      {esAdmin ? "Su respuesta" : `Respuesta de ${capitalizar(m.para)}`}:
-                    </strong> {m.respuesta}
-                  </p>
-                  <span className="pista">{m.respondido}</span>
+        </div>
+      ) : (
+        mensajes.map((m) => (
+          <div className="card" key={m.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <span className="avatar-chico" style={{ marginTop: 2 }}>
+                {(esAdmin ? m.de : m.para)?.[0]?.toUpperCase() || "?"}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between",
+                              alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <strong style={{ textTransform: "capitalize", color: "var(--azul-prof)" }}>
+                    {esAdmin ? capitalizar(m.de) : `Para ${capitalizar(m.para)}`}
+                  </strong>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span className={`etiqueta-actividad ${m.respuesta ? "verde" : "oro"}`}
+                          style={{ marginLeft: 0 }}>
+                      {m.respuesta ? "respondido" : "pendiente"}
+                    </span>
+                    <span className="pista">{m.creado}</span>
+                  </span>
                 </div>
-              ) : esAdmin ? (
-                <button className="btn borde" disabled={enviandoRespuesta}
-                        style={{ marginTop: 8, fontSize: ".85rem", padding: "6px 16px" }}
-                        onClick={() => setRespondiendoId(m.id)}>
-                  Responder
-                </button>
-              ) : (
-                <p className="pista" style={{ marginTop: 6 }}>Pendiente de respuesta…</p>
-              )}
+                <p style={{ fontSize: ".92rem", marginTop: 6, lineHeight: 1.5 }}>{m.mensaje}</p>
+
+                {m.respuesta ? (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10,
+                                marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--borde)" }}>
+                    <span className="avatar-chico" style={{ background: "var(--verde-bg)", color: "var(--verde)" }}>
+                      {(esAdmin ? usuario?.nombre : m.para)?.[0]?.toUpperCase() || "?"}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <strong style={{ color: "var(--verde)", fontSize: ".85rem" }}>
+                          {esAdmin ? "Su respuesta" : `Respuesta de ${capitalizar(m.para)}`}
+                        </strong>
+                        <span className="pista">{m.respondido}</span>
+                      </div>
+                      <p style={{ fontSize: ".9rem", marginTop: 3, lineHeight: 1.5 }}>{m.respuesta}</p>
+                    </div>
+                  </div>
+                ) : esAdmin ? (
+                  <button className="btn borde" disabled={enviandoRespuesta}
+                          style={{ marginTop: 12, fontSize: ".85rem", padding: "6px 16px" }}
+                          onClick={() => setRespondiendoId(m.id)}>
+                    Responder
+                  </button>
+                ) : null}
+              </div>
             </div>
-          ))
-        )}
-      </div>
+          </div>
+        ))
+      )}
 
       {respondiendoId && (
         <Dialogo titulo="Responder mensaje"
