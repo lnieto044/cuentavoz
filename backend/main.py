@@ -368,13 +368,17 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "<nombre>: <pasos>» (reemplaza los pasos de cocina completos, tal cual "
             "se dicten, con los dos puntos como separador del nombre), y «elimina la "
             "receta <nombre>». "
+            "En Registro de trazabilidad, «exporta el registro de trazabilidad» "
+            "descarga el archivo con los filtros de fecha/persona/acción que ya "
+            "estén puestos en la pantalla en ese momento (no los que diga la "
+            "orden). "
             "Todo esto SOLO funciona si la orden usa exactamente esas formas («crea un "
             "usuario llamado...», «cambia el perfil de... a...», «asígnale/quítale la "
             "bodega... a...», «crea una receta llamada..., rendimiento... porciones, "
             "con... de...», «agrega... a la receta...», «quita el ingrediente... de "
             "la receta...», «cambia el rendimiento de la receta... a...», «agrega la "
-            "preparación a la receta...: ...», «elimina la "
-            "receta...») - si "
+            "preparación a la receta...: ...», «elimina la receta...», «exporta el "
+            "registro de trazabilidad») - si "
             "el mensaje llega hasta usted es porque esa frase no se dijo así, el "
             "nombre de la persona/bodega no coincidió con ninguna existente, o el "
             "ingrediente no se encontró en el catálogo, así que no invente que ya "
@@ -1381,6 +1385,28 @@ def _alternar_cobertura_por_voz(texto: str, u: Usuario) -> dict | None:
     return None
 
 
+_EXPORTAR_TRAZA = re.compile(
+    r"\b(export\w*|descarg\w*|genera\w*)\b.*\b(traza|trazabilidad)\b", re.IGNORECASE)
+
+
+def _exportar_trazabilidad_por_voz(texto: str, u: Usuario) -> dict | None:
+    """El botón «Exportar» de Registro de trazabilidad exporta con los
+    filtros (persona/acción/rango) que YA están marcados en pantalla -
+    esos viven como estado de React en el frontend, no llegan en el
+    texto de esta orden, así que no se puede armar el archivo aquí en
+    el backend. En cambio, se avisa con la misma acción genérica que ya
+    usa mostrar/ocultar cobertura, y el frontend llama a su propia
+    función exportar() con los filtros que tenga puestos - igual que si
+    hubiera dado clic al botón."""
+    if u.perfil != "auditor":
+        return None
+    if not _EXPORTAR_TRAZA.search(texto):
+        return None
+    return {"respuesta_hablada": "Listo, exportando el registro de trazabilidad con los "
+                                 "filtros que tiene puestos.",
+            "accion": "exportar_trazabilidad", "destino": None, "pestana": None}
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -1418,7 +1444,7 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                  or _crear_receta_por_voz(texto, u)
                  or _agregar_ingrediente_por_voz(texto, u) or _quitar_ingrediente_por_voz(texto, u)
                  or _cambiar_rendimiento_por_voz(texto, u) or _agregar_preparacion_por_voz(texto, u)
-                 or _eliminar_receta_por_voz(texto, u))
+                 or _eliminar_receta_por_voz(texto, u) or _exportar_trazabilidad_por_voz(texto, u))
         if cambio:
             # una orden distinta que sí coincidió significa que la
             # persona siguió para otra cosa - una pregunta ambigua sin

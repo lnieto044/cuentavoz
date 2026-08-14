@@ -31,6 +31,7 @@ const _EJEMPLOS_POR_PESTANA = {
   traza: [
     "acciones de Luis hoy",
     "aprobaciones de esta semana",
+    "exporta el registro de trazabilidad",
   ],
 };
 
@@ -809,24 +810,42 @@ function TabTraza({ token }) {
   // filtrar.
   function _interpretarFiltroVoz(texto) {
     const t = quitarTildes(texto.toLowerCase());
-    if (/\btodo\b/.test(t)) setRango("");
-    else if (/\bhoy\b/.test(t)) setRango("hoy");
-    else if (/semana/.test(t)) setRango("semana");
-    else if (/\bmes\b/.test(t)) setRango("mes");
+    let coincidio = false;
+    if (/\btodo\b/.test(t)) { setRango(""); coincidio = true; }
+    else if (/\bhoy\b/.test(t)) { setRango("hoy"); coincidio = true; }
+    else if (/semana/.test(t)) { setRango("semana"); coincidio = true; }
+    else if (/\bmes\b/.test(t)) { setRango("mes"); coincidio = true; }
 
-    if (/todas las acciones/.test(t)) setAccion("");
+    if (/todas las acciones/.test(t)) { setAccion(""); coincidio = true; }
     else {
       const accionEncontrada = acciones.find((a) => a && t.includes(a.toLowerCase()));
-      if (accionEncontrada) setAccion(accionEncontrada);
+      if (accionEncontrada) { setAccion(accionEncontrada); coincidio = true; }
     }
 
-    if (/todas las personas/.test(t)) setPersona("");
+    if (/todas las personas/.test(t)) { setPersona(""); coincidio = true; }
     else {
       const personaEncontrada = todasPersonas.find(
         (p) => p && t.includes(quitarTildes(p.toLowerCase())));
-      if (personaEncontrada) setPersona(personaEncontrada);
+      if (personaEncontrada) { setPersona(personaEncontrada); coincidio = true; }
     }
+    return coincidio;
   }
+
+  // El cuadro "Pregúntele al agente" (arriba de las pestañas) es el
+  // MISMO cuadro que muestra los ejemplos «acciones de Luis hoy» - una
+  // persona que escribe/dice esa frase ahí espera que funcione, no
+  // solo desde el micrófono chiquito junto a los filtros. Como el
+  // filtro ya vive aquí (sin pasar por el backend), se intercepta la
+  // frase ANTES de que AsistenteVoz llegue a preguntarle al agente -
+  // event.preventDefault() es la señal de "ya lo resolví, no llames al
+  // backend para esto".
+  useEffect(() => {
+    const interceptar = (e) => {
+      if (_interpretarFiltroVoz(e.detail.texto)) e.preventDefault();
+    };
+    window.addEventListener("cuentavoz:filtro-local", interceptar);
+    return () => window.removeEventListener("cuentavoz:filtro-local", interceptar);
+  }, [todasPersonas, acciones]);
 
   function escucharFiltro() {
     setMsg("");
@@ -849,6 +868,14 @@ function TabTraza({ token }) {
       setMsg(`Exportado: ${d.filas} filas.`);
     } catch (e) { setMsg(e.message); }
   }
+
+  // "exporta el registro de trazabilidad" por voz - mismo botón
+  // «Exportar», con los filtros que ya estén puestos en pantalla (el
+  // agente no los conoce, viven aquí como estado de React).
+  useEffect(() => {
+    window.addEventListener("cuentavoz:accion:exportar_trazabilidad", exportar);
+    return () => window.removeEventListener("cuentavoz:accion:exportar_trazabilidad", exportar);
+  }, [token, persona, accion, rango]);
 
   return (
     <div className="card">

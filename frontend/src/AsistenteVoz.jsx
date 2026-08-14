@@ -18,6 +18,24 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
     if (!dicho || !dicho.trim()) return;
     setTexto(dicho);
     setError("");
+    // Algunas pantallas (ej. el filtro de Registro de trazabilidad)
+    // resuelven ciertas frases del todo en el frontend, sin backend ni
+    // Gemini de por medio - si un componente hijo la reconoce, llama
+    // preventDefault() y avisa así que ya quedó resuelta, para no
+    // preguntarle al agente algo que esta pantalla ya sabe contestar
+    // sola. Sin esto, decir aquí arriba exactamente uno de los
+    // ejemplos de la lista (que sí describen esas frases) no hacía
+    // nada, porque solo el micrófono chiquito junto a los filtros
+    // estaba conectado a esa lógica.
+    const evento = new CustomEvent("cuentavoz:filtro-local", {
+      detail: { texto: dicho }, cancelable: true,
+    });
+    window.dispatchEvent(evento);
+    if (evento.defaultPrevented) {
+      setRespuesta("Listo, apliqué el filtro.");
+      hablar("Listo, apliqué el filtro.");
+      return;
+    }
     setPensando(true);
     try {
       const r = await preguntarAsistente(dicho, vista, token);
