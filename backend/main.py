@@ -374,10 +374,11 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"Bodegas cerradas: {r['bodegas_cerradas']} de {r['bodegas_total']}.")
     if vista == "reportes" and u.perfil == "auditor":
         return ("Pantalla: Reportes. Aquí se genera el consolidado para My "
-                "Inventory y el análisis de consumo de los últimos 30 días. "
-                "Los botones «Generar consolidado» y «Generar diferencias» crean "
-                "los archivos; esta voz todavía no genera archivos, solo explica "
-                "y navega - para generarlos hay que usar los botones.")
+                "Inventory, las diferencias por bodega, y el análisis de consumo "
+                "de los últimos 30 días. Los tres SÍ se pueden generar por voz "
+                "(«genera el consolidado», «exporta las diferencias», «exporta el "
+                "análisis de consumo») - queda igual que si le hubiera dado clic "
+                "al botón.")
     if vista == "ayuda":
         faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
         return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
@@ -481,6 +482,38 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+_VERBOS_GENERAR_REPORTE = re.compile(
+    r"\b(gener[ae]|generar|exporta|exportar|crea|crear|descarga|descargar|saca|sacar)\b",
+    re.IGNORECASE)
+_REP_DIFERENCIAS = re.compile(r"diferencia", re.IGNORECASE)
+_REP_ANALISIS = re.compile(r"an[aá]lisis|consumo", re.IGNORECASE)
+_REP_CONSOLIDADO = re.compile(r"consolidado", re.IGNORECASE)
+
+
+def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Genera el consolidado" / "exporta las diferencias" / "exporta el
+    análisis de consumo" desde Reportes - mismo patrón determinístico
+    que Ajustes (sin pasar por Gemini): llama la MISMA función que ya
+    usa el botón correspondiente, así el resultado es idéntico al de
+    darle clic, solo que solo un administrador puede pedirlo por voz."""
+    if u.perfil != "auditor" or not _VERBOS_GENERAR_REPORTE.search(texto):
+        return None
+    if _REP_DIFERENCIAS.search(texto):
+        d = reporte_diferencias(formato="xlsx", u=u)
+        return {"respuesta_hablada": f"Listo, generé las diferencias: {d['filas']} filas en "
+                                     f"{d['bodegas_con_descuadre']} bodegas con descuadre.",
+                "accion": "actualizar", "destino": None, "pestana": "consolidado"}
+    if _REP_ANALISIS.search(texto):
+        exportar_analisis(formato="xlsx", dias=30, u=u)
+        return {"respuesta_hablada": "Listo, exporté el análisis de consumo de los últimos 30 días.",
+                "accion": "actualizar", "destino": None, "pestana": "analisis"}
+    if _REP_CONSOLIDADO.search(texto):
+        d = reporte(formato="xlsx", u=u)
+        return {"respuesta_hablada": f"Listo, generé el consolidado: {d['filas']} filas.",
+                "accion": "actualizar", "destino": None, "pestana": "consolidado"}
+    return None
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -506,6 +539,10 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         cambio = _cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
         if cambio:
             return cambio
+    if vista == "reportes":
+        generado = _generar_reporte_por_voz(texto, u)
+        if generado:
+            return generado
     destinos = dict(_DESTINOS_ASISTENTE)
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:
