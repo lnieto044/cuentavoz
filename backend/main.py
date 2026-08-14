@@ -798,7 +798,15 @@ def _elegir_ingrediente_sin_ambiguedad(dicho: str) -> dict | None:
     más específico" que adivinar mal en silencio y crear una receta con
     el ingrediente equivocado."""
     from servicios.conciliacion import buscar_articulo, normalizar
-    candidatos = buscar_articulo(dicho)
+    # limite alto: buscar_articulo por defecto solo devuelve los 3
+    # mejores, y con un empate a 100 (el caso ambiguo que nos interesa
+    # aquí) esos 3 son un subconjunto ARBITRARIO del catálogo real -
+    # confirmado con una captura real donde salían "Empanada De Papa Y
+    # Carne" y "Papa A La Francesa" en vez de las papas de verdad
+    # (Criolla, Sabanera, Pastusa) que sí existen en el catálogo. Con
+    # más candidatos a la vista, se puede priorizar los nombres más
+    # simples (probablemente el ingrediente crudo) al armar la lista.
+    candidatos = buscar_articulo(dicho, limite=20)
     if not candidatos or candidatos[0]["confianza"] < 60:
         return {"error": f"No encontré «{dicho}» en el catálogo. Dígalo como aparece "
                          "en la etiqueta."}
@@ -812,7 +820,12 @@ def _elegir_ingrediente_sin_ambiguedad(dicho: str) -> dict | None:
         exacto = next((c for c in empatados if normalizar(c["nombre"]) == clave), None)
         if exacto:
             return {"articulo": exacto}
-        opciones = ", ".join(c["nombre"].title() for c in empatados)
+        # De los empatados, primero los nombres más cortos: un
+        # ingrediente crudo ("PAPA CRIOLLA") es más probable que sea lo
+        # que la persona quiso decir que un producto elaborado con
+        # media frase de más ("EMPANADA DE PAPA Y CARNE X50 GR").
+        empatados.sort(key=lambda c: len(c["nombre"].split()))
+        opciones = ", ".join(c["nombre"].title() for c in empatados[:5])
         return {"error": f"«{dicho}» es ambiguo, encontré varios parecidos: {opciones}. "
                          "Dígalo más específico, como aparece completo en la etiqueta."}
     return {"articulo": candidatos[0]}

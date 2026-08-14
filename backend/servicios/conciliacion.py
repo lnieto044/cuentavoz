@@ -149,7 +149,7 @@ def buscar_bodega(s, texto: str, ids_permitidos: set[int] | None = None) -> Bode
     return None
 
 
-def buscar_articulo(texto: str, bodega_id=None) -> list[dict]:
+def buscar_articulo(texto: str, bodega_id=None, limite: int = 3) -> list[dict]:
     consulta = normalizar(texto)
     if not consulta:
         return []
@@ -174,7 +174,7 @@ def buscar_articulo(texto: str, bodega_id=None) -> list[dict]:
     puntajes.sort(key=lambda z: -z[0])
     return [{"codigo": a.codigo, "nombre": a.nombre_oficial,
              "unidad": a.unidad_medida, "confianza": round(p)}
-            for p, a in puntajes[:3]]
+            for p, a in puntajes[:limite]]
 
 
 def aprender_alias(texto: str, codigo: str, bodega_id=None):
