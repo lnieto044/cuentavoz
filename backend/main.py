@@ -371,14 +371,18 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "En Registro de trazabilidad, «exporta el registro de trazabilidad» "
             "descarga el archivo con los filtros de fecha/persona/acción que ya "
             "estén puestos en la pantalla en ese momento (no los que diga la "
-            "orden). "
+            "orden), «acciones por persona» resume cuántas hizo cada quien "
+            "(hoy por defecto; «esta semana»/«este mes»/«en total» cambian el "
+            "periodo), y «¿cuántas acciones tiene <nombre>?» contesta solo por esa "
+            "persona. "
             "Todo esto SOLO funciona si la orden usa exactamente esas formas («crea un "
             "usuario llamado...», «cambia el perfil de... a...», «asígnale/quítale la "
             "bodega... a...», «crea una receta llamada..., rendimiento... porciones, "
             "con... de...», «agrega... a la receta...», «quita el ingrediente... de "
             "la receta...», «cambia el rendimiento de la receta... a...», «agrega la "
             "preparación a la receta...: ...», «elimina la receta...», «exporta el "
-            "registro de trazabilidad») - si "
+            "registro de trazabilidad», «acciones por persona», «cuántas acciones "
+            "tiene...») - si "
             "el mensaje llega hasta usted es porque esa frase no se dijo así, el "
             "nombre de la persona/bodega no coincidió con ninguna existente, o el "
             "ingrediente no se encontró en el catálogo, así que no invente que ya "
@@ -1407,6 +1411,74 @@ def _exportar_trazabilidad_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": "exportar_trazabilidad", "destino": None, "pestana": None}
 
 
+_ETIQUETA_RANGO_TRAZA = {"hoy": "hoy", "semana": "en la última semana",
+                         "mes": "en el último mes", "": "en total"}
+
+
+def _rango_dicho_traza(texto: str) -> str:
+    t = texto.lower()
+    if re.search(r"\bsemana\b", t):
+        return "semana"
+    if re.search(r"\bmes\b", t):
+        return "mes"
+    if re.search(r"\btodo\b|\bsiempre\b", t):
+        return ""
+    return "hoy"  # mismo valor por defecto con el que abre la pestaña
+
+
+_ACCIONES_DE_PERSONA = re.compile(
+    r"\bcu[aá]ntas\s+acciones\s+tiene\s+(?P<persona>.+?)\s*[.!?]*\s*$", re.IGNORECASE)
+_ACCIONES_POR_PERSONA = re.compile(
+    r"\bacciones\s+por\s+persona\b|\bcu[aá]ntas\s+acciones\s+tiene\s+cada\s+persona\b|"
+    r"\bresumen\s+de\s+acciones\b", re.IGNORECASE)
+
+
+def _acciones_por_persona_por_voz(texto: str, u: Usuario) -> dict | None:
+    """Pedido explícito del usuario: "acciones por persona" contesta un
+    resumen con cuántas hizo cada quien, y "¿cuántas acciones tiene
+    <nombre>?" contesta solo por esa persona - los dos de solo lectura,
+    sin abrir ni cambiar nada en pantalla, así que no hace falta
+    confirmación. El periodo por defecto es "hoy" (igual que la
+    pestaña al abrirse); decir "esta semana"/"este mes"/"en total"
+    lo cambia."""
+    if u.perfil != "auditor":
+        return None
+    m = _ACCIONES_DE_PERSONA.search(texto.strip())
+    if m:
+        rango = _rango_dicho_traza(texto)
+        t_nombre = _normalizar_nombre(m.group("persona"))
+        with Sesion() as s:
+            candidatos = s.query(Usuario).all()
+            persona_obj = next(
+                (c for c in candidatos
+                 if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t_nombre)),
+                None)
+            if not persona_obj:
+                return None
+            total = _filtro_traza(s, persona_obj.nombre, "", rango).count()
+            nombre = persona_obj.nombre
+        return {"respuesta_hablada": f"{nombre.capitalize()} tiene {total} acciones "
+                                     f"{_ETIQUETA_RANGO_TRAZA[rango]}.",
+                "accion": None, "destino": None, "pestana": None}
+    if _ACCIONES_POR_PERSONA.search(texto):
+        rango = _rango_dicho_traza(texto)
+        with Sesion() as s:
+            filas = _filtro_traza(s, "", "", rango).all()
+        if not filas:
+            return {"respuesta_hablada": f"No hay acciones registradas {_ETIQUETA_RANGO_TRAZA[rango]}.",
+                    "accion": None, "destino": None, "pestana": None}
+        conteos: dict[str, int] = {}
+        for f in filas:
+            conteos[f.persona] = conteos.get(f.persona, 0) + 1
+        ordenado = sorted(conteos.items(), key=lambda par: -par[1])
+        resumen = ", ".join(f"{p.capitalize()}: {n}" for p, n in ordenado[:8])
+        extra = f", y {len(ordenado) - 8} personas más" if len(ordenado) > 8 else ""
+        return {"respuesta_hablada": f"Acciones por persona {_ETIQUETA_RANGO_TRAZA[rango]}: "
+                                     f"{resumen}{extra}.",
+                "accion": None, "destino": None, "pestana": None}
+    return None
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -1444,7 +1516,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                  or _crear_receta_por_voz(texto, u)
                  or _agregar_ingrediente_por_voz(texto, u) or _quitar_ingrediente_por_voz(texto, u)
                  or _cambiar_rendimiento_por_voz(texto, u) or _agregar_preparacion_por_voz(texto, u)
-                 or _eliminar_receta_por_voz(texto, u) or _exportar_trazabilidad_por_voz(texto, u))
+                 or _eliminar_receta_por_voz(texto, u) or _exportar_trazabilidad_por_voz(texto, u)
+                 or _acciones_por_persona_por_voz(texto, u))
         if cambio:
             # una orden distinta que sí coincidió significa que la
             # persona siguió para otra cosa - una pregunta ambigua sin

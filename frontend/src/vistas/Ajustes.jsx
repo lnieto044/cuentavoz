@@ -32,6 +32,8 @@ const _EJEMPLOS_POR_PESTANA = {
     "acciones de Luis hoy",
     "aprobaciones de esta semana",
     "exporta el registro de trazabilidad",
+    "acciones por persona",
+    "¿cuántas acciones tiene Luis?",
   ],
 };
 
