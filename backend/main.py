@@ -559,10 +559,22 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+# Cuando alguien encadena dos órdenes en una sola frase ("...con 2 kg
+# de papa, agrega 300 g de cebolla a la receta sopa" - confirmado con
+# una captura real), el último grupo capturado (.+? anclado al final
+# con $) se tragaba TODO lo que seguía, incluida la segunda orden
+# completa, como si fuera parte del dato ("no encontré «papa, agrega
+# 300 g de cebolla a la receta sopa» en el catálogo"). Este sufijo se
+# detiene apenas aparece una coma seguida de otro verbo reconocido, y
+# descarta el resto - la primera orden se cumple bien, y la segunda
+# queda pendiente de decirse aparte.
+_CORTE_ORDEN_ENCADENADA = (
+    r"(?:,\s*(?:cre[ae]|agr[eé]ga|a[ñn]ad|elimin|borr|cambia|as[ií]gn|qu[ií]t|"
+    r"muestra|ense[ñn]a|oculta|act[ií]v|desact[ií]v)\w*.*)?")
 _CREAR_USUARIO = re.compile(
     r"\b(?:cre[ae]\w*\s+)?(?:un\s+|una\s+)?(?:nuev[oa]\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
     r"(?:\s+(?:de\s+|con\s+)?perfil\s+(?P<perfil>auxiliar|auditor|administrador))?"
-    r"\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$", re.IGNORECASE)
 _INTENCION_CREAR_USUARIO = re.compile(
     r"\b(cre[ae]\w*|necesito|quiero)\b.*\busuarios?\b|\busuario\s+llamad[oa]\b",
     re.IGNORECASE)
@@ -740,6 +752,16 @@ def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
 
 
 _UNIDADES_RECETA = r"kilos?|kg|litros?|lt|unidades?|und?|gramos?|gr"
+# Cuando alguien encadena dos órdenes en una sola frase ("...con 2 kg
+# de papa, agrega 300 g de cebolla a la receta sopa" - confirmado con
+# una captura real), el último grupo capturado (.+? anclado al final
+# con $) se tragaba TODO lo que seguía, incluida la segunda orden
+# completa, como si fuera parte del dato ("no encontré «papa, agrega
+# 300 g de cebolla a la receta sopa» en el catálogo"). Este sufijo se
+# detiene apenas aparece una coma seguida de otro verbo reconocido, y
+# descarta el resto - la primera orden se cumple bien, y la segunda
+# queda pendiente de decirse aparte (tal como ya se explica: "puede
+# agregarle más ingredientes diciendo «agrega...»").
 # El verbo "crea/crear" es OPCIONAL: el reconocimiento de voz a veces
 # recorta la primera palabra si la persona empieza a hablar apenas
 # hace clic en el micrófono, antes de que el navegador esté listo -
@@ -751,15 +773,16 @@ _CREAR_RECETA = re.compile(
     r"\b(?:cre[ae]\w*\s+)?(?:una\s+)?(?:nuev[oa]\s+)?receta\s+llamad[ao]\s+(?P<nombre>.+?)"
     r"\s*[,y]*\s*(?:con\s+)?rendimiento\s+(?:de\s+)?(?P<rend>.+?)\s*porciones?"
     r"\s*[,y]*\s*con\s+(?P<cant>.+?)\s*"
-    rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)\s*[.!]?\s*$",
+    rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$",
     re.IGNORECASE)
 _AGREGAR_INGREDIENTE = re.compile(
     r"\b(?:agr[eé]ga\w*|a[ñn]ad\w*)\s+(?P<cant>.+?)\s*"
     rf"(?:{_UNIDADES_RECETA})?\s*de\s+(?P<ing>.+?)"
-    r"\s+a\s+la\s+receta\s+(?P<receta>.+?)\s*[.!]?\s*$",
+    r"\s+a\s+la\s+receta\s+(?P<receta>.+?)\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$",
     re.IGNORECASE)
 _ELIMINAR_RECETA = re.compile(
-    r"\b(elimin\w*|borr\w*)\s+(?:la\s+)?receta\s+(?P<receta>.+?)\s*[.!]?\s*$",
+    r"\b(elimin\w*|borr\w*)\s+(?:la\s+)?receta\s+(?P<receta>.+?)\s*"
+    + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$",
     re.IGNORECASE)
 
 
@@ -918,7 +941,8 @@ def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
 
 _QUITAR_INGREDIENTE = re.compile(
     r"\b(?:qu[ií]ta\w*|elimin\w*|borr\w*)\s+(?:el\s+)?ingredient\w*\s+(?P<ing>.+?)"
-    r"\s+de\s+la\s+receta\s+(?P<receta>.+?)\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s+de\s+la\s+receta\s+(?P<receta>.+?)\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$",
+    re.IGNORECASE)
 
 
 def _quitar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -969,7 +993,8 @@ def _quitar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
 
 _CAMBIAR_RENDIMIENTO = re.compile(
     r"\bcambia\w*\s+el\s+rendimient\w*\s+de\s+la\s+receta\s+(?P<receta>.+?)"
-    r"\s+a\s+(?P<rend>.+?)\s*porcion\w*\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s+a\s+(?P<rend>.+?)\s*porcion\w*\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$",
+    re.IGNORECASE)
 
 
 def _cambiar_rendimiento_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -1045,10 +1070,10 @@ def _cambiar_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
 
 _ASIGNAR_BODEGA = re.compile(
     r"\bas[ií]gn\w*\s+(?:le\s+)?(?:la\s+)?bodega\s+(?P<bodega>.+?)\s+a\s+(?P<nombre>.+?)"
-    r"\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$", re.IGNORECASE)
 _QUITAR_BODEGA = re.compile(
     r"\bqu[ií]t\w*\s+(?:le\s+)?(?:la\s+)?bodega\s+(?P<bodega>.+?)\s+a\s+(?P<nombre>.+?)"
-    r"\s*[.!]?\s*$", re.IGNORECASE)
+    r"\s*" + _CORTE_ORDEN_ENCADENADA + r"[.!]?\s*$", re.IGNORECASE)
 
 
 def _asignar_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
