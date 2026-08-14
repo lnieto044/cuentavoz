@@ -3,8 +3,24 @@ import os
 import json
 import io
 import wave
+import concurrent.futures
 
 MODELO_VOZ = "gemini-2.5-flash-preview-tts"
+
+# El SDK instalado (google-genai 0.3.0) no soporta timeout en HttpOptions
+# todavia (es un TODO del propio paquete) - sin esto, una llamada lenta o
+# con la cuota ahogada se queda esperando sin limite (confirmado: una
+# prueba real tardo mas de 30 segundos), y la persona ve el microfono
+# "pensando" sin saber si sigue vivo. Con este limite, si Gemini no
+# contesta a tiempo, se cae al respaldo local de una vez en vez de dejar
+# la voz esperando.
+TIMEOUT_GEMINI = 7
+_EJECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="gemini")
+
+
+def _generar_con_limite(cliente, limite=TIMEOUT_GEMINI, **kwargs):
+    futuro = _EJECUTOR.submit(cliente.models.generate_content, **kwargs)
+    return futuro.result(timeout=limite)
 
 # Voces neuronales de Gemini disponibles para elegir en Mi perfil. No son
 # acentos de pais (Gemini TTS no expone eso todavia): son voces distintas,
@@ -104,7 +120,8 @@ def pensar(contexto: str, frase: str) -> dict:
         if cliente is None:
             return _respaldo(frase, "Falta la llave de Google AI Studio en el archivo .env.")
 
-        r = cliente.models.generate_content(
+        r = _generar_con_limite(
+            cliente,
             model=os.getenv("MODELO", "gemini-flash-latest"),
             contents=f"{contexto}\nLa persona dice: {frase}",
             config=types.GenerateContentConfig(
@@ -215,7 +232,8 @@ def pensar_asistente(contexto: str, frase: str, destinos: dict[str, str],
         if cliente is None:
             return _respaldo_asistente(frase, destinos,
                                        "Sin conexión con el agente en este momento.")
-        r = cliente.models.generate_content(
+        r = _generar_con_limite(
+            cliente,
             model=os.getenv("MODELO", "gemini-flash-latest"),
             contents=f"{contexto_completo}\nLa persona dice: {frase}",
             config=types.GenerateContentConfig(
@@ -269,7 +287,9 @@ def sintetizar_voz(texto: str, voz: str = VOZ_DEFECTO) -> bytes | None:
     nombre_voz = VOCES.get(voz, VOCES[VOZ_DEFECTO])["nombre"]
     try:
         from google.genai import types
-        r = cliente.models.generate_content(
+        r = _generar_con_limite(
+            cliente,
+            limite=12,
             model=MODELO_VOZ,
             contents=texto,
             config=types.GenerateContentConfig(

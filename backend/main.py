@@ -553,6 +553,8 @@ _CREAR_USUARIO = re.compile(
     r"\bcre[ae]\w*\s+(?:un\s+|una\s+)?(?:nuev[oa]\s+)?usuario\s+llamad[oa]\s+(?P<nombre>.+?)"
     r"(?:\s+(?:de\s+|con\s+)?perfil\s+(?P<perfil>auxiliar|auditor|administrador))?"
     r"\s*[.!]?\s*$", re.IGNORECASE)
+_INTENCION_CREAR_USUARIO = re.compile(
+    r"\b(cre[ae]\w*|necesito|quiero)\b.*\busuarios?\b", re.IGNORECASE)
 
 
 def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -562,11 +564,24 @@ def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
     nada contra qué validar el nombre, así que se exige un formato de
     frase concreto en vez de adivinar de cualquier forma - más fácil de
     aprender a decir que arriesgar un nombre mal extraído. Sin perfil
-    dicho, queda auxiliar (el caso más común y el de menor alcance)."""
+    dicho, queda auxiliar (el caso más común y el de menor alcance).
+
+    Decir solo "crea un usuario" (sin nombre) coincidía por casualidad
+    con la navegación a la pestaña Gestión de usuarios (por la palabra
+    "usuario") - si ya estaba en esa pestaña, no pasaba nada visible y
+    parecía que el agente no hacía nada. Ahora, si se nota la intención
+    de crear pero falta el nombre, se explica el formato exacto en vez
+    de caer en la navegación por casualidad."""
     if u.perfil != "auditor":
         return None
     m = _CREAR_USUARIO.search(texto.strip())
     if not m:
+        if (_INTENCION_CREAR_USUARIO.search(texto)
+                and not _ES_PREGUNTA_PESTANA.search(texto)):
+            return {"respuesta_hablada": "Para crear un usuario diga el nombre completo así: "
+                                         "«crea un usuario llamado» y el nombre, «perfil» y "
+                                         "auxiliar o administrador.",
+                    "accion": None, "destino": None, "pestana": None}
         return None
     nombre = re.sub(r"[.,;:!¿?¡]+$", "", m.group("nombre")).strip().lower()
     if not nombre:
@@ -739,6 +754,10 @@ def _buscar_receta_por_nombre(s, nombre_dicho: str):
         None)
 
 
+_INTENCION_CREAR_RECETA = re.compile(
+    r"\b(cre[ae]\w*|necesito|quiero)\b.*\brecetas?\b", re.IGNORECASE)
+
+
 def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
     """"Crea una receta llamada <nombre>, rendimiento <N> porciones, con
     <cantidad> de <ingrediente>" - determinístico, con el mismo criterio
@@ -746,11 +765,21 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
     de cualquier forma un nombre y una lista de ingredientes que no
     existen todavía contra qué validar. El ingrediente SÍ se busca
     contra el catálogo real (misma función que usa Conteo/Pedido) - si
-    no lo encuentra con confianza suficiente, no crea nada a medias."""
+    no lo encuentra con confianza suficiente, no crea nada a medias.
+    Decir solo "crea una receta" (sin los demás datos) coincidía por
+    casualidad con la navegación a la pestaña Recetas - mismo arreglo
+    que crear usuario."""
     if u.perfil != "auditor":
         return None
     m = _CREAR_RECETA.search(texto.strip())
     if not m:
+        if (_INTENCION_CREAR_RECETA.search(texto)
+                and not _ES_PREGUNTA_PESTANA.search(texto)):
+            return {"respuesta_hablada": "Para crear una receta diga: «crea una receta "
+                                         "llamada» el nombre, «rendimiento» el número de "
+                                         "porciones, «con» la cantidad «de» el primer "
+                                         "ingrediente.",
+                    "accion": None, "destino": None, "pestana": None}
         return None
     nombre = re.sub(r"[.,;:!¿?¡]+$", "", m.group("nombre")).strip()
     if not nombre:
@@ -779,6 +808,10 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
+_INTENCION_AGREGAR_INGREDIENTE = re.compile(
+    r"\b(agr[eé]ga\w*|a[ñn]ad\w*)\b.*\breceta\b", re.IGNORECASE)
+
+
 def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
     """"Agrégale <cantidad> de <ingrediente> a la receta <nombre>" -
     determinístico. Reusa la misma búsqueda de artículo que crear
@@ -788,6 +821,12 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
         return None
     m = _AGREGAR_INGREDIENTE.search(texto.strip())
     if not m:
+        if (_INTENCION_AGREGAR_INGREDIENTE.search(texto)
+                and not _ES_PREGUNTA_PESTANA.search(texto)):
+            return {"respuesta_hablada": "Para agregar un ingrediente diga: «agrega» la "
+                                         "cantidad «de» el ingrediente «a la receta» el "
+                                         "nombre de la receta.",
+                    "accion": None, "destino": None, "pestana": None}
         return None
     from servicios.conciliacion import buscar_articulo
     candidatos = buscar_articulo(m.group("ing"))
@@ -847,6 +886,10 @@ def _cambiar_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
         return None
     m = re.search(r"\b(auxiliar|auditor|administrador)\b", texto, re.IGNORECASE)
     if not m:
+        if not _ES_PREGUNTA_PESTANA.search(texto):
+            return {"respuesta_hablada": "Diga a qué perfil: «cambia el perfil de» el "
+                                         "nombre «a» auxiliar o administrador.",
+                    "accion": None, "destino": None, "pestana": None}
         return None
     perfil_nuevo = "auditor" if m.group(1).lower() in ("auditor", "administrador") else "auxiliar"
     t = _normalizar_nombre(texto)
@@ -857,7 +900,9 @@ def _cambiar_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
              if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t)),
             None)
         if not encontrado:
-            return None
+            return {"respuesta_hablada": "No encontré a esa persona. Diga el nombre completo "
+                                         "tal como aparece en la lista.",
+                    "accion": None, "destino": None, "pestana": None}
         etiqueta = "administrador" if perfil_nuevo == "auditor" else "auxiliar"
         if encontrado.perfil == perfil_nuevo:
             return {"respuesta_hablada": f"{encontrado.nombre.capitalize()} ya era {etiqueta}.",
@@ -893,6 +938,12 @@ def _asignar_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
         m = _QUITAR_BODEGA.search(texto.strip())
         quitar = True
     if not m:
+        if (re.search(r"\bbodega\b", texto, re.IGNORECASE)
+                and re.search(r"\bas[ií]gn\w*|\bqu[ií]t\w*", texto, re.IGNORECASE)
+                and not _ES_PREGUNTA_PESTANA.search(texto)):
+            return {"respuesta_hablada": "Diga: «asígnale/quítale la bodega» el nombre de "
+                                         "la bodega «a» el nombre de la persona.",
+                    "accion": None, "destino": None, "pestana": None}
         return None
     from servicios.conciliacion import buscar_bodega
     t_nombre = _normalizar_nombre(m.group("nombre"))
@@ -907,7 +958,9 @@ def _asignar_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
              if re.search(rf"\b{re.escape(_normalizar_nombre(c.nombre))}\b", t_nombre)),
             None)
         if not persona:
-            return None
+            return {"respuesta_hablada": "No encontré a esa persona. Diga el nombre completo "
+                                         "tal como aparece en la lista.",
+                    "accion": None, "destino": None, "pestana": None}
         actuales = {a.bodega_id for a in
                    s.query(AsignacionBodega).filter_by(usuario_id=persona.id).all()}
         ya_tenia = bodega.id in actuales
