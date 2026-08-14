@@ -379,6 +379,22 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 "(«genera el consolidado», «exporta las diferencias», «exporta el "
                 "análisis de consumo») - queda igual que si le hubiera dado clic "
                 "al botón.")
+    if vista == "auditoria" and u.perfil == "auditor":
+        with Sesion() as s:
+            pendientes = s.query(Aprobacion).filter_by(estado="pendiente").all()
+        nombres = "; ".join(a.nombre for a in pendientes) if pendientes else "ninguno"
+        return (f"Pantalla: Auditoría. Pestaña Aprobaciones: {len(pendientes)} "
+                f"pendientes ({nombres}). Si el mensaje que está viendo llegó hasta "
+                "usted, es porque «aprueba <nombre>» o «rechaza <nombre>» NO "
+                "encontró ese nombre exacto entre los pendientes recién listados - "
+                "esa aprobación/rechazo YA se resuelve antes de llegar aquí cuando "
+                "el nombre coincide, así que usted NUNCA debe decir que ya aprobó o "
+                "rechazó algo (sería falso: no tiene esa capacidad). Dígalo con "
+                "honestidad: que no encontró un pendiente con ese nombre exacto, y "
+                "sugiera decir el nombre completo tal como aparece en la lista. El "
+                "recuento ciego (dictar productos, comparar, cerrar con firma) y "
+                "los pedidos pendientes todavía no se manejan desde aquí por voz - "
+                "esos siguen necesitando los controles de la pantalla.")
     if vista == "ayuda":
         faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
         return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
@@ -514,6 +530,44 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
     return None
 
 
+_APROBAR_ITEM = re.compile(r"\baprueb\w*|\baprobar\b", re.IGNORECASE)
+_RECHAZAR_ITEM = re.compile(r"\brechaz\w*", re.IGNORECASE)
+
+
+def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Aprueba/rechaza <nombre>" desde Auditoría (pestaña Aprobaciones) -
+    mismo patrón determinístico que Ajustes/Reportes: busca el nombre
+    completo entre las aprobaciones pendientes (como frase exacta, no
+    palabra por palabra - "aprueba costilla de res" no debe aprobar
+    cualquier cosa que contenga "res") y llama la MISMA función que ya
+    usa el botón, solo administrador."""
+    if u.perfil != "auditor":
+        return None
+    if _APROBAR_ITEM.search(texto):
+        verbo = "aprobar"
+    elif _RECHAZAR_ITEM.search(texto):
+        verbo = "rechazar"
+    else:
+        return None
+    t = _normalizar_nombre(texto)
+    with Sesion() as s:
+        pendientes = s.query(Aprobacion).filter_by(estado="pendiente").all()
+        encontrada = next(
+            (a for a in pendientes
+             if re.search(rf"\b{re.escape(_normalizar_nombre(a.nombre))}\b", t)),
+            None)
+        if not encontrada:
+            return None
+        aid, nombre = encontrada.id, encontrada.nombre
+    if verbo == "aprobar":
+        aprobar(aprobacion_id=aid, u=u)
+        return {"respuesta_hablada": f"Listo, aprobé {nombre.title()}. Ya entra al catálogo oficial.",
+                "accion": "actualizar", "destino": None, "pestana": None}
+    rechazar(aprobacion_id=aid, u=u)
+    return {"respuesta_hablada": f"Listo, rechacé {nombre.title()}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -543,6 +597,10 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         generado = _generar_reporte_por_voz(texto, u)
         if generado:
             return generado
+    if vista == "auditoria":
+        resuelta = _resolver_aprobacion_por_voz(texto, u)
+        if resuelta:
+            return resuelta
     destinos = dict(_DESTINOS_ASISTENTE)
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:

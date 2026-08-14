@@ -3,6 +3,7 @@ import { pedir, enviarTurno } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import AsistenteVoz from "../AsistenteVoz";
 
 const TABS = [
   { id: "recuento", t: "Recuento ciego y cierre" },
@@ -11,7 +12,7 @@ const TABS = [
   { id: "alertas", t: "Bandeja de alertas" },
 ];
 
-export default function Auditoria({ token, usuario }) {
+export default function Auditoria({ token, usuario, ir }) {
   const [tab, setTab] = useState("recuento");
   const [enFoco, setEnFoco] = useState(null); // { titulo, chip } para la vista activa
   const esAuditor = usuario?.perfil === "auditor";
@@ -31,6 +32,11 @@ export default function Auditoria({ token, usuario }) {
                   Ingrese como «diana» para probarlo.</span>
           </span>
         </div>
+      )}
+      {esAuditor && (
+        <AsistenteVoz token={token} vista="auditoria" ir={ir}
+                      placeholder="aprueba costilla de res, rechaza el kiosco…"
+                      alActualizar={() => window.dispatchEvent(new Event("cuentavoz:auditoria-actualizada"))} />
       )}
       <div className="chips">
         {TABS.map((tt) => (
@@ -433,6 +439,13 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
       .catch((e) => { setLista([]); setMsg(e.message); });
   }
   useEffect(cargar, [token]);
+  // El agente ("Pregúntele al agente", arriba de las pestañas) puede
+  // aprobar/rechazar por voz - cuando lo hace, avisa con este evento
+  // para que esta lista refleje el cambio sin recargar.
+  useEffect(() => {
+    window.addEventListener("cuentavoz:auditoria-actualizada", cargar);
+    return () => window.removeEventListener("cuentavoz:auditoria-actualizada", cargar);
+  }, [token]);
 
   useEffect(() => {
     onEnFoco({ titulo: "Aprobaciones pendientes",
