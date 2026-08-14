@@ -47,9 +47,12 @@ export default function Dialogo({
     // principio de la respuesta.
     await hablar(pregunta);
     if (miId !== idEscucha.current) return;
+    let obtuvoResultado = false;
+    let yaReintento = false;
     escuchar({
       alTexto: (respuesta) => {
         if (miId !== idEscucha.current) return;
+        obtuvoResultado = true;
         setConfirmando(false);
         // El botón de este diálogo en particular puede decir "Enviar",
         // "Solicitar", "Crear"... no solo "Aceptar" - decir esa misma
@@ -64,7 +67,21 @@ export default function Dialogo({
           setErrorVoz("No le entendí un «sí» o un «no». Use el botón para confirmar.");
         }
       },
-      alEstado: (e) => setEscuchando(e === "escuchando"),
+      alEstado: (e) => {
+        setEscuchando(e === "escuchando");
+        // El reconocedor del navegador se cierra solo tras unos segundos
+        // de silencio, sin avisar con un error (voz.js lo ignora a
+        // propósito) - sin esto, la pregunta se quedaba "colgada" en
+        // pantalla diciendo que estaba esperando un sí/no, cuando en
+        // realidad el micrófono ya se había apagado solo. Se vuelve a
+        // preguntar y a escuchar sola, en vez de obligar a tocar el
+        // micrófono de nuevo (lo que arrancaba una dictada nueva y
+        // borraba el mensaje ya armado).
+        if (e === "listo" && !obtuvoResultado && !yaReintento && miId === idEscucha.current) {
+          yaReintento = true;
+          preguntarConfirmacion(valorDictado, miId);
+        }
+      },
       alError: (e) => { setConfirmando(false); setErrorVoz(e); },
     });
   }
