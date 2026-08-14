@@ -37,6 +37,14 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
       // conexión en Ajustes) - la pantalla que lo pidió es quien sabe
       // cómo refrescar su propio dato, este componente no.
       if (r.accion === "actualizar" && alActualizar) alActualizar();
+      // Cualquier otra acción (ej. "mostrar_cobertura"/"ocultar_cobertura"
+      // para abrir/cerrar un panel especifico de la pantalla) se avisa
+      // como evento genérico - así un componente hijo que le interesa
+      // puede escucharlo sin que este componente necesite saber qué es
+      // cada pantalla ni acumular una prop nueva por cada acción.
+      if (r.accion && r.accion !== "navegar" && r.accion !== "actualizar") {
+        window.dispatchEvent(new CustomEvent(`cuentavoz:accion:${r.accion}`));
+      }
     } catch (e) {
       setError(e.message);
     }

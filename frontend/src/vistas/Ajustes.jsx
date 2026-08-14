@@ -17,6 +17,8 @@ const _EJEMPLOS_POR_PESTANA = {
     "quítale la bodega Panadería a Juan",
     "¿quién tiene la bodega Panadería?",
     "¿cuántas bodegas sin asignar hay?",
+    "muéstrame la asignación por bodega",
+    "oculta la asignación por bodega",
   ],
   recetas: [
     "crea una receta llamada Sopa, rendimiento 4 porciones, con 2 kilos de papa",
@@ -230,6 +232,20 @@ function TabUsuarios({ token, usuario }) {
   function cargarCobertura() {
     pedir("/api/bodegas/asignaciones", {}, token).then(setCobertura).catch(() => {});
   }
+
+  // "muéstrame/oculta la asignación por bodega" por voz - mismo botón
+  // «Ver/Ocultar asignación por bodega», solo que disparado por el
+  // agente en vez del clic.
+  useEffect(() => {
+    const mostrar = () => { setVerCobertura(true); cargarCobertura(); };
+    const ocultar = () => setVerCobertura(false);
+    window.addEventListener("cuentavoz:accion:mostrar_cobertura", mostrar);
+    window.addEventListener("cuentavoz:accion:ocultar_cobertura", ocultar);
+    return () => {
+      window.removeEventListener("cuentavoz:accion:mostrar_cobertura", mostrar);
+      window.removeEventListener("cuentavoz:accion:ocultar_cobertura", ocultar);
+    };
+  }, [token]);
 
   async function crear() {
     if (!nuevo?.nombre?.trim()) return;

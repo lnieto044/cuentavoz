@@ -354,9 +354,10 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "<bodega> a <nombre>» para lo mismo que el botón «Asignar bodegas» pero "
             "sumando o quitando solo esa bodega, no reemplazando toda la lista, y "
             "«¿quién tiene la bodega <bodega>?» o «¿cuántas bodegas sin asignar hay?» "
-            "para lo mismo que el botón «Ver asignación por bodega», respondido de "
-            "una en vez de abrir la tabla completa. En Recetas, un administrador "
-            "también puede decir «crea una receta llamada "
+            "para contestar una pregunta puntual sin abrir nada, y «muéstrame/oculta "
+            "la asignación por bodega» para abrir o cerrar la tabla completa - lo "
+            "mismo que el botón «Ver/Ocultar asignación por bodega». En Recetas, un "
+            "administrador también puede decir «crea una receta llamada "
             "<nombre>, rendimiento <N> porciones, con <cantidad> de <ingrediente>» "
             "(crea la receta con ese primer ingrediente ya resuelto contra el "
             "catálogo), «agrega <cantidad> de <ingrediente> a la receta <nombre>» "
@@ -445,8 +446,10 @@ _VERBOS_ABRIR_BODEGA = re.compile(
     re.IGNORECASE)
 
 _MODO_SIN_CONEXION = re.compile(r"sin conexi[oó]n", re.IGNORECASE)
-_ACTIVAR = re.compile(r"\b(activ[ae]|activar|enciend[ae]|encender|prend[ae]|prender)\b", re.IGNORECASE)
-_DESACTIVAR = re.compile(r"\b(desactiv[ae]|desactivar|apag[ae]|apagar|quit[ae]|quitar)\b", re.IGNORECASE)
+_ACTIVAR = re.compile(
+    r"\b(act[ií]v\w*|enc[ie][eé]nd\w*|prend\w*)\b", re.IGNORECASE)
+_DESACTIVAR = re.compile(
+    r"\b(desact[ií]v\w*|ap[aá]g\w*|qu[ií]t\w*)\b", re.IGNORECASE)
 
 
 def _cambiar_modo_sin_conexion(texto: str, u: Usuario) -> dict | None:
@@ -660,7 +663,7 @@ _PALABRAS_PESTANA = {
     },
 }
 _VERBOS_IR_PESTANA = re.compile(
-    r"\b(ir|ll[eé]va(me)?|vamos|ve|muestra(me)?|abre(me)?|ense[ñn]a(me)?)\b",
+    r"\b(ir|ll[eé]va(me)?|vamos|ve|mu[eé]stra(me)?|[aá]bre(me)?|ens[eé][ñn]a(me)?)\b",
     re.IGNORECASE)
 _ES_PREGUNTA_PESTANA = re.compile(r"[¿?]|\bcu[aá]nt|\bqu[eé]\b|\bcu[aá]l|\bpor qu[eé]", re.IGNORECASE)
 
@@ -690,8 +693,8 @@ def _navegar_pestana_por_voz(vista: str, texto: str) -> dict | None:
     return None
 
 
-_APROBAR_ITEM = re.compile(r"\baprueb\w*|\baprobar\b", re.IGNORECASE)
-_RECHAZAR_ITEM = re.compile(r"\brechaz\w*", re.IGNORECASE)
+_APROBAR_ITEM = re.compile(r"\bapru[eé]b\w*|\baprobar\b", re.IGNORECASE)
+_RECHAZAR_ITEM = re.compile(r"\brech[aá]z\w*", re.IGNORECASE)
 
 
 def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -938,8 +941,14 @@ def _asignar_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
         m = _QUITAR_BODEGA.search(texto.strip())
         quitar = True
     if not m:
+        # OJO: el verbo debe terminar justo en "a/ale/ar" (con \b después)
+        # para no confundirse con el SUSTANTIVO "asignación" - sin ese
+        # límite, "muéstrame la asignación por bodega" (que es la orden
+        # de abrir el panel, no de asignar nada) caía aquí por error,
+        # porque "asign" es raíz común de las dos palabras.
         if (re.search(r"\bbodega\b", texto, re.IGNORECASE)
-                and re.search(r"\bas[ií]gn\w*|\bqu[ií]t\w*", texto, re.IGNORECASE)
+                and re.search(r"\bas[ií]gn(?:a(?:le)?|ar)\b|\bqu[ií]t(?:a(?:le)?|ar)\b",
+                              texto, re.IGNORECASE)
                 and not _ES_PREGUNTA_PESTANA.search(texto)):
             return {"respuesta_hablada": "Diga: «asígnale/quítale la bodega» el nombre de "
                                          "la bodega «a» el nombre de la persona.",
@@ -1029,6 +1038,31 @@ def _consultar_asignacion_bodega_por_voz(texto: str, u: Usuario) -> dict | None:
             "accion": None, "destino": None, "pestana": None}
 
 
+_ABRIR_COBERTURA = re.compile(
+    r"\b(mu[eé]stra\w*|ens[eé][ñn]a\w*|[aá]bre\w*|ver)\b.*\basignaci[oó]n\b.*\bbodega",
+    re.IGNORECASE)
+_CERRAR_COBERTURA = re.compile(
+    r"\b(oc[uú]lta\w*|ci[eé]rra\w*|esc[oó]nde\w*)\b.*\basignaci[oó]n\b.*\bbodega",
+    re.IGNORECASE)
+
+
+def _alternar_cobertura_por_voz(texto: str, u: Usuario) -> dict | None:
+    """El botón «Ver/Ocultar asignación por bodega» abre o cierra la
+    tabla completa de 54 filas (quién tiene cada bodega) - a diferencia
+    de _consultar_asignacion_bodega_por_voz (que contesta una pregunta
+    puntual sin tocar la pantalla), esto es la orden de abrir/cerrar el
+    panel mismo, igual que el clic al botón."""
+    if u.perfil != "auditor":
+        return None
+    if _ABRIR_COBERTURA.search(texto):
+        return {"respuesta_hablada": "Listo, ahí tiene la asignación por bodega.",
+                "accion": "mostrar_cobertura", "destino": None, "pestana": None}
+    if _CERRAR_COBERTURA.search(texto):
+        return {"respuesta_hablada": "Listo, la oculto.",
+                "accion": "ocultar_cobertura", "destino": None, "pestana": None}
+    return None
+
+
 def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     """Lo que responde el agente liviano ante una pregunta suelta o una
     orden de navegar - usado tanto por /api/agente/asistente (Inicio,
@@ -1054,7 +1088,8 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     if vista == "ajustes":
         cambio = (_cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
                  or _crear_usuario_por_voz(texto, u) or _cambiar_perfil_por_voz(texto, u)
-                 or _asignar_bodega_por_voz(texto, u) or _consultar_asignacion_bodega_por_voz(texto, u)
+                 or _asignar_bodega_por_voz(texto, u) or _alternar_cobertura_por_voz(texto, u)
+                 or _consultar_asignacion_bodega_por_voz(texto, u)
                  or _crear_receta_por_voz(texto, u)
                  or _agregar_ingrediente_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
         if cambio:
