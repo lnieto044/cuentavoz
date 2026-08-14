@@ -786,6 +786,38 @@ _ELIMINAR_RECETA = re.compile(
     re.IGNORECASE)
 
 
+def _elegir_ingrediente_sin_ambiguedad(dicho: str) -> dict | None:
+    """buscar_articulo() puntúa por cobertura de palabras: una consulta
+    de una sola palabra genérica ("papa") saca 100% de cobertura contra
+    CUALQUIER artículo que la contenga, sin importar cuánto más tenga
+    ese nombre alrededor - confirmado con una captura real donde "papa"
+    empataba a 100 de confianza con "EMPANADA DE PAPA Y CARNE X50 GR",
+    "PAPA A LA FRANCESA" y "PAPA CABELLO DE ANGEL" por igual, y se
+    quedaba con el primero de la lista sin ningún criterio real. Igual
+    que buscar_bodega ya hace con bodegas ambiguas: mejor decir "sea
+    más específico" que adivinar mal en silencio y crear una receta con
+    el ingrediente equivocado."""
+    from servicios.conciliacion import buscar_articulo, normalizar
+    candidatos = buscar_articulo(dicho)
+    if not candidatos or candidatos[0]["confianza"] < 60:
+        return {"error": f"No encontré «{dicho}» en el catálogo. Dígalo como aparece "
+                         "en la etiqueta."}
+    tope = candidatos[0]["confianza"]
+    empatados = [c for c in candidatos if c["confianza"] == tope]
+    if len(empatados) > 1:
+        # Un empate NO es ambiguo si uno de ellos es el nombre EXACTO
+        # dicho ("papa criolla" == "PAPA CRIOLLA") - eso gana solo,
+        # aunque "PAPA CRIOLLA PRECOCIDA" haya empatado en puntaje.
+        clave = normalizar(dicho)
+        exacto = next((c for c in empatados if normalizar(c["nombre"]) == clave), None)
+        if exacto:
+            return {"articulo": exacto}
+        opciones = ", ".join(c["nombre"].title() for c in empatados)
+        return {"error": f"«{dicho}» es ambiguo, encontré varios parecidos: {opciones}. "
+                         "Dígalo más específico, como aparece completo en la etiqueta."}
+    return {"articulo": candidatos[0]}
+
+
 def _buscar_receta_por_nombre(s, nombre_dicho: str):
     """Una coincidencia EXACTA siempre gana primero: con dos recetas
     "Sopa" y "Sopa de la casa", decir "Sopa de la casa" no debe caer en
@@ -844,13 +876,11 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
         return {"respuesta_hablada": "No entendí el rendimiento o la cantidad. Dígalos en "
                                      "número, por ejemplo «cuatro porciones».",
                 "accion": None, "destino": None, "pestana": None}
-    from servicios.conciliacion import buscar_articulo
-    candidatos = buscar_articulo(m.group("ing"))
-    if not candidatos or candidatos[0]["confianza"] < 60:
-        return {"respuesta_hablada": f"No encontré «{m.group('ing')}» en el catálogo. "
-                                     "Dígalo como aparece en la etiqueta.",
+    elegido = _elegir_ingrediente_sin_ambiguedad(m.group("ing"))
+    if "error" in elegido:
+        return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
-    articulo = candidatos[0]
+    articulo = elegido["articulo"]
     with Sesion() as s:
         if s.query(Receta).filter(Receta.nombre.ilike(nombre)).first():
             return {"respuesta_hablada": f"Ya existe una receta llamada {nombre}.",
@@ -893,13 +923,11 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
         return {"respuesta_hablada": "No entendí la cantidad. Dígala en número, por "
                                      "ejemplo «trescientos gramos».",
                 "accion": None, "destino": None, "pestana": None}
-    from servicios.conciliacion import buscar_articulo
-    candidatos = buscar_articulo(m.group("ing"))
-    if not candidatos or candidatos[0]["confianza"] < 60:
-        return {"respuesta_hablada": f"No encontré «{m.group('ing')}» en el catálogo. "
-                                     "Dígalo como aparece en la etiqueta.",
+    elegido = _elegir_ingrediente_sin_ambiguedad(m.group("ing"))
+    if "error" in elegido:
+        return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
-    articulo = candidatos[0]
+    articulo = elegido["articulo"]
     with Sesion() as s:
         r = _buscar_receta_por_nombre(s, m.group("receta"))
         if not r:
