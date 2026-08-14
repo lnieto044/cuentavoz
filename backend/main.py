@@ -786,6 +786,19 @@ _ELIMINAR_RECETA = re.compile(
     re.IGNORECASE)
 
 
+# Memoria viva de una sola pregunta pendiente por persona: "crea una
+# receta... con papa" -> ambiguo -> la persona contesta solo "papa
+# criolla" en el siguiente turno, y eso completa la orden original en
+# vez de tener que repetirla entera. Mismo patron que ESTADOS en
+# agente/orquestador.py (memoria en RAM, se pierde si el servidor se
+# reinicia - aceptable aqui: en el peor caso, toca repetir la orden
+# completa, que es lo que ya se pedia antes de esto). Expira sola
+# despues de _VENCIMIENTO_AMBIGUEDAD segundos para no quedar pegada a
+# una respuesta que en realidad era para otra cosa, dicha mucho despues.
+_PENDIENTE_AMBIGUEDAD: dict[int, dict] = {}
+_VENCIMIENTO_AMBIGUEDAD = 90
+
+
 def _elegir_ingrediente_sin_ambiguedad(dicho: str) -> dict | None:
     """buscar_articulo() puntúa por cobertura de palabras: una consulta
     de una sola palabra genérica ("papa") saca 100% de cobertura contra
@@ -825,9 +838,11 @@ def _elegir_ingrediente_sin_ambiguedad(dicho: str) -> dict | None:
         # que la persona quiso decir que un producto elaborado con
         # media frase de más ("EMPANADA DE PAPA Y CARNE X50 GR").
         empatados.sort(key=lambda c: len(c["nombre"].split()))
-        opciones = ", ".join(c["nombre"].title() for c in empatados[:5])
+        mostrados = empatados[:5]
+        opciones = ", ".join(c["nombre"].title() for c in mostrados)
         return {"error": f"«{dicho}» es ambiguo, encontré varios parecidos: {opciones}. "
-                         "Dígalo más específico, como aparece completo en la etiqueta."}
+                         "Dígalo más específico, como aparece completo en la etiqueta.",
+                "opciones": mostrados}
     return {"articulo": candidatos[0]}
 
 
@@ -851,6 +866,25 @@ def _buscar_receta_por_nombre(s, nombre_dicho: str):
 _INTENCION_CREAR_RECETA = re.compile(
     r"\b(cre[ae]\w*|necesito|quiero)\b.*\brecetas?\b|\breceta\s+llamad[ao]\b",
     re.IGNORECASE)
+
+
+def _completar_crear_receta(nombre: str, rend: float, cant: float, articulo: dict,
+                            u: Usuario) -> dict:
+    with Sesion() as s:
+        if s.query(Receta).filter(Receta.nombre.ilike(nombre)).first():
+            return {"respuesta_hablada": f"Ya existe una receta llamada {nombre}.",
+                    "accion": None, "destino": None, "pestana": None}
+        r = Receta(nombre=nombre, rendimiento=int(rend), preparacion="")
+        s.add(r)
+        s.flush()
+        s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
+                                cantidad_por_porcion=float(cant)))
+        s.commit()
+    registrar(u, "RECETA", f"Receta creada: {nombre} (1 ingrediente) por voz", "ok")
+    return {"respuesta_hablada": f"Listo, creé la receta {nombre} con {articulo['nombre'].title()}. "
+                                 "Puede agregarle más ingredientes diciendo «agrega... a la "
+                                 f"receta {nombre}», o editarla desde la pantalla.",
+            "accion": "actualizar", "destino": None, "pestana": None}
 
 
 def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -891,28 +925,37 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
                 "accion": None, "destino": None, "pestana": None}
     elegido = _elegir_ingrediente_sin_ambiguedad(m.group("ing"))
     if "error" in elegido:
+        if "opciones" in elegido:
+            _PENDIENTE_AMBIGUEDAD[u.id] = {
+                "tipo": "crear_receta", "nombre": nombre, "rend": rend, "cant": cant,
+                "opciones": elegido["opciones"], "ts": datetime.now()}
         return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
-    articulo = elegido["articulo"]
-    with Sesion() as s:
-        if s.query(Receta).filter(Receta.nombre.ilike(nombre)).first():
-            return {"respuesta_hablada": f"Ya existe una receta llamada {nombre}.",
-                    "accion": None, "destino": None, "pestana": None}
-        r = Receta(nombre=nombre, rendimiento=int(rend), preparacion="")
-        s.add(r)
-        s.flush()
-        s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
-                                cantidad_por_porcion=float(cant)))
-        s.commit()
-    registrar(u, "RECETA", f"Receta creada: {nombre} (1 ingrediente) por voz", "ok")
-    return {"respuesta_hablada": f"Listo, creé la receta {nombre} con {articulo['nombre'].title()}. "
-                                 "Puede agregarle más ingredientes diciendo «agrega... a la "
-                                 f"receta {nombre}», o editarla desde la pantalla.",
-            "accion": "actualizar", "destino": None, "pestana": None}
+    return _completar_crear_receta(nombre, rend, cant, elegido["articulo"], u)
 
 
 _INTENCION_AGREGAR_INGREDIENTE = re.compile(
     r"\b(agr[eé]ga\w*|a[ñn]ad\w*)\b.*\breceta\b", re.IGNORECASE)
+
+
+def _completar_agregar_ingrediente(cantidad_nueva: float, receta_dicha: str,
+                                   articulo: dict, u: Usuario) -> dict | None:
+    with Sesion() as s:
+        r = _buscar_receta_por_nombre(s, receta_dicha)
+        if not r:
+            return None
+        lineas = s.query(RecetaIngrediente).filter_by(receta_id=r.id).all()
+        ya_tiene = next((li for li in lineas if li.articulo_codigo == articulo["codigo"]), None)
+        if ya_tiene:
+            ya_tiene.cantidad_por_porcion = cantidad_nueva
+        else:
+            s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
+                                    cantidad_por_porcion=cantidad_nueva))
+        s.commit()
+        nombre_receta = r.nombre
+    registrar(u, "RECETA", f"Receta editada: {nombre_receta} (ingrediente agregado por voz)", "ok")
+    return {"respuesta_hablada": f"Listo, agregué {articulo['nombre'].title()} a la receta {nombre_receta}.",
+            "accion": "actualizar", "destino": None, "pestana": None}
 
 
 def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -938,25 +981,46 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
                 "accion": None, "destino": None, "pestana": None}
     elegido = _elegir_ingrediente_sin_ambiguedad(m.group("ing"))
     if "error" in elegido:
+        if "opciones" in elegido:
+            _PENDIENTE_AMBIGUEDAD[u.id] = {
+                "tipo": "agregar_ingrediente", "cant": cantidad_nueva,
+                "receta": m.group("receta"), "opciones": elegido["opciones"],
+                "ts": datetime.now()}
         return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
-    articulo = elegido["articulo"]
-    with Sesion() as s:
-        r = _buscar_receta_por_nombre(s, m.group("receta"))
-        if not r:
-            return None
-        lineas = s.query(RecetaIngrediente).filter_by(receta_id=r.id).all()
-        ya_tiene = next((li for li in lineas if li.articulo_codigo == articulo["codigo"]), None)
-        if ya_tiene:
-            ya_tiene.cantidad_por_porcion = cantidad_nueva
-        else:
-            s.add(RecetaIngrediente(receta_id=r.id, articulo_codigo=articulo["codigo"],
-                                    cantidad_por_porcion=cantidad_nueva))
-        s.commit()
-        nombre_receta = r.nombre
-    registrar(u, "RECETA", f"Receta editada: {nombre_receta} (ingrediente agregado por voz)", "ok")
-    return {"respuesta_hablada": f"Listo, agregué {articulo['nombre'].title()} a la receta {nombre_receta}.",
-            "accion": "actualizar", "destino": None, "pestana": None}
+    return _completar_agregar_ingrediente(cantidad_nueva, m.group("receta"),
+                                          elegido["articulo"], u)
+
+
+def _resolver_ambiguedad_pendiente(texto: str, u: Usuario) -> dict | None:
+    """Si la última respuesta de esta persona fue "es ambiguo, encontré
+    Papa Sabanera, Papa Criolla, Papa Pastusa..." y en este turno dice
+    solo "papa pastusa" (sin repetir la orden completa), esto retoma la
+    orden original con ese ingrediente ya resuelto. Se revisa AL FINAL
+    de la cadena de comandos de Ajustes, después de que crear/agregar
+    ya tuvieron su oportunidad de matchear la frase completa - así una
+    orden repetida entera (en vez de solo el nombre corto) sigue
+    tomando el camino normal, con sus datos frescos, no los guardados
+    aquí de la vez anterior."""
+    pendiente = _PENDIENTE_AMBIGUEDAD.get(u.id)
+    if not pendiente:
+        return None
+    if (datetime.now() - pendiente["ts"]).total_seconds() > _VENCIMIENTO_AMBIGUEDAD:
+        del _PENDIENTE_AMBIGUEDAD[u.id]
+        return None
+    t = _normalizar_nombre(texto)
+    elegido = next(
+        (c for c in pendiente["opciones"]
+         if re.search(rf"\b{re.escape(_normalizar_nombre(c['nombre']))}\b", t)
+         or re.search(rf"\b{re.escape(t)}\b", _normalizar_nombre(c["nombre"]))),
+        None)
+    if not elegido:
+        return None
+    del _PENDIENTE_AMBIGUEDAD[u.id]
+    if pendiente["tipo"] == "crear_receta":
+        return _completar_crear_receta(pendiente["nombre"], pendiente["rend"],
+                                       pendiente["cant"], elegido, u)
+    return _completar_agregar_ingrediente(pendiente["cant"], pendiente["receta"], elegido, u)
 
 
 def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -1279,6 +1343,13 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "accion": "navegar", "destino": "conteo", "pestana": None,
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
+        # identidad (no solo presencia) de lo que había pendiente ANTES
+        # de este turno - crear_receta/agregar_ingrediente pueden dejar
+        # una ambigüedad NUEVA en el mismo turno (cambio ya sale
+        # "truthy" con el mensaje de "es ambiguo...") y esa no se debe
+        # borrar; solo se limpia la que YA estaba ahí sin que nada de
+        # este turno la haya tocado.
+        pendiente_antes = _PENDIENTE_AMBIGUEDAD.get(u.id)
         cambio = (_cambiar_modo_sin_conexion(texto, u) or _cambiar_estado_usuario(texto, u)
                  or _crear_usuario_por_voz(texto, u) or _cambiar_perfil_por_voz(texto, u)
                  or _asignar_bodega_por_voz(texto, u) or _alternar_cobertura_por_voz(texto, u)
@@ -1287,7 +1358,17 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                  or _agregar_ingrediente_por_voz(texto, u) or _quitar_ingrediente_por_voz(texto, u)
                  or _cambiar_rendimiento_por_voz(texto, u) or _eliminar_receta_por_voz(texto, u))
         if cambio:
+            # una orden distinta que sí coincidió significa que la
+            # persona siguió para otra cosa - una pregunta ambigua sin
+            # contestar de hace un rato no debe "resucitar" más tarde
+            # por una frase corta que por casualidad se parezca a una
+            # de esas opciones viejas.
+            if _PENDIENTE_AMBIGUEDAD.get(u.id) is pendiente_antes:
+                _PENDIENTE_AMBIGUEDAD.pop(u.id, None)
             return cambio
+        resuelta_pendiente = _resolver_ambiguedad_pendiente(texto, u)
+        if resuelta_pendiente:
+            return resuelta_pendiente
     if vista == "reportes":
         generado = _generar_reporte_por_voz(texto, u)
         if generado:
