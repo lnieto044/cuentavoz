@@ -1074,6 +1074,13 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     if u.perfil != "auditor":
         for k in _SOLO_AUDITOR_ASISTENTE:
             destinos.pop(k, None)
+    # Sin esto, Gemini podia "sugerir" ir a la pantalla en la que la
+    # persona YA esta (confirmado: ofrecio "llevarla a Gestion de
+    # usuarios" estando ella ahi mismo) - una orden real de cambiar de
+    # PESTAÑA dentro de la misma pantalla ya se resolvio antes, arriba
+    # (_navegar_pestana_por_voz), asi que si el mensaje llega hasta aqui
+    # nunca es eso.
+    destinos.pop(vista, None)
     contexto = _contexto_asistente(vista, u)
     from agente.cerebro import pensar_asistente
     turno = pensar_asistente(contexto, texto, destinos, _PESTANAS_ASISTENTE)
