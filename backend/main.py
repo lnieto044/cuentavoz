@@ -302,6 +302,8 @@ _PESTANAS_ASISTENTE = {
     "ajustes": {"config": "Configuración", "usuarios": "Gestión de usuarios",
                "recetas": "Recetas", "traza": "Registro de trazabilidad"},
     "panel": {"resumen": "Resumen ejecutivo", "alertas": "Bodegas y alertas"},
+    "auditoria": {"recuento": "Recuento ciego y cierre", "aprobaciones": "Aprobaciones",
+                 "pedidos": "Pedidos pendientes", "alertas": "Bandeja de alertas"},
 }
 
 _FAQ_ASISTENTE = [
@@ -539,21 +541,38 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 "«muéstrame el archivo de <consolidado o diferencias>» para ver su "
                 "contenido, igual que darle clic a la tarjeta.")
     if vista == "auditoria" and u.perfil == "auditor":
-        with Sesion() as s:
-            pendientes = s.query(Aprobacion).filter_by(estado="pendiente").all()
-        nombres = "; ".join(a.nombre for a in pendientes) if pendientes else "ninguno"
-        return (f"Pantalla: Auditoría. Pestaña Aprobaciones: {len(pendientes)} "
-                f"pendientes ({nombres}). Si el mensaje que está viendo llegó hasta "
-                "usted, es porque «aprueba <nombre>» o «rechaza <nombre>» NO "
-                "encontró ese nombre exacto entre los pendientes recién listados - "
-                "esa aprobación/rechazo YA se resuelve antes de llegar aquí cuando "
-                "el nombre coincide, así que usted NUNCA debe decir que ya aprobó o "
-                "rechazó algo (sería falso: no tiene esa capacidad). Dígalo con "
-                "honestidad: que no encontró un pendiente con ese nombre exacto, y "
-                "sugiera decir el nombre completo tal como aparece en la lista. El "
-                "recuento ciego (dictar productos, comparar, cerrar con firma) y "
-                "los pedidos pendientes todavía no se manejan desde aquí por voz - "
-                "esos siguen necesitando los controles de la pantalla.")
+        d = _datos_auditoria_narrados(u)
+        ra = d["resumen_alertas"]
+        nombres_aprob = ("; ".join(a["nombre"].title() for a in d["aprobaciones"])
+                         if d["aprobaciones"] else "ninguna")
+        nombres_pedidos = ("; ".join(f"{p['persona'].title()}: {p['plato']}" for p in d["pedidos"])
+                           if d["pedidos"] else "ninguno")
+        return (f"Pantalla: Auditoría, con cuatro pestañas: «Recuento ciego y cierre», "
+                f"«Aprobaciones», «Pedidos pendientes» y «Bandeja de alertas» - decir el "
+                f"nombre de cualquiera (o «llévame a...») navega directo a ella. "
+                f"Pestaña Aprobaciones: {len(d['aprobaciones'])} pendientes "
+                f"({nombres_aprob}) - «aprueba/rechaza <nombre>» resuelve una. "
+                f"Pestaña Pedidos pendientes: {len(d['pedidos'])} pendientes "
+                f"({nombres_pedidos}) - «aprueba/rechaza el pedido de <persona o plato>» "
+                f"resuelve uno. Pestaña Bandeja de alertas: {ra['abiertas']} abiertas, "
+                f"{ra['resueltas_hoy']} resueltas hoy, tiempo medio "
+                f"{ra['tiempo_medio_min'] if ra['tiempo_medio_min'] is not None else '—'} "
+                "minutos - «resuelve la alerta de <artículo o bodega>» resuelve una. "
+                "Pestaña Recuento ciego y cierre: «audita <bodega>» o «abre <bodega>» "
+                "selecciona esa bodega lista para recuento o cierre, igual que darle clic "
+                "a «Abrir» en su tarjeta - desde ahí, dictar los productos SÍ es por voz "
+                "con el micrófono normal de esa pantalla (igual que en Conteo). Pero "
+                "«Iniciar recuento ciego», «Ver comparación», «Aceptar todas», «Cerrar con "
+                "doble firma», firmar con PIN o huella, y «Cerrar bodega definitivamente» "
+                "son A PROPÓSITO solo manuales - nadie cierra una bodega con doble firma "
+                "por accidente con la voz. Si el mensaje llegó hasta usted es porque "
+                "«aprueba/rechaza <nombre>», «aprueba/rechaza el pedido de <...>», "
+                "«resuelve la alerta de <...>» o «audita <bodega>» NO encontraron ese "
+                "nombre exacto entre lo recién listado - esas acciones YA se resuelven "
+                "antes de llegar aquí cuando el nombre coincide, así que usted NUNCA debe "
+                "decir que ya aprobó, rechazó, resolvió o abrió algo (sería falso: no "
+                "tiene esa capacidad desde aquí). Dígalo con honestidad y sugiera repetirlo "
+                "con el nombre completo tal como aparece en la pantalla.")
     if vista == "ayuda":
         faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
         return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
@@ -790,9 +809,16 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
                                      f"{d['bodegas_con_descuadre']} bodegas con descuadre.",
                 "accion": "actualizar", "destino": None, "pestana": "consolidado"}
     if _REP_ANALISIS.search(texto):
-        exportar_analisis(formato="xlsx", dias=30, u=u)
+        # a diferencia del consolidado/diferencias (que solo generan y
+        # dejan una vista previa - descargar es un clic aparte, igual por
+        # voz que a mano), el botón "Exportar análisis" SÍ descarga de
+        # una vez: sin "descargar_reporte" aquí, pedirlo por voz creaba
+        # el archivo en el servidor pero nunca llegaba al dispositivo -
+        # la persona no notaba nada distinto de antes de pedirlo.
+        d = exportar_analisis(formato="xlsx", dias=30, u=u)
         return {"respuesta_hablada": "Listo, exporté el análisis de consumo de los últimos 30 días.",
-                "accion": "actualizar", "destino": None, "pestana": "analisis"}
+                "accion": "descargar_reporte", "destino": None, "pestana": "analisis",
+                "archivo": d["archivo"]}
     if _REP_CONSOLIDADO.search(texto):
         d = reporte(formato="xlsx", u=u)
         return {"respuesta_hablada": f"Listo, generé el consolidado: {d['filas']} filas.",
@@ -929,6 +955,12 @@ _PALABRAS_PESTANA = {
         "resumen": re.compile(r"resumen", re.IGNORECASE),
         "alertas": re.compile(r"\balertas\b", re.IGNORECASE),
     },
+    "auditoria": {
+        "recuento": re.compile(r"recuento|recont[ae]o|\bcierre\b", re.IGNORECASE),
+        "aprobaciones": re.compile(r"aprobaciones", re.IGNORECASE),
+        "pedidos": re.compile(r"pedidos", re.IGNORECASE),
+        "alertas": re.compile(r"\balertas\b", re.IGNORECASE),
+    },
 }
 _VERBOS_IR_PESTANA = re.compile(
     r"\b(ir|ll[eé]va(me)?|vamos|ve|mu[eé]stra(me)?|[aá]bre(me)?|ens[eé][ñn]a(me)?)\b",
@@ -997,6 +1029,134 @@ def _resolver_aprobacion_por_voz(texto: str, u: Usuario) -> dict | None:
     rechazar(aprobacion_id=aid, u=u)
     return {"respuesta_hablada": f"Listo, rechacé {nombre.title()}.",
             "accion": "actualizar", "destino": None, "pestana": None}
+
+
+_APROBAR_RECHAZAR_PEDIDO = re.compile(
+    r"\b(apru[eé]b\w*|rech[aá]z\w*)\b.*\bpedido\b|\bpedido\b.*\b(apru[eé]b\w*|rech[aá]z\w*)\b",
+    re.IGNORECASE)
+
+
+def _resolver_pedido_pendiente_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Aprueba/rechaza el pedido de <persona o plato>" desde Auditoría
+    (pestaña Pedidos pendientes) - mismo patrón que _resolver_aprobacion_por_voz,
+    pero exige la palabra "pedido" para no competir con aprobar/rechazar
+    un producto o bodega nueva, que es otra lista con los mismos verbos."""
+    if u.perfil != "auditor" or not _APROBAR_RECHAZAR_PEDIDO.search(texto):
+        return None
+    if _APROBAR_ITEM.search(texto):
+        aprobar_bool = True
+    elif _RECHAZAR_ITEM.search(texto):
+        aprobar_bool = False
+    else:
+        return None
+    t = _normalizar_nombre(texto)
+    pendientes = pedidos_pendientes(u=u)
+    if not pendientes:
+        return {"respuesta_hablada": "No hay pedidos pendientes de aprobación.",
+                "accion": None, "destino": None, "pestana": "pedidos"}
+    encontrado = next(
+        (p for p in pendientes
+         if (p["persona"] and p["persona"] != "—"
+             and re.search(rf"\b{re.escape(_normalizar_nombre(p['persona']))}\b", t))
+         or re.search(rf"\b{re.escape(_normalizar_nombre(p['plato']))}\b", t)),
+        None)
+    if not encontrado:
+        return None
+    resolver_pedido(numero_pedido=encontrado["numero_pedido"],
+                    datos=ResolverPedidoIn(aprobar=aprobar_bool), u=u)
+    verbo_pasado = "aprobé" if aprobar_bool else "rechacé"
+    return {"respuesta_hablada": f"Listo, {verbo_pasado} el pedido de "
+                                 f"{encontrado['persona'].title()}: {encontrado['plato']}.",
+            "accion": "actualizar", "destino": None, "pestana": "pedidos"}
+
+
+_RESOLVER_ALERTA = re.compile(r"\bresuelve\w*|\bresolver\b", re.IGNORECASE)
+
+
+def _resolver_alerta_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Resuelve la alerta de <artículo o bodega>" desde Auditoría
+    (pestaña Bandeja de alertas) - mismo patrón determinístico, busca
+    entre las alertas abiertas por el artículo o la bodega que mencionan."""
+    if u.perfil != "auditor" or not _RESOLVER_ALERTA.search(texto):
+        return None
+    abiertas = ver_alertas(resueltas=0, u=u)
+    if not abiertas:
+        return {"respuesta_hablada": "No hay alertas abiertas.",
+                "accion": None, "destino": None, "pestana": "alertas"}
+    t = _normalizar_nombre(texto)
+    encontrada = next(
+        (a for a in abiertas
+         if (a["articulo"] and re.search(rf"\b{re.escape(_normalizar_nombre(a['articulo']))}\b", t))
+         or (a["bodega"] and re.search(rf"\b{re.escape(_normalizar_nombre(a['bodega']))}\b", t))),
+        None)
+    if not encontrada:
+        return None
+    resolver_alerta(alerta_id=encontrada["id"], u=u)
+    detalle = encontrada["articulo"] or encontrada["bodega"] or encontrada["titulo"]
+    return {"respuesta_hablada": f"Listo, resolví la alerta de {detalle.title()}.",
+            "accion": "actualizar", "destino": None, "pestana": "alertas"}
+
+
+_VERBOS_AUDITAR_BODEGA = re.compile(r"\b(abr[ae]|abrir|audit\w*)\b", re.IGNORECASE)
+
+
+def _abrir_bodega_para_auditoria_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Audita <bodega>" / "abre <bodega>" desde Auditoría (pestaña
+    Recuento ciego y cierre) - selecciona esa bodega, lo mismo que darle
+    clic a "Abrir" en su tarjeta. A propósito NO llega hasta firmar ni
+    cerrar: eso sigue siendo manual, es la garantía de un cierre con
+    doble firma que nadie dispara sin querer con la voz."""
+    if u.perfil != "auditor" or not _VERBOS_AUDITAR_BODEGA.search(texto):
+        return None
+    from servicios.conciliacion import buscar_bodega
+    with Sesion() as s:
+        candidatas_ids = {b.id for b in s.query(Bodega)
+                          .filter(Bodega.estado.in_(["en_auditoria", "cerrada"])).all()}
+        if not candidatas_ids:
+            return {"respuesta_hablada": "No hay ninguna bodega lista para recuento ciego o "
+                                         "cierre en este momento.",
+                    "accion": None, "destino": None, "pestana": "recuento"}
+        bodega = buscar_bodega(s, texto, candidatas_ids)
+    if not bodega:
+        return None
+    return {"respuesta_hablada": f"Vamos a auditar {bodega.nombre_oficial.title()}.",
+            "accion": "navegar", "destino": "auditoria", "pestana": "recuento",
+            "bodega_auditar": bodega.nombre_oficial}
+
+
+def _datos_auditoria_narrados(u: Usuario) -> dict:
+    return {"resumen_alertas": resumen_alertas(u=u), "pedidos": pedidos_pendientes(u=u),
+            "aprobaciones": listar_aprobaciones(estado="pendiente", u=u)}
+
+
+_AUDITORIA_PREGUNTAS = [
+    (re.compile(r"\bcu[aá]nt\w*\s+alertas\b.*\babiertas\b|\balertas\s+abiertas\b", re.IGNORECASE),
+     lambda d: f"Hay {d['resumen_alertas']['abiertas']} alertas abiertas."),
+    (re.compile(r"\bcu[aá]nt\w*\b.*\bresolvieron\s+hoy\b|\bresueltas\s+hoy\b", re.IGNORECASE),
+     lambda d: f"Se resolvieron {d['resumen_alertas']['resueltas_hoy']} alertas hoy."),
+    (re.compile(r"\btiempo\s+medio\b", re.IGNORECASE),
+     lambda d: (f"El tiempo medio de resolución es de "
+               f"{d['resumen_alertas']['tiempo_medio_min']} minutos."
+               if d["resumen_alertas"]["tiempo_medio_min"] is not None else
+               "Todavía no se ha resuelto ninguna alerta hoy para calcular el tiempo medio.")),
+    (re.compile(r"\bcu[aá]nt\w*\s+pedidos\b.*\bpendientes\b", re.IGNORECASE),
+     lambda d: (f"Hay {len(d['pedidos'])} pedidos pendientes de aprobación."
+               if d["pedidos"] else "No hay pedidos pendientes de aprobación.")),
+    (re.compile(r"\bcu[aá]nt\w*\s+aprobaciones\b", re.IGNORECASE),
+     lambda d: (f"Hay {len(d['aprobaciones'])} aprobaciones pendientes: " +
+               "; ".join(a["nombre"].title() for a in d["aprobaciones"][:6]) + "."
+               if d["aprobaciones"] else "No hay aprobaciones pendientes.")),
+]
+
+
+def _responder_auditoria_por_voz(texto: str, u: Usuario) -> dict | None:
+    if u.perfil != "auditor":
+        return None
+    for patron, respuesta in _AUDITORIA_PREGUNTAS:
+        if patron.search(texto):
+            return {"respuesta_hablada": respuesta(_datos_auditoria_narrados(u)),
+                    "accion": None, "destino": None, "pestana": None}
+    return None
 
 
 _UNIDADES_RECETA = r"kilos?|kg|litros?|lt|unidades?|und?|gramos?|gr"
@@ -1772,6 +1932,18 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         resuelta = _resolver_aprobacion_por_voz(texto, u)
         if resuelta:
             return resuelta
+        resuelto_pedido = _resolver_pedido_pendiente_por_voz(texto, u)
+        if resuelto_pedido:
+            return resuelto_pedido
+        resuelta_alerta = _resolver_alerta_por_voz(texto, u)
+        if resuelta_alerta:
+            return resuelta_alerta
+        auditada = _abrir_bodega_para_auditoria_por_voz(texto, u)
+        if auditada:
+            return auditada
+        respondida = _responder_auditoria_por_voz(texto, u)
+        if respondida:
+            return respondida
     if vista == "panel":
         respondida = _responder_panel_por_voz(texto, u)
         if respondida:

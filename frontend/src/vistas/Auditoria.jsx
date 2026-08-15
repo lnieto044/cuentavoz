@@ -12,8 +12,24 @@ const TABS = [
   { id: "alertas", t: "Bandeja de alertas" },
 ];
 
-export default function Auditoria({ token, usuario, ir }) {
-  const [tab, setTab] = useState("recuento");
+// Ejemplos de lo que ya entiende el agente en esta pantalla: navegar entre
+// las cuatro pestañas, resolver aprobaciones/pedidos/alertas por nombre,
+// seleccionar una bodega para auditar, y preguntar por los pendientes.
+const _EJEMPLOS_AUDITORIA = [
+  "aprueba costilla de res", "rechaza el kiosco nuevo", "aprueba el pedido de Luis",
+  "rechaza el pedido de sopa de arroz", "resuelve la alerta de papa criolla",
+  "audita el almacén general", "recuento ciego y cierre", "aprobaciones",
+  "pedidos pendientes", "bandeja de alertas", "¿cuántas alertas están abiertas?",
+  "¿cuántas se resolvieron hoy?", "¿cuál es el tiempo medio?",
+  "¿cuántos pedidos están pendientes?", "¿cuántas aprobaciones hay?",
+];
+
+export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAuditar }) {
+  const [tab, setTab] = useState(tabInicial || "recuento");
+  // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
+  // componente - sin esto, el useState de arriba no vuelve a leer
+  // tabInicial y la pestaña se queda en la que ya estaba.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
   const [enFoco, setEnFoco] = useState(null); // { titulo, chip } para la vista activa
   const esAuditor = usuario?.perfil === "auditor";
 
@@ -34,7 +50,7 @@ export default function Auditoria({ token, usuario, ir }) {
         </div>
       )}
       {esAuditor && (
-        <AsistenteVoz token={token} vista="auditoria" ir={ir}
+        <AsistenteVoz token={token} vista="auditoria" ir={ir} ejemplos={_EJEMPLOS_AUDITORIA}
                       placeholder="aprueba costilla de res, rechaza el kiosco…"
                       alActualizar={() => window.dispatchEvent(new Event("cuentavoz:auditoria-actualizada"))} />
       )}
@@ -45,7 +61,9 @@ export default function Auditoria({ token, usuario, ir }) {
         ))}
       </div>
 
-      {tab === "recuento" && <TabRecuento token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
+      {tab === "recuento" &&
+        <TabRecuento token={token} esAuditor={esAuditor} onEnFoco={setEnFoco}
+                    bodegaAuditar={bodegaAuditar} />}
       {tab === "aprobaciones" && <TabAprobaciones token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "pedidos" && <TabPedidosPendientes token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "alertas" && <TabAlertas token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
@@ -54,7 +72,7 @@ export default function Auditoria({ token, usuario, ir }) {
 }
 
 /* ── Recuento ciego + cierre con doble firma ── */
-function TabRecuento({ token, esAuditor, onEnFoco }) {
+function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
   const [bodegas, setBodegas] = useState(null);
   const [bodegaId, setBodegaId] = useState(null);
   const [sesion, setSesion] = useState(null);
@@ -82,6 +100,17 @@ function TabRecuento({ token, esAuditor, onEnFoco }) {
   useEffect(cargarBodegas, [token]);
 
   const candidatas = (bodegas || []).filter((b) => b.estado === "en_auditoria" || b.estado === "cerrada");
+
+  // "Audita <bodega>" por voz llega hasta aquí como bodegaAuditar - lo
+  // mismo que darle clic a "Abrir" en su tarjeta, sin tocar firmar/cerrar.
+  // Depende solo de bodegaAuditar (no de candidatas/bodegaId) para no
+  // reabrirla sola si la persona ya le dio "Volver a la lista" a mano.
+  useEffect(() => {
+    if (!bodegaAuditar) return;
+    const encontrada = candidatas.find((b) => b.bodega === bodegaAuditar);
+    if (encontrada) { setBodegaId(encontrada.id); verFirmas(encontrada.id); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodegaAuditar]);
 
   useEffect(() => {
     if (!bodegaId) { onEnFoco(null); return; }
@@ -523,6 +552,10 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
       .catch((e) => { setLista([]); setMsg(e.message); });
   }
   useEffect(cargar, [token]);
+  useEffect(() => {
+    window.addEventListener("cuentavoz:auditoria-actualizada", cargar);
+    return () => window.removeEventListener("cuentavoz:auditoria-actualizada", cargar);
+  }, [token]);
 
   useEffect(() => {
     onEnFoco({ titulo: "Pedidos pendientes de aprobación",
@@ -606,6 +639,10 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
     pedir("/api/alertas/resumen", {}, token).then(setResumen).catch(() => {});
   }
   useEffect(cargar, [token]);
+  useEffect(() => {
+    window.addEventListener("cuentavoz:auditoria-actualizada", cargar);
+    return () => window.removeEventListener("cuentavoz:auditoria-actualizada", cargar);
+  }, [token]);
 
   useEffect(() => {
     onEnFoco({ titulo: "Auditoría  ·  Bandeja de alertas",

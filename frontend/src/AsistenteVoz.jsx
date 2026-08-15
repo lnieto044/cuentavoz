@@ -50,8 +50,10 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         // pegada y aparecia en un destino que no la tiene. Lo mismo para
         // bodegaSugerida: sin fijarlo a undefined cuando no aplica, un
         // "abra kiosco" pedido antes se quedaba pegado y la próxima vez
-        // que se entraba a Conteo por otro camino la abría sola.
-        ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined });
+        // que se entraba a Conteo por otro camino la abría sola. Lo mismo
+        // para bodegaAuditar, su equivalente en Auditoría.
+        ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined,
+                        bodegaAuditar: r.bodega_auditar || undefined });
       }
       // "actualizar": el agente cambió algo de verdad (ej. el modo sin
       // conexión en Ajustes) - la pantalla que lo pidió es quien sabe

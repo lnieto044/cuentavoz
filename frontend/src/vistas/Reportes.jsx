@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
+import Icono from "../Iconos";
 
 const fmt = (n) => Number(n ?? 0).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
@@ -255,6 +256,22 @@ function TabAnalisis({ token }) {
       setMsg("Análisis exportado y descargado.");
     } catch (e) { setErr(e.message); }
   }
+  // "Exporta el análisis de consumo" por voz ya creó el archivo en el
+  // servidor (el backend respondió con accion:"descargar_reporte" y el
+  // nombre del archivo) - falta el mismo paso que hace el botón: bajarlo
+  // de verdad al dispositivo.
+  useEffect(() => {
+    async function alDescargarPorVoz(e) {
+      if (!e.detail?.archivo) return;
+      setErr(""); setMsg("");
+      try {
+        await descargarReporte(e.detail.archivo, token);
+        setMsg("Análisis exportado y descargado.");
+      } catch (err) { setErr(err.message); }
+    }
+    window.addEventListener("cuentavoz:accion:descargar_reporte", alDescargarPorVoz);
+    return () => window.removeEventListener("cuentavoz:accion:descargar_reporte", alDescargarPorVoz);
+  }, [token]);
 
   if (err) return <p className="error">{err}</p>;
   if (!analisis) return <p className="cargando">Cargando…</p>;
@@ -337,7 +354,11 @@ function TabAnalisis({ token }) {
             es del chef: el agente solo muestra el patrón.
           </p>
           <div className="grilla-botones">
-            <button className="btn" onClick={exportar}>Exportar análisis</button>
+            <button className="btn verde" onClick={exportar}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="descargar" tam={18} />
+              Exportar análisis
+            </button>
           </div>
         </div>
       )}
