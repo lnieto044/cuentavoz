@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
 import { configurarVoz, detenerVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
@@ -63,6 +63,14 @@ export default function App() {
   const [vista, setVista] = useState("inicio");
   const [ctx, setCtx] = useState({ sesionId: 1 });
   const [salir, setSalir] = useState(false);
+  // Contador que sube en cada ir(): las pantallas con pestañas usan
+  // [tabInicial, navSeq] como dependencia de su useEffect en vez de solo
+  // [tabInicial] - sin navSeq, pedir por voz la MISMA pestaña dos veces
+  // seguidas (con un clic manual a otra pestaña en el medio) no cambiaba
+  // nada, porque tabInicial ya traía ese mismo valor de la vez anterior y
+  // React no vuelve a correr un efecto cuya dependencia no cambió de
+  // valor, aunque la persona sí haya navegado a otro lado desde entonces.
+  const navSeq = useRef(0);
 
   /** Navega y pasa contexto: ir("bodegas", { bodegaId: 3 }) */
   function ir(destino, contexto = {}) {
@@ -71,7 +79,8 @@ export default function App() {
     // reproducirse sola varios segundos después, ya con otra pantalla en
     // uso - sonaba como si el agente hablara de la nada, fuera de tema.
     detenerVoz();
-    setCtx((c) => ({ ...c, ...contexto }));
+    navSeq.current += 1;
+    setCtx((c) => ({ ...c, ...contexto, navSeq: navSeq.current }));
     setVista(destino);
   }
 

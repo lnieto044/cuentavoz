@@ -25,12 +25,17 @@ const _EJEMPLOS_AUDITORIA = [
   "¿cuántos pedidos están pendientes?", "¿cuántas aprobaciones hay?",
 ];
 
-export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAuditar }) {
+export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAuditar, navSeq }) {
   const [tab, setTab] = useState(tabInicial || "recuento");
   // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
   // componente - sin esto, el useState de arriba no vuelve a leer
-  // tabInicial y la pestaña se queda en la que ya estaba.
-  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
+  // tabInicial y la pestaña se queda en la que ya estaba. navSeq (sube en
+  // cada ir()) va en la dependencia también: sin él, pedir la MISMA
+  // pestaña dos veces seguidas (con un clic manual a otra en el medio) no
+  // hacía nada, porque tabInicial no cambiaba de valor - confirmado con
+  // Playwright: "pedidos pendientes" -> clic a Aprobaciones -> "pedidos
+  // pendientes" otra vez se quedaba en Aprobaciones.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial, navSeq]);
   const [enFoco, setEnFoco] = useState(null); // { titulo, chip } para la vista activa
   const esAuditor = usuario?.perfil === "auditor";
 
@@ -64,7 +69,7 @@ export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAudita
 
       {tab === "recuento" &&
         <TabRecuento token={token} esAuditor={esAuditor} onEnFoco={setEnFoco}
-                    bodegaAuditar={bodegaAuditar} />}
+                    bodegaAuditar={bodegaAuditar} navSeq={navSeq} />}
       {tab === "aprobaciones" && <TabAprobaciones token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "pedidos" && <TabPedidosPendientes token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "alertas" && <TabAlertas token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
@@ -73,7 +78,7 @@ export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAudita
 }
 
 /* ── Recuento ciego + cierre con doble firma ── */
-function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
+function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
   const [bodegas, setBodegas] = useState(null);
   const [bodegaId, setBodegaId] = useState(null);
   const [sesion, setSesion] = useState(null);
@@ -136,7 +141,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
     const encontrada = candidatas.find((b) => b.bodega === bodegaAuditar);
     if (encontrada) { setBodegaId(encontrada.id); verFirmas(encontrada.id); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bodegaAuditar]);
+  }, [bodegaAuditar, navSeq]);
 
   useEffect(() => {
     if (!bodegaId) { onEnFoco(null); return; }

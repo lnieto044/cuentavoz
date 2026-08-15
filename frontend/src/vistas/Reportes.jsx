@@ -39,12 +39,15 @@ const _EJEMPLOS_REPORTES = [
   "¿cuántos insumos están subutilizados?", "¿cuál insumo tiene más sobrepedido?",
 ];
 
-export default function Reportes({ token, usuario, ir, tabInicial }) {
+export default function Reportes({ token, usuario, ir, tabInicial, navSeq }) {
   const [tab, setTab] = useState(tabInicial || "consolidado");
   // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
   // componente - sin esto, el useState de arriba no vuelve a leer
-  // tabInicial y la pestaña se queda en la que ya estaba.
-  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
+  // tabInicial y la pestaña se queda en la que ya estaba. navSeq (sube en
+  // cada ir()) va en la dependencia también: sin él, pedir la MISMA
+  // pestaña dos veces seguidas (con un clic manual a otra en el medio)
+  // no hacía nada, porque tabInicial no cambiaba de valor.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial, navSeq]);
 
   return (
     <Marco titulo={tab === "consolidado" ? "Reportes  ·  consolidado de la toma"
@@ -200,8 +203,16 @@ function TabConsolidado({ token }) {
           })
         )}
         <div className="grilla-botones" style={{ marginTop: 4 }}>
-          <button className="btn" onClick={() => generarConsolidado("xlsx")}>Generar consolidado</button>
-          <button className="btn borde" onClick={() => generarDiferencias("xlsx")}>Generar diferencias</button>
+          <button className="btn" onClick={() => generarConsolidado("xlsx")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icono nombre="reportes" tam={16} />
+            Generar consolidado
+          </button>
+          <button className="btn" onClick={() => generarDiferencias("xlsx")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icono nombre="reportes" tam={16} />
+            Generar diferencias
+          </button>
           <button className="btn gris" onClick={() => window.print()}>Imprimir</button>
         </div>
         <p className="pista" style={{ marginTop: 10 }}>

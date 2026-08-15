@@ -38,15 +38,17 @@ const _EJEMPLOS_POR_PESTANA = {
   ],
 };
 
-export default function Ajustes({ token, usuario, ir, tabInicial, recetaId }) {
+export default function Ajustes({ token, usuario, ir, tabInicial, recetaId, navSeq }) {
   const [tab, setTab] = useState(tabInicial || "config");
   const esAuditor = usuario?.perfil === "auditor";
   // "llévame a gestión de usuarios" dicho desde esta MISMA pantalla no
   // remonta el componente (sigue siendo "ajustes"), así que el useState
   // de arriba no vuelve a leer tabInicial - sin esto, el agente decía
   // "vamos a Gestión de usuarios" y la pestaña se quedaba en la que ya
-  // estaba.
-  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
+  // estaba. navSeq (sube en cada ir()) también va en la dependencia: sin
+  // él, pedir la MISMA pestaña dos veces seguidas (con un clic manual a
+  // otra en el medio) no hacía nada, porque tabInicial no cambiaba.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial, navSeq]);
 
   return (
     <Marco titulo="Ajustes  ·  configuración del sistema"

@@ -41,12 +41,17 @@ const _EJEMPLOS_PANEL = [
   "¿cuál es el descuadre principal?",
 ];
 
-export default function Panel({ token, ir, tabInicial }) {
+export default function Panel({ token, ir, tabInicial, navSeq }) {
   const [tab, setTab] = useState(tabInicial || "resumen");
   // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
   // componente - sin esto, el useState de arriba no vuelve a leer
-  // tabInicial y la pestaña se queda en la que ya estaba.
-  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial]);
+  // tabInicial y la pestaña se queda en la que ya estaba. navSeq (sube en
+  // cada ir()) tiene que ir en la dependencia también: sin él, pedir la
+  // MISMA pestaña dos veces seguidas (con un clic manual a otra en el
+  // medio) no hacía nada, porque tabInicial ya traía ese mismo valor de
+  // la vez anterior y el efecto no vuelve a correr si su dependencia no
+  // cambió de valor.
+  useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial, navSeq]);
   const [resumen, setResumen] = useState(null);
   const [alertas, setAlertas] = useState(null);
   const urlPBI = import.meta.env.VITE_POWERBI_URL;
