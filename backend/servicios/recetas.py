@@ -1,7 +1,8 @@
 """Momentos 1 y 3 del reto: pedido por receta y legalizacion del servicio."""
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import timedelta
 from bd import Sesion
+from horario import ahora
 from modelos import (Receta, RecetaIngrediente, Articulo,
                      StockSistema, LineaServicio)
 
@@ -111,7 +112,7 @@ def comparar_legalizacion(servicio_id: int) -> dict:
 def analisis_consumo(dias: int = 30) -> dict:
     """El «suma puntos» del reto: subutilizados y sobrepedido, acotado a
     los ultimos N dias (por defecto 30, como en el tablero de Reportes)."""
-    desde = datetime.now() - timedelta(days=dias)
+    desde = ahora() - timedelta(days=dias)
     with Sesion() as s:
         filas = (s.query(LineaServicio)
                 .filter(LineaServicio.estado == "legalizado",

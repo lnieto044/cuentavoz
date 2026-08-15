@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { pedir } from "../api";
-import { hablar } from "../voz";
+import { hablar, escuchar, esAfirmacion, esNegacion } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 
@@ -35,6 +35,7 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
   const [respuesta, setRespuesta] = useState("");
   const [pedirAjuste, setPedirAjuste] = useState(false);
   const [verMerma, setVerMerma] = useState(false);
+  const [estado, setEstado] = useState("listo");
 
   function cargar() {
     pedir(`/api/legalizacion/${servicioId}`, {}, token)
@@ -42,11 +43,41 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
         setComp(c);
         const s = c.lineas.filter((l) => l.diferencia < 0);
         const m = c.lineas.filter((l) => l.diferencia > 0);
-        setRespuesta(narrar(s, m));
+        const texto = narrar(s, m);
+        setRespuesta(texto);
+        // sin esto, la pregunta "¿Confirmo la legalización?" solo se veía
+        // escrita - nunca se oía al llegar, a diferencia de cómo ya saluda
+        // el resto de la app (Panel, Auditoría) al entrar a una pantalla.
+        if (c.lineas.length > 0) hablar(texto);
       })
       .catch((e) => setErr(e.message));
   }
   useEffect(cargar, [servicioId, token]);
+
+  // La pregunta hablada ("¿Confirmo la legalización?") no tenía con qué
+  // contestar por voz - solo el botón. "sí/confirmo" confirma; un "no"
+  // limpio (sin nada más dicho) solo lo reconoce; cualquier otra cosa se
+  // trata como el mismo tipo de corrección que ya hace "Ajustar por voz"
+  // (texto libre: "el pollo fueron doce kilos"), así decir la corrección
+  // de una vez - sin abrir el diálogo aparte - también funciona.
+  function alMicrofono() {
+    escuchar({
+      alTexto: (texto) => {
+        setEstado("listo");
+        if (esAfirmacion(texto, ["confirma", "legaliza"])) { confirmar(); return; }
+        if (esNegacion(texto) && texto.trim().split(/\s+/).length <= 2) {
+          const msg = "Entendido, no confirmo todavía. Dígame qué insumo ajustar, "
+                     + "por ejemplo «el pollo fueron doce kilos».";
+          setRespuesta(msg);
+          hablar(msg);
+          return;
+        }
+        ajustarPorVoz(texto);
+      },
+      alEstado: setEstado,
+      alError: setErr,
+    });
+  }
 
   async function confirmar() {
     try {
@@ -191,8 +222,18 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
 
       {comp.lineas.length > 0 && (
         <div className="card">
-          <p className="rotulo">CuentaVoz responde</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <p className="rotulo" style={{ margin: 0 }}>CuentaVoz responde</p>
+            <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
+                    style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
+                    onClick={alMicrofono} title="responda «sí» para confirmar, o dicte un ajuste">
+              🎤
+            </button>
+          </div>
           <div className="burbuja">{respuesta}</div>
+          <p className="pista" style={{ marginTop: 8 }}>
+            o diga «sí» para confirmar, o dicte un ajuste como «el pollo fueron doce kilos»
+          </p>
           {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
           <div className="grilla-botones">
             <button className="btn verde" onClick={confirmar}>Confirmar legalización</button>

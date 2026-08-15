@@ -1,7 +1,7 @@
 """Las tablas del sistema: el diagrama de clases hecho código."""
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, LargeBinary
 from bd import Base
+from horario import ahora
 
 
 class Usuario(Base):
@@ -16,7 +16,7 @@ class Usuario(Base):
     activo = Column(Integer, default=1)
     version_token = Column(Integer, default=0)       # +1 invalida sesiones anteriores
     huella_registrada = Column(Integer, default=0)   # tiene al menos una CredencialWebAuthn
-    pin_actualizado = Column(DateTime, default=datetime.now)
+    pin_actualizado = Column(DateTime, default=ahora)
     ultimo_acceso = Column(DateTime, nullable=True)
     idioma_voz = Column(String, default="es-MX")
     velocidad_voz = Column(String, default="normal")     # lenta | normal | rapida
@@ -75,7 +75,7 @@ class SesionConteo(Base):
     tipo = Column(String, default="conteo")          # conteo | auditoria
     estado = Column(String, default="abierta")
     firmada = Column(Integer, default=0)             # firma digital de cierre
-    inicio = Column(DateTime, default=datetime.now)
+    inicio = Column(DateTime, default=ahora)
     fin = Column(DateTime, nullable=True)
 
 
@@ -89,7 +89,7 @@ class Conteo(Base):
     estado = Column(String, default="confirmado")
     # confirmado | corregido | pendiente_aprobacion | borrador
     corrige_a = Column(Integer, ForeignKey("conteo.id"), nullable=True)
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
 
 
 class Alerta(Base):
@@ -99,7 +99,7 @@ class Alerta(Base):
     tipo = Column(String)          # unidad | negativo | desviacion | inexistente
     detalle = Column(String)
     resuelta = Column(Integer, default=0)
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
     resuelto = Column(DateTime, nullable=True)
 
 
@@ -112,7 +112,7 @@ class Traza(Base):
     accion = Column(String)        # APERTURA | CIERRE | CORRECCION | ALERTA...
     detalle = Column(String)
     tipo = Column(String, default="info")
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
 
 
 # ─── los tres momentos del reto: recetas y servicios ───
@@ -145,7 +145,7 @@ class LineaServicio(Base):
     estado = Column(String, default="abierto")
     plato = Column(String, default="")
     porciones = Column(Integer, default=0)
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
     bodega_id = Column(Integer, ForeignKey("bodega.id"), nullable=True)
     creado_por_id = Column(Integer, ForeignKey("usuario.id"), nullable=True)
     # agrupa las lineas de un mismo envio para poder aprobarlo/rechazarlo
@@ -166,7 +166,7 @@ class Aprobacion(Base):
     conteo_id = Column(Integer, ForeignKey("conteo.id"), nullable=True)
     creado_por_id = Column(Integer, ForeignKey("usuario.id"), nullable=True)
     estado = Column(String, default="pendiente")     # pendiente | aprobado | rechazado
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
     resuelto_por_id = Column(Integer, ForeignKey("usuario.id"), nullable=True)
     resuelto = Column(DateTime, nullable=True)
 
@@ -179,7 +179,7 @@ class HistorialCierre(Base):
     exactitud = Column(Float, default=100)
     referencias = Column(Integer, default=0)
     diferencias = Column(Integer, default=0)
-    fecha = Column(DateTime, default=datetime.now)
+    fecha = Column(DateTime, default=ahora)
 
 
 class ConfigClave(Base):
@@ -199,7 +199,7 @@ class MensajeSoporte(Base):
     destinatario_id = Column(Integer, ForeignKey("usuario.id"), nullable=False)
     mensaje = Column(String, nullable=False)
     respuesta = Column(String, nullable=True)
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)
     respondido = Column(DateTime, nullable=True)
 
 
@@ -214,4 +214,4 @@ class CredencialWebAuthn(Base):
     public_key = Column(String, nullable=False)                   # base64url
     sign_count = Column(Integer, default=0)
     dispositivo = Column(String, default="")     # nombre amigable, ej. "Edge en este equipo"
-    creado = Column(DateTime, default=datetime.now)
+    creado = Column(DateTime, default=ahora)

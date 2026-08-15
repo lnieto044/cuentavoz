@@ -3,9 +3,28 @@ import { pedir } from "../api";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 
+// timeZone fijo en Bogotá (no el del navegador/equipo): CuentaVoz es para
+// la operación de Colsubsidio en Colombia, así que la fecha y el saludo
+// deben leerse en hora de Bogotá aunque el dispositivo esté mal
+// configurado o alguien entre desde otro huso horario.
+const HUSO = "America/Bogota";
 const FECHA = new Date().toLocaleDateString("es-CO", {
   weekday: "long", day: "numeric", month: "long", year: "numeric",
+  timeZone: HUSO,
 });
+
+/** "Buenos días" antes de mediodía, "Buenas tardes" hasta las 7pm, y
+    "Buenas noches" después - siempre en hora de Bogotá. Sin esto el
+    saludo decía "Buenos días" a cualquier hora, incluso de noche. */
+function saludoSegunHora() {
+  const hora = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: HUSO, hour: "numeric", hourCycle: "h23" })
+      .format(new Date())
+  );
+  if (hora < 12) return "Buenos días";
+  if (hora < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
 
 const COLOR_ACCION = {
   FIRMA: "verde", CIERRE: "verde", APROBACION: "verde", REPORTE: "azul",
@@ -19,6 +38,16 @@ export default function Inicio({ token, usuario, ir }) {
   const [resumen, setResumen] = useState(null);
   const [actividad, setActividad] = useState([]);
   const esAuditor = usuario?.perfil === "auditor";
+
+  // Ejemplos de lo que ya entiende el agente aquí: preguntar por los KPI de
+  // esta pantalla, o pedir directo cualquiera de los accesos rápidos de
+  // abajo - decir su nombre ya navega, sin tener que tocarlo.
+  const ejemplos = [
+    "¿cuántas bodegas tengo?", "¿cuántas alertas hay por revisar?",
+    "¿cuál es mi exactitud del mes?", "iniciar un conteo", "ver el tablero",
+    ...(esAuditor ? ["continuar auditoría", "generar reporte"]
+                  : ["hacer un pedido", "legalizar servicio"]),
+  ];
 
   useEffect(() => {
     pedir("/api/usuarios/yo/resumen", {}, token).then(setResumen).catch(() => {});
@@ -45,11 +74,11 @@ export default function Inicio({ token, usuario, ir }) {
     <Marco titulo={`Inicio  ·  ${FECHA}`}
            chip={{ texto: "TOMA EN CURSO", tipo: "verde" }}>
       <h2 style={{ fontSize: "1.15rem", color: "var(--azul)", marginBottom: 14 }}>
-        Buenos días, <span style={{ textTransform: "capitalize" }}>{usuario?.nombre}</span>.
+        {saludoSegunHora()}, <span style={{ textTransform: "capitalize" }}>{usuario?.nombre}</span>.
         Esto es lo que hay para hoy.
       </h2>
 
-      <AsistenteVoz token={token} vista="inicio" ir={ir}
+      <AsistenteVoz token={token} vista="inicio" ir={ir} ejemplos={ejemplos}
                     placeholder="¿cuántas bodegas tengo?, lléveme a bodegas…" />
 
       <div className="kpis">

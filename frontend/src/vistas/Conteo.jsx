@@ -825,13 +825,37 @@ function AlertaDesviacion({ contexto, respuesta, onRecontar, onConfirmar }) {
 }
 
 function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega, err }) {
+  const [estado, setEstado] = useState("listo");
+  // El micrófono principal de Conteo se oculta mientras se decide si
+  // crear este producto (para no mezclar esa respuesta con un conteo
+  // nuevo) - sin esto, la pregunta hablada "¿lo creamos?" solo se podía
+  // contestar con clic, aunque el resto de la pantalla es por voz.
+  function alMicrofono() {
+    escuchar({
+      alTexto: (texto) => {
+        setEstado("listo");
+        if (esAfirmacion(texto, ["crea", "crear"])) { onCrear(); return; }
+        if (esNegacion(texto)) { onCancelar(); return; }
+      },
+      alEstado: setEstado,
+      alError: () => {},
+    });
+  }
   return (
     <div className="card">
-      <p className="rotulo">CuentaVoz responde</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <p className="rotulo" style={{ margin: 0 }}>CuentaVoz responde</p>
+        <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
+                style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
+                onClick={alMicrofono} title="diga «sí» para crear, o «no» para cancelar">
+          🎤
+        </button>
+      </div>
       <div className="burbuja">
         No encontré «{crear.nombre}» en el catálogo. Lo creamos y queda pendiente
         del administrador.
       </div>
+      <p className="pista" style={{ marginTop: 8 }}>o diga «sí» para crearlo, o «no» para cancelar</p>
 
       <div className="conteo-cols" style={{ marginTop: 16 }}>
         <div>

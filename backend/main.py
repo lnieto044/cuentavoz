@@ -7,7 +7,8 @@ import socket
 import unicodedata
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import timedelta
+from horario import ahora
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -129,7 +130,7 @@ def arranque():
         if s.query(HistorialCierre).count() == 0 and s.query(Bodega).count() > 0:
             primera = s.query(Bodega).order_by(Bodega.nombre_oficial).first()
             from datetime import timedelta
-            base = datetime.now() - timedelta(days=120)
+            base = ahora() - timedelta(days=120)
             for i, exact in enumerate([94.2, 95.8, 96.5, 97.1]):
                 s.add(HistorialCierre(bodega_id=primera.id, exactitud=exact,
                                       referencias=0, diferencias=0,
@@ -167,7 +168,7 @@ def ingresar(request: Request, form: OAuth2PasswordRequestForm = Depends()):
             raise HTTPException(401, "Usuario o clave incorrectos.")
         if not u.activo:
             raise HTTPException(403, "Ese usuario esta inactivo.")
-        u.ultimo_acceso = datetime.now()
+        u.ultimo_acceso = ahora()
         s.commit()
         s.refresh(u)
     registrar(u, "INGRESO", f"{u.nombre} inicio sesion")
@@ -233,7 +234,7 @@ def verificar_ingreso_huella(request: Request, datos: VerificarHuellaIn):
         u = s.get(Usuario, usuario_id)
         if not u.activo:
             raise HTTPException(403, "Ese usuario esta inactivo.")
-        u.ultimo_acceso = datetime.now()
+        u.ultimo_acceso = ahora()
         s.commit()
         s.refresh(u)
     registrar(u, "INGRESO", f"{u.nombre} inicio sesion con huella")
@@ -993,6 +994,47 @@ def _navegar_pestana_por_voz(vista: str, texto: str) -> dict | None:
     return None
 
 
+# Los 4 "accesos rápidos" de Inicio ("Iniciar un conteo", "Ver el tablero",
+# "Continuar auditoría"/"Hacer un pedido", "Generar reporte"/"Legalizar
+# servicio") - las mismas tarjetas que ya se navegan con un clic.
+_ACCESOS_INICIO = {
+    "conteo": re.compile(r"\bconteo\b", re.IGNORECASE),
+    "bodegas": re.compile(r"\btablero\b|\bbodegas\b", re.IGNORECASE),
+    "auditoria": re.compile(r"auditor[ií]a", re.IGNORECASE),
+    "pedido": re.compile(r"\bpedidos?\b", re.IGNORECASE),
+    "reportes": re.compile(r"reporte", re.IGNORECASE),
+    "legalizacion": re.compile(r"legaliza", re.IGNORECASE),
+}
+_VERBOS_ACCESO_INICIO = re.compile(
+    r"\b(inicia|iniciar|continu[ae]|continuar|genera|generar|legaliza|legalizar|hacer|haga)\b",
+    re.IGNORECASE)
+
+
+def _acceso_rapido_inicio_por_voz(texto: str, u: Usuario) -> dict | None:
+    """Decir el nombre de una tarjeta de "¿Qué desea hacer?" navega directo
+    a ella - determinístico, sin pasar por Gemini: se confirmó con
+    pruebas que a veces decidía contestar en vez de navegar aunque la
+    frase mencionara el destino tal cual ("iniciar un conteo" se quedaba
+    en Inicio). Mismo filtro que _navegar_pestana_por_voz para no
+    robarle la frase a las preguntas de KPI de esta pantalla («¿cuántas
+    bodegas tengo?» debe contestarse, no navegar a Bodegas)."""
+    tiene_verbo = bool(_VERBOS_IR_PESTANA.search(texto)) or bool(_VERBOS_ACCESO_INICIO.search(texto))
+    limpio = re.sub(r"[.,;:!¿?¡]+$", "", texto.strip())
+    es_solo_el_nombre = (not _ES_PREGUNTA_PESTANA.search(texto)
+                         and 0 < len(limpio.split()) <= 4)
+    if not tiene_verbo and not es_solo_el_nombre:
+        return None
+    for destino, patron in _ACCESOS_INICIO.items():
+        if not patron.search(texto):
+            continue
+        if destino in _SOLO_AUDITOR_ASISTENTE and u.perfil != "auditor":
+            continue
+        etiqueta = _DESTINOS_ASISTENTE[destino]
+        return {"respuesta_hablada": f"Vamos a {etiqueta.lower()}.",
+                "accion": "navegar", "destino": destino, "pestana": None}
+    return None
+
+
 _APROBAR_ITEM = re.compile(r"\bapru[eé]b\w*|\baprobar\b", re.IGNORECASE)
 _RECHAZAR_ITEM = re.compile(r"\brech[aá]z\w*", re.IGNORECASE)
 
@@ -1336,7 +1378,7 @@ def _crear_receta_por_voz(texto: str, u: Usuario) -> dict | None:
         if "opciones" in elegido:
             _PENDIENTE_AMBIGUEDAD[u.id] = {
                 "tipo": "crear_receta", "nombre": nombre, "rend": rend, "cant": cant,
-                "opciones": elegido["opciones"], "ts": datetime.now()}
+                "opciones": elegido["opciones"], "ts": ahora()}
         return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
     return _completar_crear_receta(nombre, rend, cant, elegido["articulo"], u)
@@ -1398,7 +1440,7 @@ def _agregar_ingrediente_por_voz(texto: str, u: Usuario) -> dict | None:
             _PENDIENTE_AMBIGUEDAD[u.id] = {
                 "tipo": "agregar_ingrediente", "cant": cantidad_nueva,
                 "receta": m.group("receta"), "opciones": elegido["opciones"],
-                "ts": datetime.now()}
+                "ts": ahora()}
         return {"respuesta_hablada": elegido["error"],
                 "accion": None, "destino": None, "pestana": None}
     return _completar_agregar_ingrediente(cantidad_nueva, m.group("receta"),
@@ -1418,7 +1460,7 @@ def _resolver_ambiguedad_pendiente(texto: str, u: Usuario) -> dict | None:
     pendiente = _PENDIENTE_AMBIGUEDAD.get(u.id)
     if not pendiente:
         return None
-    if (datetime.now() - pendiente["ts"]).total_seconds() > _VENCIMIENTO_AMBIGUEDAD:
+    if (ahora() - pendiente["ts"]).total_seconds() > _VENCIMIENTO_AMBIGUEDAD:
         del _PENDIENTE_AMBIGUEDAD[u.id]
         return None
     t = _normalizar_nombre(texto)
@@ -1875,6 +1917,10 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
     un solo buscador que primero prueba si es un ingrediente, luego si
     es una bodega, y si no es ninguna de las dos, cae aquí."""
     texto = _quitar_relleno(texto)
+    if vista == "inicio":
+        acceso = _acceso_rapido_inicio_por_voz(texto, u)
+        if acceso:
+            return acceso
     # Desde Bodegas, "abra/siga contando <nombre>" es una orden concreta y
     # frecuente - se resuelve aparte, ANTES de Gemini, con la misma
     # búsqueda restringida que usa el resto de la app (nunca ofrece una
@@ -2042,7 +2088,7 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
     if p.cantidad_inicial < 0:
         raise HTTPException(400, "La cantidad inicial no puede ser negativa.")
     nombre = _limpiar_nombre_dictado(p.nombre).upper()
-    codigo = f"PEND-{datetime.now().strftime('%H%M%S%f')[:10]}"
+    codigo = f"PEND-{ahora().strftime('%H%M%S%f')[:10]}"
     es_auditor = u.perfil == "auditor"
     with Sesion() as s:
         s.add(Articulo(codigo=codigo, nombre_oficial=nombre,
@@ -2317,7 +2363,7 @@ def firmar_sesion(sesion_id: int, u: Usuario = Depends(usuario_actual)):
         if ses.usuario_id != u.id and u.perfil != "auditor":
             raise HTTPException(403, "Solo quien contó puede firmar este conteo.")
         ses.firmada = 1
-        ses.fin = datetime.now()
+        ses.fin = ahora()
         b = s.get(Bodega, ses.bodega_id)
         if ses.tipo == "conteo" and b and b.estado == "en_conteo":
             b.estado = "en_auditoria"
@@ -2406,7 +2452,7 @@ def firmar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("audit
         if ses is None:
             raise HTTPException(404, "No hay un recuento de auditoria iniciado.")
         ses.firmada = 1
-        ses.fin = datetime.now()
+        ses.fin = ahora()
         s.commit()
         b = s.get(Bodega, bodega_id)
         nombre = b.nombre_oficial if b else "?"
@@ -2438,7 +2484,7 @@ async def cerrar(bodega_id: int, u: Usuario = Depends(requiere_perfil("auditor")
                                                    estado="abierta").all():
             ses.estado = "cerrada"
             if not ses.fin:
-                ses.fin = datetime.now()
+                ses.fin = ahora()
         s.add(HistorialCierre(bodega_id=bodega_id, exactitud=exact,
                               referencias=len(conteos), diferencias=difs))
         s.commit()
@@ -2548,7 +2594,7 @@ def detalle_bodega(bodega_id: int, u: Usuario = Depends(usuario_actual)):
         for ses in sesiones:
             if not ses.usuario_id:
                 continue
-            fin = ses.fin or datetime.now()
+            fin = ses.fin or ahora()
             correcciones = (s.query(Traza)
                            .filter(Traza.accion == "CORRECCION",
                                    Traza.usuario_id == ses.usuario_id,
@@ -2717,7 +2763,7 @@ def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_act
         }
     # si la persona ya eligio una de las alternativas, usa esa; si no, la mejor
     a = next((c for c in cand if c["codigo"] == codigo), None) or cand[0]
-    hoy = datetime.now().date()
+    hoy = ahora().date()
     with Sesion() as s:
         filas = s.query(StockSistema).filter_by(articulo_codigo=a["codigo"]).all()
         total = sum(f.cantidad_sd or 0 for f in filas)
@@ -2741,7 +2787,7 @@ def consulta_articulo(q: str, codigo: str = "", u: Usuario = Depends(usuario_act
                         "cantidad": f.cantidad_sd, "estado": b.estado if b else "?",
                         "ultima_toma": ultima_toma})
         # consumo real del ultimo mes, sobre servicios ya legalizados
-        hace_30 = datetime.now() - timedelta(days=30)
+        hace_30 = ahora() - timedelta(days=30)
         lineas_mes = (s.query(LineaServicio)
                      .filter(LineaServicio.articulo_codigo == a["codigo"],
                              LineaServicio.estado == "legalizado",
@@ -2936,7 +2982,7 @@ def api_enviar(body: dict, u: Usuario = Depends(usuario_actual)):
         # creados en plena toma. El administrador autoriza su propio pedido
         # de una vez: no tiene sentido pedirse permiso a si mismo.
         estado_inicial = "abierto" if u.perfil == "auditor" else "pendiente_aprobacion"
-        numero = f"PED-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        numero = f"PED-{ahora().strftime('%Y%m%d-%H%M%S')}"
         n = 0
         items = []
         for l in body.get("lineas", []):
@@ -2960,7 +3006,7 @@ def api_enviar(body: dict, u: Usuario = Depends(usuario_actual)):
     else:
         registrar(u, "PEDIDO", f"Pedido {numero} enviado y aprobado ({n} lineas)")
     return {"ok": True, "numero_pedido": numero, "estado": estado_inicial,
-            "hora": datetime.now().strftime("%H:%M"),
+            "hora": ahora().strftime("%H:%M"),
             "bodega": bodega_nombre, "persona": u.nombre,
             "items": items, "total_lineas": n}
 
@@ -3085,7 +3131,7 @@ def exportar_analisis(formato: str = "xlsx", dias: int = 30,
     datos = analisis_consumo(dias)
     df = pd.DataFrame(datos["subutilizados"])
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/analisis_consumo_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)
@@ -3263,7 +3309,7 @@ def ver_alertas(resueltas: int = 0, u: Usuario = Depends(usuario_actual)):
 def resumen_alertas(u: Usuario = Depends(usuario_actual)):
     """Estadisticas reales para la bandeja: abiertas, resueltas hoy y el
     tiempo medio real entre que se genera la alerta y se resuelve."""
-    hoy = datetime.now().date()
+    hoy = ahora().date()
     with Sesion() as s:
         abiertas = s.query(Alerta).filter_by(resuelta=0).count()
         resueltas_hoy = (s.query(Alerta).filter(Alerta.resuelta == 1,
@@ -3284,7 +3330,7 @@ def resolver_alerta(alerta_id: int, u: Usuario = Depends(requiere_perfil("audito
         if a is None:
             raise HTTPException(404, "Alerta no encontrada.")
         a.resuelta = 1
-        a.resuelto = datetime.now()
+        a.resuelto = ahora()
         s.commit()
         nombre = None
         if a.conteo_id:
@@ -3600,7 +3646,7 @@ def aprobar(aprobacion_id: int, u: Usuario = Depends(requiere_perfil("auditor"))
             raise HTTPException(404, "Aprobacion no encontrada o ya resuelta.")
         a.estado = "aprobado"
         a.resuelto_por_id = u.id
-        a.resuelto = datetime.now()
+        a.resuelto = ahora()
         if a.tipo == "producto" and a.articulo_codigo:
             existe = s.query(StockSistema).filter_by(
                 articulo_codigo=a.articulo_codigo, bodega_id=a.bodega_id).first()
@@ -3627,7 +3673,7 @@ def rechazar(aprobacion_id: int, u: Usuario = Depends(requiere_perfil("auditor")
             raise HTTPException(404, "Aprobacion no encontrada o ya resuelta.")
         a.estado = "rechazado"
         a.resuelto_por_id = u.id
-        a.resuelto = datetime.now()
+        a.resuelto = ahora()
         if a.conteo_id:
             c = s.get(Conteo, a.conteo_id)
             if c:
@@ -3764,7 +3810,7 @@ def responder_mensaje_soporte(mensaje_id: int, body: dict, u: Usuario = Depends(
         if not m or m.destinatario_id != u.id:
             raise HTTPException(404, "Ese mensaje no existe o no es suyo para responder.")
         m.respuesta = respuesta
-        m.respondido = datetime.now()
+        m.respondido = ahora()
         s.commit()
         remitente = s.get(Usuario, m.remitente_id)
         nombre_remitente = remitente.nombre if remitente else "?"
@@ -3794,7 +3840,7 @@ def administrador_de_turno(u: Usuario = Depends(usuario_actual)):
 @app.get("/api/usuarios/yo")
 def ver_perfil(u: Usuario = Depends(usuario_actual)):
     from agente.cerebro import VOCES, VOZ_DEFECTO
-    dias_pin = (datetime.now() - (u.pin_actualizado or datetime.now())).days
+    dias_pin = (ahora() - (u.pin_actualizado or ahora())).days
     # idioma_voz guardaba un codigo de idioma de navegador (es-MX, es-CO...)
     # de cuando la voz salia por speechSynthesis; ahora guarda la clave de
     # la voz neuronal elegida (kore, puck...). Una cuenta con el valor
@@ -3811,7 +3857,7 @@ def ver_perfil(u: Usuario = Depends(usuario_actual)):
 
 @app.get("/api/usuarios/yo/resumen")
 def resumen_inicio(u: Usuario = Depends(usuario_actual)):
-    hoy = datetime.now().date()
+    hoy = ahora().date()
     with Sesion() as s:
         n_bodegas = s.query(AsignacionBodega).filter_by(usuario_id=u.id).count()
         sesiones_usr = [x.id for x in s.query(SesionConteo).filter_by(usuario_id=u.id).all()]
@@ -3987,11 +4033,11 @@ def _filtro_traza(s, persona: str, accion: str, rango: str):
     if accion:
         q = q.filter_by(accion=accion)
     if rango == "hoy":
-        q = q.filter(Traza.creado >= datetime.now().replace(hour=0, minute=0, second=0))
+        q = q.filter(Traza.creado >= ahora().replace(hour=0, minute=0, second=0))
     elif rango == "semana":
-        q = q.filter(Traza.creado >= datetime.now() - timedelta(days=7))
+        q = q.filter(Traza.creado >= ahora() - timedelta(days=7))
     elif rango == "mes":
-        q = q.filter(Traza.creado >= datetime.now() - timedelta(days=30))
+        q = q.filter(Traza.creado >= ahora() - timedelta(days=30))
     return q
 
 
@@ -4018,7 +4064,7 @@ def exportar_traza(persona: str = "", accion: str = "", rango: str = "",
                 for t in q.order_by(Traza.id.desc()).all()]
     df = pd.DataFrame(filas)
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/trazabilidad_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)

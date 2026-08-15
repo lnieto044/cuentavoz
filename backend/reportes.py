@@ -1,8 +1,8 @@
 """El endpoint del flujo: informacion limpia lista para el ERP."""
 import os
-import datetime
 import pandas as pd
 from bd import motor
+from horario import ahora
 
 # Los nombres de columna son a proposito los mismos que trae el extracto
 # real de Colsubsidio (ver data/BODEGAS_Y_STOCK.xlsx: "Nr.Artículo",
@@ -33,7 +33,7 @@ def consolidado(formato: str = "xlsx") -> tuple[str, int, list[dict]]:
     df["SD"] = df["SD"].fillna(0)
     df["Diferencia"] = df["Diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/consolidado_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)
@@ -50,7 +50,7 @@ def diferencias_archivo(formato: str = "xlsx") -> tuple[str, int, int]:
     df["Diferencia"] = df["Diferencia"].round(2)
     df = df[df["Diferencia"] != 0]
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/diferencias_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)
@@ -65,7 +65,7 @@ def detalle_bodega(bodega_id: int, formato: str = "xlsx") -> str:
                      motor, params={"bodega_id": bodega_id})
     df["Diferencia"] = df["Diferencia"].round(2)
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/bodega_{bodega_id}_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)
@@ -85,7 +85,7 @@ def estado_bodegas(formato: str = "xlsx") -> str:
     correo o adjuntarla sin tener que tomar una captura de pantalla."""
     df = pd.read_sql(ESTADO_BODEGAS, motor)
     os.makedirs("reportes", exist_ok=True)
-    marca = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/estado_bodegas_{marca}.{formato}"
     if formato == "csv":
         df.to_csv(ruta, index=False)
