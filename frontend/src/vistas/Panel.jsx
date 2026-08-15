@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pedir } from "../api";
+import { hablar } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 
@@ -74,11 +75,34 @@ export default function Panel({ token, ir, tabInicial }) {
 }
 
 function TabResumen({ r, urlPBI }) {
+  const [saludo, setSaludo] = useState("");
+  const yaSaludo = useRef(false);
+
+  // Al llegar a esta pestaña, un titular breve en vez de esperar a que
+  // pregunten - el detalle completo de cada tarjeta/gráfica sigue
+  // disponible por voz (o en el desplegable de frases), esto es solo el
+  // resumen de resumen para no leer las cuatro tarjetas de una sentada.
+  useEffect(() => {
+    if (!r || yaSaludo.current) return;
+    yaSaludo.current = true;
+    const texto = `Resumen ejecutivo: exactitud primera pasada ${r.exactitud_primera_pasada}%, `
+                + `${r.alertas_gestionadas} de ${r.alertas_total} alertas gestionadas, `
+                + `${r.bodegas_cerradas} de ${r.bodegas_total} bodegas cerradas.`;
+    setSaludo(texto);
+    hablar(texto);
+  }, [r]);
+
   if (!r) return <p className="cargando">Cargando…</p>;
   const maxDif = Math.max(1, ...r.diferencia_por_bodega.map((d) => d.diferencia));
 
   return (
     <>
+      {saludo && (
+        <div className="card">
+          <p className="rotulo" style={{ marginTop: 0 }}>CuentaVoz responde</p>
+          <p className="burbuja">{saludo}</p>
+        </div>
+      )}
       <div className="kpis">
         <div className="kpi verde">
           <div className="kpi-cabeza">
@@ -158,12 +182,30 @@ function TabResumen({ r, urlPBI }) {
 }
 
 function TabAlertas({ a }) {
+  const [saludo, setSaludo] = useState("");
+  const yaSaludo = useRef(false);
+
+  useEffect(() => {
+    if (!a || yaSaludo.current) return;
+    yaSaludo.current = true;
+    const texto = `Bodegas y alertas: ${a.negativos_iniciales} negativos corregidos a `
+                + `${a.negativos_actuales}, tiempo promedio de conteo ${a.tiempo_promedio_min} minutos.`;
+    setSaludo(texto);
+    hablar(texto);
+  }, [a]);
+
   if (!a) return <p className="cargando">Cargando…</p>;
   const estados = Object.entries(a.estado_bodegas);
   const maxAlerta = Math.max(1, ...a.alertas_por_tipo.map((x) => x.cantidad));
 
   return (
     <>
+      {saludo && (
+        <div className="card">
+          <p className="rotulo" style={{ marginTop: 0 }}>CuentaVoz responde</p>
+          <p className="burbuja">{saludo}</p>
+        </div>
+      )}
       <div className="kpis">
         <div className="kpi oro">
           <div className="kpi-cabeza">
