@@ -189,6 +189,20 @@ class ConfigClave(Base):
     valor = Column(String, nullable=False)
 
 
+class ArchivoGenerado(Base):
+    """Los XLSX/CSV que se generan (consolidado, diferencias, análisis,
+    trazabilidad...) guardados en la base, no en disco - mismo motivo que
+    la foto de perfil: el disco del Web Service en Render es efímero y se
+    borra en cada deploy/reinicio, así que un archivo "generado hace una
+    hora" debe poder seguir viéndose/descargándose después de un redeploy,
+    no solo hasta el próximo `git push`."""
+    __tablename__ = "archivo_generado"
+    id = Column(Integer, primary_key=True)
+    ruta = Column(String, nullable=False, unique=True)
+    contenido = Column(LargeBinary, nullable=False)
+    creado = Column(DateTime, default=ahora)
+
+
 class MensajeSoporte(Base):
     """Un mensaje de "Soporte en vivo" (auxiliar -> administrador) con su
     respuesta, si ya la dio - la bandeja dentro de la app en Ayuda,

@@ -16,7 +16,7 @@ load_dotenv()
 from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
                      HTTPException, UploadFile, File, Request)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -3114,24 +3114,34 @@ def exportar_detalle_bodega(bodega_id: int, formato: str = "xlsx",
 def descargar(archivo: str, u: Usuario = Depends(requiere_perfil("auditor"))):
     if ".." in archivo or not archivo.startswith("reportes/"):
         raise HTTPException(400, "Ruta no permitida.")
-    if not os.path.exists(archivo):
+    from servicios.archivos import leer_bytes
+    contenido = leer_bytes(archivo)
+    if contenido is None:
         raise HTTPException(404, "Archivo no encontrado.")
-    return FileResponse(archivo, filename=os.path.basename(archivo))
+    tipo = "text/csv" if archivo.endswith(".csv") else (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return Response(content=contenido, media_type=tipo, headers={
+        "Content-Disposition": f'attachment; filename="{os.path.basename(archivo)}"'})
 
 
 @app.get("/api/reportes/vista-previa")
 def vista_previa_reporte(archivo: str, u: Usuario = Depends(requiere_perfil("auditor"))):
     """Para poder ver el contenido de cualquier archivo ya generado (no solo
     el que se acaba de crear) con solo dar clic en su tarjeta, sin tener
-    que descargarlo primero. Lee el archivo tal cual quedo guardado, asi
-    que la vista previa de un reporte viejo muestra lo que ese reporte
-    realmente tenia, no el estado actual de la base."""
+    que descargarlo primero. Lee el archivo tal cual quedo guardado (de la
+    base, no de disco - ver servicios/archivos.py), asi que la vista previa
+    de un reporte viejo muestra lo que ese reporte realmente tenia, no el
+    estado actual de la base, y sigue funcionando despues de un redeploy."""
     if ".." in archivo or not archivo.startswith("reportes/"):
         raise HTTPException(400, "Ruta no permitida.")
-    if not os.path.exists(archivo):
-        raise HTTPException(404, "Archivo no encontrado.")
+    import io
     import pandas as pd
-    df = pd.read_csv(archivo) if archivo.endswith(".csv") else pd.read_excel(archivo)
+    from servicios.archivos import leer_bytes
+    contenido = leer_bytes(archivo)
+    if contenido is None:
+        raise HTTPException(404, "Archivo no encontrado.")
+    buf = io.BytesIO(contenido)
+    df = pd.read_csv(buf) if archivo.endswith(".csv") else pd.read_excel(buf)
     df = df.fillna(0)
     return {"filas": df.head(8).to_dict("records"), "total": len(df)}
 
@@ -3316,15 +3326,12 @@ def api_analisis(dias: int = 30, u: Usuario = Depends(requiere_perfil("auditor")
 def exportar_analisis(formato: str = "xlsx", dias: int = 30,
                       u: Usuario = Depends(requiere_perfil("auditor"))):
     import pandas as pd
+    from servicios.archivos import guardar_df
     datos = analisis_consumo(dias)
     df = pd.DataFrame(datos["subutilizados"])
-    os.makedirs("reportes", exist_ok=True)
     marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/analisis_consumo_{marca}.{formato}"
-    if formato == "csv":
-        df.to_csv(ruta, index=False)
-    else:
-        df.to_excel(ruta, index=False)
+    guardar_df(ruta, df, formato)
     registrar(u, "REPORTE", f"Analisis de consumo exportado: {ruta} ({len(df)} filas)")
     return {"archivo": ruta}
 
@@ -3709,6 +3716,14 @@ class ItemSemillaIn(BaseModel):
     # que comparar. Si la bodega ya tiene stock de este articulo, se
     # ignora - nunca pisa un valor real ya cargado.
     cantidad_sistema_si_falta: float | None = None
+    # una cantidad que se sale del umbral normalmente se salta (ver
+    # docstring de sembrar_conteo) - forzar=true la guarda igual Y crea la
+    # Alerta de "desviacion" que le correspondería, exactamente como
+    # cuando una persona real dice "sí, confirmo" tras la advertencia. Es
+    # para poblar Alertas/Auditoría con casos reales en un ambiente de
+    # demo, no para forzar cantidades negativas o de otro articulo/unidad
+    # (esas siguen sin poder guardarse: no tendría sentido real).
+    forzar: bool = False
 
 
 class ConteoSemillaIn(BaseModel):
@@ -3767,13 +3782,21 @@ def sembrar_conteo(datos: ConteoSemillaIn, u: Usuario = Depends(requiere_perfil(
                                        cantidad_sd=item.cantidad_sistema_si_falta))
                     s.commit()
         v = validar_conteo(item.articulo_codigo, item.cantidad, art.unidad_medida, datos.bodega_id)
-        if not v["ok"]:
+        if not v["ok"] and not (item.forzar and v["tipo"] == "desviacion"):
             saltados.append(item.articulo_codigo)
             continue
         with Sesion() as s:
-            s.add(Conteo(sesion_id=sesion_id, articulo_codigo=item.articulo_codigo,
-                        cantidad=item.cantidad, unidad=art.unidad_medida, estado="confirmado"))
+            reg = Conteo(sesion_id=sesion_id, articulo_codigo=item.articulo_codigo,
+                        cantidad=item.cantidad, unidad=art.unidad_medida, estado="confirmado")
+            s.add(reg)
             s.commit()
+            s.refresh(reg)
+            if not v["ok"]:
+                esperado = v.get("esperado") or 0
+                s.add(Alerta(conteo_id=reg.id, tipo="desviacion",
+                             detalle=f"El sistema esperaba alrededor de {esperado:g}, "
+                                     f"se contaron {item.cantidad:g}."))
+                s.commit()
         guardados += 1
     if guardados:
         registrar(persona, "CONTEO",
@@ -4379,19 +4402,16 @@ def exportar_traza(persona: str = "", accion: str = "", rango: str = "",
                    formato: str = "xlsx",
                    u: Usuario = Depends(requiere_perfil("auditor"))):
     import pandas as pd
+    from servicios.archivos import guardar_df
     with Sesion() as s:
         q = _filtro_traza(s, persona, accion, rango)
         filas = [{"fecha": t.creado.strftime("%Y-%m-%d %H:%M:%S"), "persona": t.persona,
                  "accion": t.accion, "detalle": t.detalle}
                 for t in q.order_by(Traza.id.desc()).all()]
     df = pd.DataFrame(filas)
-    os.makedirs("reportes", exist_ok=True)
     marca = ahora().strftime("%Y%m%d_%H%M")
     ruta = f"reportes/trazabilidad_{marca}.{formato}"
-    if formato == "csv":
-        df.to_csv(ruta, index=False)
-    else:
-        df.to_excel(ruta, index=False)
+    guardar_df(ruta, df, formato)
     registrar(u, "REPORTE", f"Registro de trazabilidad exportado: {ruta} ({len(df)} filas)")
     return {"archivo": ruta, "filas": len(df)}
 

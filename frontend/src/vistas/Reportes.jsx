@@ -177,6 +177,22 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
     <div className="reportes-cols">
       <div className="card">
         <h3>Archivos generados con los códigos oficiales de la base</h3>
+        {/* Arriba, junto al título, y no al final de la lista - con muchos
+            archivos generados en el día, quedaban fuera de la vista sin
+            bajar todo el scroll, y nada indicaba que seguían ahí. */}
+        <div className="grilla-botones" style={{ marginTop: 0, marginBottom: 14 }}>
+          <button className="btn" onClick={() => generarConsolidado("xlsx")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icono nombre="reportes" tam={16} />
+            Generar consolidado
+          </button>
+          <button className="btn" onClick={() => generarDiferencias("xlsx")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icono nombre="reportes" tam={16} />
+            Generar diferencias
+          </button>
+          <button className="btn gris" onClick={() => window.print()}>Imprimir</button>
+        </div>
         {msg && <p className="msg-ok">{msg}</p>}
         {err && <p className="error">{err}</p>}
         {recientes === null ? (
@@ -216,19 +232,6 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
             );
           })
         )}
-        <div className="grilla-botones" style={{ marginTop: 4 }}>
-          <button className="btn" onClick={() => generarConsolidado("xlsx")}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Icono nombre="reportes" tam={16} />
-            Generar consolidado
-          </button>
-          <button className="btn" onClick={() => generarDiferencias("xlsx")}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Icono nombre="reportes" tam={16} />
-            Generar diferencias
-          </button>
-          <button className="btn gris" onClick={() => window.print()}>Imprimir</button>
-        </div>
         <p className="pista" style={{ marginTop: 10 }}>
           Dele clic a cualquier tarjeta para ver su contenido aquí al lado.
         </p>
