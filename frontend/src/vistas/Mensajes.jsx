@@ -4,6 +4,7 @@ import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 /** La bandeja completa de "Soporte en vivo": para un auxiliar, lo que ha
     escrito y si ya le respondieron; para el administrador, lo que le
@@ -150,7 +151,7 @@ export default function Mensajes({ token, usuario }) {
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className={`mic-btn ${escuchandoOrden ? "escuchando" : ""}`}
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                    onClick={escucharOrdenVoz} title="responder por voz">🎤</button>
+                    onClick={escucharOrdenVoz} title="responder por voz"><Icono nombre="microfono" tam={22} /></button>
           </div>
           <p className="pista" style={{ marginTop: 8 }}>
             {pendientes === 1

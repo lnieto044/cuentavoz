@@ -4,6 +4,7 @@ import { escuchar, hablar, vozDisponible, esAfirmacion, esNegacion } from "../vo
 import { interpretarLocal } from "../interpreteLocal";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 const UNIDADES = ["Unidad", "Kilogram", "Liter", "Portion"];
 const CLAVE_COLA = (sesionId) => `cv_offline_${sesionId}`;
@@ -464,7 +465,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
               className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
               style={{ width: 46, height: 46, fontSize: "1.2rem" }}
               onClick={alMicrofonoBodega} title="diga el nombre de la bodega">
-              🎤
+              <Icono nombre="microfono" tam={22} />
             </button>
             <small style={{ color: "var(--grafito)" }}>
               {estado === "escuchando" ? "Escuchando…"
@@ -477,6 +478,17 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
             transcriben mal) — o corríjalo a mano y use «Abrir por nombre
             exacto».
           </p>
+          <details style={{ marginBottom: 8 }}>
+            <summary className="pista" style={{ cursor: "pointer" }}>
+              Ver frases exactas que entiende el agente aquí
+            </summary>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {["almacén general", "kiosco taquilla ayb", "sí (confirma la bodega sugerida)",
+                "no (descarta la sugerencia)"].map((ej, i) => (
+                <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+              ))}
+            </ul>
+          </details>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <input
               style={{ flex: 1, minWidth: 240, padding: "12px 14px",
@@ -486,7 +498,11 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
               onKeyDown={(e) => e.key === "Enter" && abrirPorBoton()}
               placeholder="nombre de la bodega…"
             />
-            <button className="btn" onClick={abrirPorBoton}>Abrir por nombre exacto</button>
+            <button className="btn" onClick={abrirPorBoton}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="aprobar" tam={18} />
+              Abrir por nombre exacto
+            </button>
           </div>
           {err && <p className="error" style={{ marginBottom: 10 }}>{err}</p>}
           {msgBodega && <p className="msg-ok" style={{ marginBottom: 10 }}>{msgBodega}</p>}
@@ -713,7 +729,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
                   className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                   onClick={alMicrofono}
                 >
-                  🎤
+                  <Icono nombre="microfono" tam={52} />
                 </button>
                 <b>
                   {estado === "escuchando" ? "Escuchando…"
@@ -725,6 +741,18 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
                     ? "Reconocimiento en español (Colombia)"
                     : "Este navegador no reconoce voz: use el teclado"}
                 </small>
+                <details style={{ marginTop: 8, textAlign: "left" }}>
+                  <summary className="pista" style={{ cursor: "pointer" }}>
+                    Ver frases exactas que entiende el agente aquí
+                  </summary>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                    {["tres tablas para picar blancas", "hay noventa cazuelas",
+                      "me faltan cinco kilos de arroz", "corregir", "son nueve",
+                      "confirmo", "¿cuánto arroz hay contado?"].map((ej, i) => (
+                      <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+                    ))}
+                  </ul>
+                </details>
                 {err && <p className="error">{err}</p>}
               </div>
             </div>
@@ -848,7 +876,7 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
         <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                 style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
                 onClick={alMicrofono} title="diga «sí» para crear, o «no» para cancelar">
-          🎤
+          <Icono nombre="microfono" tam={20} />
         </button>
       </div>
       <div className="burbuja">

@@ -206,22 +206,10 @@ function TabConfig({ token, esAuditor }) {
               <tr><td>Refresco del tablero</td><td><b>tiempo real</b></td></tr>
             </tbody>
           </table>
-        </div>
 
-        <div className="card">
-          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>👥</span>Administración</h3>
-          <table>
-            <tbody>
-              <tr><td>Usuarios activos</td><td><b>{cfg.usuarios_activos}</b></td></tr>
-              <tr><td>Aprobaciones pendientes</td>
-                <td><b style={{ color: cfg.aprobaciones_pendientes > 0 ? "var(--amarillo-tx)" : "var(--verde)" }}>
-                  {cfg.aprobaciones_pendientes}</b></td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="card">
-          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🛡️</span>Acerca de CuentaVoz</h3>
+          <h3 style={{ marginTop: 20 }}>
+            <span className="icono-kpi" style={{ marginRight: 8 }}>🛡️</span>Acerca de CuentaVoz
+          </h3>
           <table>
             <tbody>
               <tr><td>Versión</td><td><b>{cfg.version}</b></td></tr>
@@ -987,7 +975,8 @@ function TabTraza({ token }) {
         </select>
         <button className={`mic-btn ${escuchandoFiltro ? "escuchando" : ""}`}
                 style={{ width: 40, height: 40, fontSize: "1.05rem" }}
-                onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»">🎤</button>
+                onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»">
+          <Icono nombre="microfono" tam={20} /></button>
         <button className="btn verde"
                 style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}
                 onClick={exportar}>

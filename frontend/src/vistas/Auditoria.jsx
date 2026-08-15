@@ -297,7 +297,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
             <div className="mic-caja">
               <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                       onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}>
-                🎤
+                <Icono nombre="microfono" tam={52} />
               </button>
               <small>{vozDisponible() ? "Reconocimiento en español" : "Use el teclado"}</small>
             </div>
@@ -378,7 +378,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
               <div className="mic-caja">
                 <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                         onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}>
-                  🎤
+                  <Icono nombre="microfono" tam={52} />
                 </button>
                 <small>{vozDisponible() ? "Reconocimiento en español" : "Use el teclado"}</small>
               </div>

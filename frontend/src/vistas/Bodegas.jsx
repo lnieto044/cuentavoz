@@ -3,6 +3,7 @@ import { pedir, BASE, leerToken, descargarReporte, preguntarAsistente } from "..
 import { escuchar, hablar, esAfirmacion, esNegacion, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 const ETIQUETA = {
   pendiente: ["PENDIENTE", "gris"], en_conteo: ["EN CONTEO", "azul"],
@@ -405,8 +406,7 @@ export default function Bodegas({ token, usuario, ir }) {
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                   style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                  onClick={buscarPorVoz} title="o pregunte por voz">🎤</button>
-          <button className="btn" onClick={() => buscarArticulo()}>Buscar</button>
+                  onClick={buscarPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
         </div>
         {!consulta && (
           <>
@@ -524,7 +524,7 @@ export default function Bodegas({ token, usuario, ir }) {
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className={`mic-btn ${escuchandoBodega ? "escuchando" : ""}`}
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                    onClick={buscarEnBodegaPorVoz} title="o pregunte por voz">🎤</button>
+                    onClick={buscarEnBodegaPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
           </div>
           <p className="pista" style={{ marginTop: 8, marginBottom: 4 }}>
             o pregunte por voz - si no es un artículo de esta bodega, se lo pregunta al agente
@@ -716,6 +716,36 @@ export default function Bodegas({ token, usuario, ir }) {
             ))}
           </div>
 
+          {/* Arriba, junto a los filtros, y no al final de las 54 tarjetas -
+              son acciones de la pantalla completa, no de una bodega en
+              particular, así que no tiene sentido obligar a bajar todo el
+              tablero para encontrarlas. */}
+          <div className="grilla-botones" style={{ marginBottom: 16 }}>
+            {esAuditor && (
+              <button className="btn borde" onClick={exportarEstado}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="descargar" tam={18} />
+                Exportar estado
+              </button>
+            )}
+            {esAuditor && (
+              <button className="btn"
+                      onClick={() => ir && ir("ajustes", { tabInicial: "usuarios" })}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="perfil" tam={18} />
+                Asignar personas a bodegas
+              </button>
+            )}
+            {/* Sin esAuditor a proposito: quien suele topar con una bodega
+                que no esta en el catalogo es el auxiliar en el terreno, no
+                el administrador desde su escritorio. */}
+            <button className="btn borde" onClick={() => setPidiendoBodegaNueva(true)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="bodegas" tam={18} />
+              Bodega nueva
+            </button>
+          </div>
+
           {lista.length === 0 ? (
             <p className="vacio">No hay bodegas para mostrar.</p>
           ) : (
@@ -748,24 +778,6 @@ export default function Bodegas({ token, usuario, ir }) {
           <p className="pista" style={{ marginTop: 12 }}>
             Cada tarjeta se actualiza al instante por WebSocket cuando alguien abre o cierra una bodega.
           </p>
-
-          <div className="grilla-botones">
-            {esAuditor && (
-              <button className="btn borde" onClick={exportarEstado}>Exportar estado</button>
-            )}
-            {esAuditor && (
-              <button className="btn"
-                      onClick={() => ir && ir("ajustes", { tabInicial: "usuarios" })}>
-                Asignar personas a bodegas
-              </button>
-            )}
-            {/* Sin esAuditor a proposito: quien suele topar con una bodega
-                que no esta en el catalogo es el auxiliar en el terreno, no
-                el administrador desde su escritorio. */}
-            <button className="btn borde" onClick={() => setPidiendoBodegaNueva(true)}>
-              + Bodega nueva
-            </button>
-          </div>
         </>
       )}
 

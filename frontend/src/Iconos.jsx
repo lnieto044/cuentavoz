@@ -48,6 +48,11 @@ const FORMAS = {
   advertencia: <><path d="M12 3.5 21.5 20h-19z" /><path d="M12 9.5v5" /><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" /></>,
   // Refrescar: dos flechas en ciclo (restaurar valores)
   refrescar: <><path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" /><path d="M20 4v4.5h-4.5" /><path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" /><path d="M4 20v-4.5h4.5" /></>,
+  // Micrófono: mismo trazo que el icono "conteo" del menú, para que
+  // TODO botón de escuchar en la app se vea igual - antes cada uno usaba
+  // el emoji 🎤, que se ve distinto (y en algunos Windows, irreconocible)
+  // según la fuente de emoji del sistema operativo.
+  microfono: <><rect x="10" y="3" width="4" height="9" rx="2" /><path d="M6.5 11a5.5 5.5 0 0 0 11 0" /><path d="M12 16.5V20" /><path d="M9 20h6" /></>,
 };
 
 export default function Icono({ nombre, tam = 20 }) {

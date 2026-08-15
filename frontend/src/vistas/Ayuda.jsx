@@ -197,7 +197,7 @@ export default function Ayuda({ token, usuario, ir }) {
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                   style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                  onClick={buscarPorVoz} title="o pregunte por voz">🎤</button>
+                  onClick={buscarPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
         </div>
         <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
         {respuestaAgente && (

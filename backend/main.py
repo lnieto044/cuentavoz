@@ -961,9 +961,16 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
         return None
     if _REP_DIFERENCIAS.search(texto):
         d = reporte_diferencias(formato="xlsx", u=u)
+        # archivo/titulo_archivo (ademas de "actualizar") - para que el
+        # panel de vista previa muestre este archivo de una, igual que ya
+        # pasa al darle clic al boton "Generar diferencias" (que llama a
+        # previsualizar() apenas termina). Sin esto, pedirlo por voz lo
+        # generaba pero la vista previa se quedaba vacia hasta un clic
+        # manual en la tarjeta.
         return {"respuesta_hablada": f"Listo, generé las diferencias: {d['filas']} filas en "
                                      f"{d['bodegas_con_descuadre']} bodegas con descuadre.",
-                "accion": "actualizar", "destino": None, "pestana": "consolidado"}
+                "accion": "actualizar", "destino": None, "pestana": "consolidado",
+                "archivo": d["archivo"], "titulo_archivo": "Diferencias por bodega"}
     if _REP_ANALISIS.search(texto):
         # a diferencia del consolidado/diferencias (que solo generan y
         # dejan una vista previa - descargar es un clic aparte, igual por
@@ -978,7 +985,8 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
     if _REP_CONSOLIDADO.search(texto):
         d = reporte(formato="xlsx", u=u)
         return {"respuesta_hablada": f"Listo, generé el consolidado: {d['filas']} filas.",
-                "accion": "actualizar", "destino": None, "pestana": "consolidado"}
+                "accion": "actualizar", "destino": None, "pestana": "consolidado",
+                "archivo": d["archivo"], "titulo_archivo": "Consolidado para My Inventory"}
     return None
 
 

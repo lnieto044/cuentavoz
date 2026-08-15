@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { escuchar, hablar, esAfirmacion, esNegacion } from "./voz";
 import { interpretarLocal } from "./interpreteLocal";
+import Icono from "./Iconos";
 
 /** Reemplaza a window.prompt()/window.confirm(): un modal con el estilo
     propio de la app, en vez del cuadro genérico y feo del navegador.
@@ -164,7 +165,7 @@ export default function Dialogo({
             {conVoz && (
               <button type="button" className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                       style={{ width: 46, height: 46, fontSize: "1.2rem", flex: "none" }}
-                      onClick={porVoz} title="dígalo en voz alta">🎤</button>
+                      onClick={porVoz} title="dígalo en voz alta"><Icono nombre="microfono" tam={22} /></button>
             )}
           </div>
         )}

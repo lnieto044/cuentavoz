@@ -3,6 +3,7 @@ import { pedir } from "../api";
 import { hablar, escuchar, esAfirmacion, esNegacion } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 const fmt = (n) => Number(n).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 
@@ -227,13 +228,25 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
             <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                     style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
                     onClick={alMicrofono} title="responda «sí» para confirmar, o dicte un ajuste">
-              🎤
+              <Icono nombre="microfono" tam={20} />
             </button>
           </div>
           <div className="burbuja">{respuesta}</div>
           <p className="pista" style={{ marginTop: 8 }}>
             o diga «sí» para confirmar, o dicte un ajuste como «el pollo fueron doce kilos»
           </p>
+          <details style={{ marginTop: 4 }}>
+            <summary className="pista" style={{ cursor: "pointer" }}>
+              Ver frases exactas que entiende el agente aquí
+            </summary>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {["sí", "confirmo", "legaliza",
+                "no (le pregunta qué insumo ajustar)",
+                "el pollo fueron doce kilos", "el aceite fue un litro"].map((ej, i) => (
+                <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+              ))}
+            </ul>
+          </details>
           {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
           <div className="grilla-botones">
             <button className="btn verde" onClick={confirmar}>Confirmar legalización</button>

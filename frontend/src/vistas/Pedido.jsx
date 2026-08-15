@@ -3,6 +3,7 @@ import { pedir, enviarTurno, descargarReporte } from "../api";
 import { escuchar, hablar } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 const DIA = new Date().toLocaleDateString("es-CO", { weekday: "long" });
 // Palabras sueltas que valen como "sí" a lo que se le esté preguntando
@@ -496,13 +497,25 @@ export default function Pedido({ token, usuario, ir }) {
                     alEstado: setEstado,
                     alError: setErr,
                   })}>
-            🎤
+            <Icono nombre="microfono" tam={52} />
           </button>
           <b>{estado === "escuchando" ? "Escuchando…" : "Mantenga presionado y hable"}</b>
           <small>También sirve: «pedir insumos para 30 sancochos»</small>
           <small style={{ color: "var(--verde)", fontWeight: 700 }}>
             Receta + stock = pedido
           </small>
+          <details style={{ marginTop: 4, textAlign: "left", width: "100%" }}>
+            <summary className="pista" style={{ cursor: "pointer" }}>
+              Ver frases exactas que entiende el agente aquí
+            </summary>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {["hoy preparamos cincuenta ajiacos", "pedir insumos para 30 sancochos",
+                "cambia a treinta porciones", "sí", "envíalo", "no",
+                "corregir cantidad"].map((ej, i) => (
+                <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+              ))}
+            </ul>
+          </details>
         </div>
       </div>
 

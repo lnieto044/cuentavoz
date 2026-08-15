@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { escuchar, hablar } from "./voz";
 import { preguntarAsistente } from "./api";
+import Icono from "./Iconos";
 
 /** El mismo microfono que ya existe en Bodegas/Conteo/Pedido, pero para
     pantallas sin conversacion (Inicio, Ajustes, Ayuda, Reportes, Panel):
@@ -54,18 +55,20 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         // para bodegaAuditar, su equivalente en Auditoría.
         ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined,
                         bodegaAuditar: r.bodega_auditar || undefined });
-      } else if (r.accion === "previsualizar_reporte" && r.pestana && ir) {
-        // Esta acción no trae "destino" (no cambia de PANTALLA: ya estamos
-        // en Reportes), pero sí puede pedirse desde OTRA pestaña de esta
-        // misma pantalla (ej. "muéstrame el archivo de análisis" mientras
-        // se está viendo Análisis de consumo). Sin este ir(), el evento de
-        // abajo llegaba a un TabConsolidado que ni siquiera estaba
-        // montado - solo se dibuja cuando la pestaña activa YA es
-        // "consolidado" - así que la vista previa no aparecía nunca si no
-        // se estaba, por casualidad, ya en esa pestaña. Va por props (como
-        // bodegaSugerida) en vez del evento genérico de abajo, precisamente
-        // porque necesita sobrevivir a un cambio de pestaña que todavía no
-        // ocurrió cuando se dispara el evento.
+      } else if (r.archivo && r.pestana && ir) {
+        // Cubre dos casos: "previsualizar_reporte" (pedir VER un archivo
+        // ya generado) y "actualizar" con archivo (GENERAR uno nuevo por
+        // voz - "genera el consolidado", "exporta las diferencias") -
+        // ninguno trae "destino" (no cambian de PANTALLA: ya estamos en
+        // Reportes), pero sí pueden pedirse desde OTRA pestaña de esta
+        // misma pantalla. Sin este ir(), el evento de abajo llegaba a un
+        // TabConsolidado que ni siquiera estaba montado - solo se dibuja
+        // cuando la pestaña activa YA es "consolidado" - así que la vista
+        // previa no aparecía nunca si no se estaba, por casualidad, ya en
+        // esa pestaña (ni al pedir verla, ni al generarla). Va por props
+        // (como bodegaSugerida) en vez del evento genérico de abajo,
+        // precisamente porque necesita sobrevivir a un cambio de pestaña
+        // que todavía no ocurrió cuando se dispara el evento.
         ir(vista, { tabInicial: r.pestana,
                     archivoPrevisualizar: { archivo: r.archivo, titulo: r.titulo_archivo } });
       }
@@ -111,7 +114,7 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
                         border: "1px solid var(--borde)", borderRadius: 12 }} />
         <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                 style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                onClick={porVoz} title="pregúntele por voz">🎤</button>
+                onClick={porVoz} title="pregúntele por voz"><Icono nombre="microfono" tam={22} /></button>
       </div>
       <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
       {ejemplos && ejemplos.length > 0 && (
