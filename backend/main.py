@@ -33,7 +33,7 @@ from seguridad import (hash_clave, verificar_clave, crear_token,
 from agente.orquestador import procesar_turno, ESTADOS, avance
 from servicios.recetas import (calcular_pedido, comparar_legalizacion,
                                analisis_consumo, detalle_receta)
-from servicios.validacion import umbral_actual
+from servicios.validacion import umbral_actual, validar_conteo
 from servicios import analitica, huella
 from servicios.interprete import _numero as _numero_de_texto
 import reportes
@@ -3645,6 +3645,140 @@ def editar_usuario(usuario_id: int, datos: EditarUsuarioIn,
     if cambios:
         registrar(u, "USUARIO", f"{nombre} editado: {', '.join(cambios)}", "ok")
     return {"ok": True}
+
+
+@app.delete("/api/usuarios/{usuario_id}")
+def eliminar_usuario(usuario_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Borra de verdad a alguien (no solo desactivar) - para limpiar cuentas
+    de prueba de un ambiente antes de una demo, sin dejarlas visibles en
+    Gestión de usuarios. A propósito NO es lo que hace editar_usuario()
+    de arriba para el uso normal (esa sigue prefiriendo desactivar, por la
+    misma razón documentada ahí: no romper la trazabilidad de conteos y
+    firmas reales). Aquí sí se borra la cuenta, pero la Traza (registro
+    inmutable) NUNCA se toca como fila - solo se le suelta la referencia al
+    usuario (usuario_id queda en NULL; el nombre en "persona" ya es texto
+    aparte) para que el historial real de esa persona, si lo hubo, siga
+    intacto y legible después de borrar la cuenta."""
+    if usuario_id == u.id:
+        raise HTTPException(400, "No puede eliminar su propia cuenta.")
+    with Sesion() as s:
+        obj = s.get(Usuario, usuario_id)
+        if obj is None:
+            raise HTTPException(404, "Usuario no encontrado.")
+        nombre = obj.nombre
+        # sesiones de conteo/auditoria de esta persona: primero los Conteo
+        # de cada sesion (y las Alertas que esos Conteo hayan generado),
+        # despues la sesion misma - en ese orden, por las llaves foraneas.
+        sesiones = s.query(SesionConteo).filter_by(usuario_id=usuario_id).all()
+        for ses in sesiones:
+            conteos = s.query(Conteo).filter_by(sesion_id=ses.id).all()
+            for c in conteos:
+                s.query(Alerta).filter_by(conteo_id=c.id).delete()
+                s.delete(c)
+            s.delete(ses)
+        s.query(AsignacionBodega).filter_by(usuario_id=usuario_id).delete()
+        s.query(CredencialWebAuthn).filter_by(usuario_id=usuario_id).delete()
+        # MensajeSoporte exige remitente/destinatario (no admite NULL) - sin
+        # cuenta de uno de los dos lados, el mensaje no puede seguir existiendo.
+        s.query(MensajeSoporte).filter(
+            (MensajeSoporte.remitente_id == usuario_id)
+            | (MensajeSoporte.destinatario_id == usuario_id)).delete()
+        # estas si admiten NULL: se sueltan en vez de borrarse, para no
+        # perder pedidos/aprobaciones reales solo porque quien los creo
+        # ya no tiene cuenta.
+        for linea in s.query(LineaServicio).filter_by(creado_por_id=usuario_id).all():
+            linea.creado_por_id = None
+        for ap in s.query(Aprobacion).filter_by(creado_por_id=usuario_id).all():
+            ap.creado_por_id = None
+        for ap in s.query(Aprobacion).filter_by(resuelto_por_id=usuario_id).all():
+            ap.resuelto_por_id = None
+        for t in s.query(Traza).filter_by(usuario_id=usuario_id).all():
+            t.usuario_id = None
+        s.delete(obj)
+        s.commit()
+    registrar(u, "USUARIO", f"{nombre} eliminado de forma permanente", "ok")
+    return {"ok": True}
+
+
+class ItemSemillaIn(BaseModel):
+    articulo_codigo: str
+    cantidad: float
+    # solo para bodegas sin ningun stock de sistema cargado todavia (el
+    # extracto de My Inventory nunca llego para esa bodega): crea la fila
+    # de StockSistema con este valor ANTES de contar, para tener contra
+    # que comparar. Si la bodega ya tiene stock de este articulo, se
+    # ignora - nunca pisa un valor real ya cargado.
+    cantidad_sistema_si_falta: float | None = None
+
+
+class ConteoSemillaIn(BaseModel):
+    bodega_id: int
+    usuario_id: int
+    items: list[ItemSemillaIn]
+
+
+@app.post("/api/admin/sembrar-conteo")
+def sembrar_conteo(datos: ConteoSemillaIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Crea conteos CONFIRMADOS reales (misma tabla, misma trazabilidad, se
+    validan igual que si la persona lo hubiera dictado) para poblar un
+    ambiente con datos de muestra antes de una demo - ej. que el panel
+    gerencial tenga varias bodegas con diferencia real, no solo una. No
+    pasa por reconocimiento de voz/texto: articulo y cantidad van directos,
+    para que sembrar muchos a la vez no dependa de que el agente entienda
+    cada frase (ni de la cuota de Gemini). Los items que dispararian una
+    alerta (negativo, fuera de umbral...) se saltan en vez de forzarse -
+    esto es para que la demo se vea real, no para inventar anomalias."""
+    with Sesion() as s:
+        persona = s.get(Usuario, datos.usuario_id)
+        if persona is None:
+            raise HTTPException(404, "Usuario no encontrado.")
+        bodega = s.get(Bodega, datos.bodega_id)
+        if bodega is None:
+            raise HTTPException(404, "Bodega no encontrada.")
+        ses = (s.query(SesionConteo)
+               .filter_by(bodega_id=datos.bodega_id, usuario_id=datos.usuario_id, estado="abierta")
+               .first())
+        if not ses:
+            ses = SesionConteo(bodega_id=datos.bodega_id, usuario_id=datos.usuario_id,
+                               tipo="conteo", estado="abierta")
+            s.add(ses)
+            s.commit()
+            s.refresh(ses)
+        sesion_id = ses.id
+        if bodega.estado == "pendiente":
+            bodega.estado = "en_conteo"
+            s.commit()
+        nombre_bodega = bodega.nombre_oficial
+
+    guardados = 0
+    saltados = []
+    for item in datos.items:
+        with Sesion() as s:
+            art = s.get(Articulo, item.articulo_codigo)
+            if art is None:
+                saltados.append(item.articulo_codigo)
+                continue
+            if item.cantidad_sistema_si_falta is not None:
+                existe = s.query(StockSistema).filter_by(
+                    articulo_codigo=item.articulo_codigo, bodega_id=datos.bodega_id).first()
+                if not existe:
+                    s.add(StockSistema(articulo_codigo=item.articulo_codigo,
+                                       bodega_id=datos.bodega_id,
+                                       cantidad_sd=item.cantidad_sistema_si_falta))
+                    s.commit()
+        v = validar_conteo(item.articulo_codigo, item.cantidad, art.unidad_medida, datos.bodega_id)
+        if not v["ok"]:
+            saltados.append(item.articulo_codigo)
+            continue
+        with Sesion() as s:
+            s.add(Conteo(sesion_id=sesion_id, articulo_codigo=item.articulo_codigo,
+                        cantidad=item.cantidad, unidad=art.unidad_medida, estado="confirmado"))
+            s.commit()
+        guardados += 1
+    if guardados:
+        registrar(persona, "CONTEO",
+                 f"{guardados} referencias contadas en {nombre_bodega} (datos de muestra)")
+    return {"ok": True, "guardados": guardados, "saltados": saltados}
 
 
 @app.get("/api/usuarios/yo/bodegas")

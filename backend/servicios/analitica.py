@@ -125,7 +125,7 @@ def resumen_ejecutivo() -> dict:
         "alertas_total": alertas_total,
         "bodegas_cerradas": len(cerradas),
         "bodegas_total": len(bodegas),
-        "diferencia_por_bodega": diferencias_por_bodega(),
+        "diferencia_por_bodega": diferencias_por_bodega(limite=10),
         "stock_por_unidad": stock_por_unidad(),
         "historial_exactitud": historial_exactitud(),
     }
