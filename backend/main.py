@@ -318,6 +318,101 @@ _FAQ_ASISTENTE = [
 ]
 
 
+def _datos_panel_narrados() -> dict:
+    """Los mismos datos de /api/panel/resumen y /api/panel/alertas, ya
+    convertidos a frases listas para hablar - los usan tanto el contexto
+    completo que recibe Gemini como las respuestas determinísticas de
+    _responder_panel_por_voz, para no calcular el texto dos veces."""
+    r = analitica.resumen_ejecutivo()
+    a = analitica.resumen_alertas_panel()
+    dif_bod = r["diferencia_por_bodega"]
+    texto_dif = ("sin diferencias registradas todavía" if not dif_bod else
+                 "; ".join(f"{x['bodega'].title()}: {x['diferencia']}" for x in dif_bod[:6]))
+    stock = r["stock_por_unidad"]
+    texto_stock = ("sin datos de stock todavía" if not stock else
+                   ", ".join(f"{x['unidad']} {x['pct']}% ({x['cantidad']})" for x in stock))
+    hist = r["historial_exactitud"]
+    if len(hist) < 2:
+        texto_hist = "todavía no hay suficientes cierres para ver una tendencia"
+    else:
+        tendencia = "mejorando" if hist[-1]["exactitud"] >= hist[0]["exactitud"] else "bajando"
+        texto_hist = (f"{len(hist)} tomas registradas, la más reciente en "
+                      f"{hist[-1]['bodega'].title()} con {hist[-1]['exactitud']}%, "
+                      f"tendencia {tendencia}")
+    etiquetas_estado = {"cerrada": "cerradas", "en_conteo": "en conteo",
+                        "en_auditoria": "en auditoría", "pendiente": "pendientes"}
+    texto_estado = (", ".join(f"{n} {etiquetas_estado.get(e, e)}"
+                              for e, n in a["estado_bodegas"].items())
+                    or "sin bodegas registradas")
+    alertas_tipo = a["alertas_por_tipo"]
+    texto_alertas_tipo = ("sin alertas registradas todavía" if not alertas_tipo else
+                          ", ".join(f"{x['tipo']}: {x['cantidad']}" for x in alertas_tipo))
+    descuadres = a["descuadres_recurrentes"]
+    texto_descuadres = ("sin descuadres repetidos todavía" if not descuadres else
+                        "; ".join(f"{x['articulo'].title()} ({x['tipo']}, diferencia "
+                                 f"{x['diferencia']} en {x['tomas']} tomas, acción sugerida: "
+                                 f"{x['accion']})" for x in descuadres[:5]))
+    return {"r": r, "a": a, "texto_dif": texto_dif, "texto_stock": texto_stock,
+            "texto_hist": texto_hist, "texto_estado": texto_estado,
+            "texto_alertas_tipo": texto_alertas_tipo, "texto_descuadres": texto_descuadres}
+
+
+# Preguntas frecuentes del Panel gerencial, resueltas sin pasar por Gemini.
+# Sin esto, una pregunta tan común como "¿cuántas bodegas están cerradas?"
+# a veces terminaba navegando a la pantalla Bodegas en vez de contestar
+# (confirmado en pruebas: al mencionar el nombre de otra pantalla, Gemini
+# no siempre distingue preguntar de navegar) - las mismas frases que se
+# ofrecen en el desplegable "Ver frases exactas" de Panel quedan así
+# garantizadas.
+_PANEL_PREGUNTAS = [
+    (re.compile(r"\bprimera\s+pasada\b", re.IGNORECASE),
+     lambda d: f"La exactitud primera pasada es del {d['r']['exactitud_primera_pasada']}%, "
+               "promedio de cierres."),
+    (re.compile(r"\breferencias?\b.*\bcontad\w*|\bcu[aá]nt\w*\s+referencias\b", re.IGNORECASE),
+     lambda d: f"Se han contado {d['r']['referencias_contadas']} referencias en toda la "
+               "operación."),
+    (re.compile(r"\balertas?\b.*\bgestionad\w*", re.IGNORECASE),
+     lambda d: f"Van {d['r']['alertas_gestionadas']} alertas gestionadas de "
+               f"{d['r']['alertas_total']} en total."),
+    (re.compile(r"\bc[oó]mo\s+(est[aá]n|van)\s+las\s+bodegas\b|\bestado\s+de\s+las\s+bodegas\b",
+               re.IGNORECASE),
+     lambda d: f"Estado de las bodegas: {d['texto_estado']}."),
+    (re.compile(r"\bcu[aá]nt\w*\s+bodegas\b.*\bcerrad\w*|\bbodegas\s+cerradas\b", re.IGNORECASE),
+     lambda d: f"Van {d['r']['bodegas_cerradas']} bodegas cerradas de {d['r']['bodegas_total']} "
+               "en total, con doble firma digital."),
+    (re.compile(r"\bqu[eé]\s+bodega\b.*\bdiferencia\b|\bdiferencia\s+absoluta\s+por\s+bodega\b",
+               re.IGNORECASE),
+     lambda d: f"Diferencia absoluta por bodega: {d['texto_dif']}."),
+    (re.compile(r"\bstock\s+por\s+unidad\b|\bc[oó]mo\s+va\s+el\s+stock\b", re.IGNORECASE),
+     lambda d: f"Stock por unidad de medida: {d['texto_stock']}."),
+    (re.compile(r"\btendencia\s+de\s+exactitud\b|\bexactitud\s+por\s+toma\b", re.IGNORECASE),
+     lambda d: f"Exactitud por toma de inventario: {d['texto_hist']}."),
+    (re.compile(r"\bnegativos?\b.*\bcorregid\w*|\bcu[aá]nt\w*\s+negativos\b", re.IGNORECASE),
+     lambda d: f"Negativos detectados en el sistema: {d['a']['negativos_iniciales']}, "
+               f"corregidos a {d['a']['negativos_actuales']} durante la toma."),
+    (re.compile(r"\btiempo\s+promedio\s+de\s+conteo\b", re.IGNORECASE),
+     lambda d: f"El tiempo promedio de conteo por bodega es de "
+               f"{d['a']['tiempo_promedio_min']} minutos."),
+    (re.compile(r"\balias\s+aprendid\w*|\bcu[aá]nt\w*\s+alias\b", re.IGNORECASE),
+     lambda d: f"El agente tiene {d['a']['alias_aprendidos']} alias aprendidos."),
+    (re.compile(r"\balertas\s+por\s+tipo\b", re.IGNORECASE),
+     lambda d: f"Alertas por tipo: {d['texto_alertas_tipo']}."),
+    (re.compile(r"\bdescuadre\w*\s+(principal|recurrent\w*)\b|\bcausa\s+ra[ií]z\b",
+               re.IGNORECASE),
+     lambda d: f"Descuadres recurrentes: {d['texto_descuadres']}."),
+]
+
+
+def _responder_panel_por_voz(texto: str, u: Usuario) -> dict | None:
+    if u.perfil != "auditor":
+        return None
+    for patron, respuesta in _PANEL_PREGUNTAS:
+        if patron.search(texto):
+            return {"respuesta_hablada": respuesta(_datos_panel_narrados()),
+                    "accion": None, "destino": None, "pestana": None}
+    return None
+
+
 def _contexto_asistente(vista: str, u: Usuario) -> str:
     """Un resumen honesto de lo que hay AHORA en esa pantalla, para que el
     agente conteste con datos reales y no invente nada. Reusa las mismas
@@ -407,35 +502,8 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 "controles de la pantalla (número y botón «Guardar configuración») - eso "
                 f"todavía no cambia por voz. {permiso_offline}")
     if vista == "panel" and u.perfil == "auditor":
-        r = analitica.resumen_ejecutivo()
-        a = analitica.resumen_alertas_panel()
-        dif_bod = r["diferencia_por_bodega"]
-        texto_dif = ("sin diferencias registradas todavía" if not dif_bod else
-                     "; ".join(f"{d['bodega'].title()}: {d['diferencia']}" for d in dif_bod[:6]))
-        stock = r["stock_por_unidad"]
-        texto_stock = ("sin datos de stock todavía" if not stock else
-                       ", ".join(f"{s['unidad']} {s['pct']}% ({s['cantidad']})" for s in stock))
-        hist = r["historial_exactitud"]
-        if len(hist) < 2:
-            texto_hist = "todavía no hay suficientes cierres para ver una tendencia"
-        else:
-            tendencia = "mejorando" if hist[-1]["exactitud"] >= hist[0]["exactitud"] else "bajando"
-            texto_hist = (f"{len(hist)} tomas registradas, la más reciente en "
-                          f"{hist[-1]['bodega'].title()} con {hist[-1]['exactitud']}%, "
-                          f"tendencia {tendencia}")
-        etiquetas_estado = {"cerrada": "cerradas", "en_conteo": "en conteo",
-                            "en_auditoria": "en auditoría", "pendiente": "pendientes"}
-        texto_estado = (", ".join(f"{n} {etiquetas_estado.get(e, e)}"
-                                  for e, n in a["estado_bodegas"].items())
-                        or "sin bodegas registradas")
-        alertas_tipo = a["alertas_por_tipo"]
-        texto_alertas_tipo = ("sin alertas registradas todavía" if not alertas_tipo else
-                              ", ".join(f"{x['tipo']}: {x['cantidad']}" for x in alertas_tipo))
-        descuadres = a["descuadres_recurrentes"]
-        texto_descuadres = ("sin descuadres repetidos todavía" if not descuadres else
-                            "; ".join(f"{d['articulo'].title()} ({d['tipo']}, diferencia "
-                                     f"{d['diferencia']} en {d['tomas']} tomas, acción sugerida: "
-                                     f"{d['accion']})" for d in descuadres[:5]))
+        d = _datos_panel_narrados()
+        r, a = d["r"], d["a"]
         return (
             "Pantalla: Panel gerencial, con dos pestañas: «Resumen ejecutivo» y «Bodegas y "
             "alertas» - decir el nombre de cualquiera de las dos (o «llévame a...») navega "
@@ -444,15 +512,15 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             f"{r['exactitud_primera_pasada']}%, referencias contadas "
             f"{r['referencias_contadas']}, alertas gestionadas {r['alertas_gestionadas']} de "
             f"{r['alertas_total']}, bodegas cerradas {r['bodegas_cerradas']} de "
-            f"{r['bodegas_total']}. Gráfica «Diferencia absoluta por bodega»: {texto_dif}. "
-            f"Gráfica «Stock por unidad de medida»: {texto_stock}. Gráfica «Exactitud por toma "
-            f"de inventario»: {texto_hist}. "
+            f"{r['bodegas_total']}. Gráfica «Diferencia absoluta por bodega»: {d['texto_dif']}. "
+            f"Gráfica «Stock por unidad de medida»: {d['texto_stock']}. Gráfica «Exactitud por "
+            f"toma de inventario»: {d['texto_hist']}. "
             f"Pestaña Bodegas y alertas - tarjetas: negativos detectados en el sistema "
             f"{a['negativos_iniciales']} corregidos a {a['negativos_actuales']} durante la "
             f"toma, tiempo promedio de conteo por bodega {a['tiempo_promedio_min']} minutos, "
             f"alias aprendidos por el agente {a['alias_aprendidos']}. Tarjeta «Estado de las "
-            f"bodegas»: {texto_estado}. Tarjeta «Alertas por tipo»: {texto_alertas_tipo}. Tabla "
-            f"«Descuadres recurrentes»: {texto_descuadres}.")
+            f"bodegas»: {d['texto_estado']}. Tarjeta «Alertas por tipo»: {d['texto_alertas_tipo']}. "
+            f"Tabla «Descuadres recurrentes»: {d['texto_descuadres']}.")
     if vista == "reportes" and u.perfil == "auditor":
         return ("Pantalla: Reportes. Aquí se genera el consolidado para My "
                 "Inventory, las diferencias por bodega, y el análisis de consumo "
@@ -1578,6 +1646,10 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         resuelta = _resolver_aprobacion_por_voz(texto, u)
         if resuelta:
             return resuelta
+    if vista == "panel":
+        respondida = _responder_panel_por_voz(texto, u)
+        if respondida:
+            return respondida
     navegada = _navegar_pestana_por_voz(vista, texto)
     if navegada:
         return navegada
