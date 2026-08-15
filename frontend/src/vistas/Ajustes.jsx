@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
-import { escuchar, quitarTildes } from "../voz";
+import { escuchar, hablar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 
@@ -805,32 +805,63 @@ function TabTraza({ token }) {
                     "ASIGNACION", "SEGURIDAD", "PERFIL", "SOPORTE"];
   const personas = [...new Set(traza.map((t) => t.persona))].sort();
 
-  // "Muéstrame las acciones de Luis hoy" - determinístico y local,
-  // sin pasar por el agente general: solo reconoce palabras contra las
+  // "Muéstrame las acciones de Luis hoy" - determinístico y local, sin
+  // pasar por el agente general: solo reconoce palabras contra las
   // listas que YA existen en esta pantalla (rango, tipos de acción,
   // personas), así que no hace falta ninguna llamada a Gemini para
-  // filtrar.
-  function _interpretarFiltroVoz(texto) {
+  // filtrar. Combina lo dicho con lo que YA estaba marcado (decir solo
+  // "esta semana" no borra la persona/acción que ya tenía puesta) -
+  // por eso lee rango/persona/accion actuales como punto de partida en
+  // vez de siempre resetear a "todos".
+  function _resolverFiltroVoz(texto) {
     const t = quitarTildes(texto.toLowerCase());
     let coincidio = false;
-    if (/\btodo\b/.test(t)) { setRango(""); coincidio = true; }
-    else if (/\bhoy\b/.test(t)) { setRango("hoy"); coincidio = true; }
-    else if (/semana/.test(t)) { setRango("semana"); coincidio = true; }
-    else if (/\bmes\b/.test(t)) { setRango("mes"); coincidio = true; }
+    let nuevoRango = rango, nuevaAccion = accion, nuevaPersona = persona;
+    if (/\btodo\b/.test(t)) { nuevoRango = ""; coincidio = true; }
+    else if (/\bhoy\b/.test(t)) { nuevoRango = "hoy"; coincidio = true; }
+    else if (/semana/.test(t)) { nuevoRango = "semana"; coincidio = true; }
+    else if (/\bmes\b/.test(t)) { nuevoRango = "mes"; coincidio = true; }
 
-    if (/todas las acciones/.test(t)) { setAccion(""); coincidio = true; }
+    if (/todas las acciones/.test(t)) { nuevaAccion = ""; coincidio = true; }
     else {
       const accionEncontrada = acciones.find((a) => a && t.includes(a.toLowerCase()));
-      if (accionEncontrada) { setAccion(accionEncontrada); coincidio = true; }
+      if (accionEncontrada) { nuevaAccion = accionEncontrada; coincidio = true; }
     }
 
-    if (/todas las personas/.test(t)) { setPersona(""); coincidio = true; }
+    if (/todas las personas/.test(t)) { nuevaPersona = ""; coincidio = true; }
     else {
       const personaEncontrada = todasPersonas.find(
         (p) => p && t.includes(quitarTildes(p.toLowerCase())));
-      if (personaEncontrada) { setPersona(personaEncontrada); coincidio = true; }
+      if (personaEncontrada) { nuevaPersona = personaEncontrada; coincidio = true; }
     }
-    return coincidio;
+    return coincidio ? { rango: nuevoRango, persona: nuevaPersona, accion: nuevaAccion } : null;
+  }
+
+  // Aplica el filtro resuelto Y dice el resultado real (cuántas filas
+  // encontró), no un "listo, apliqué el filtro" que no cuenta nada -
+  // pedido explícito del usuario. Trae los datos de una (en vez de
+  // esperar a que el useEffect de cargar() reaccione al cambio de
+  // estado) para poder anunciar la cifra exacta apenas llega.
+  async function _aplicarFiltroYAnunciar(resuelto) {
+    const { rango: r, persona: p, accion: a } = resuelto;
+    setRango(r); setPersona(p); setAccion(a);
+    setMsg("");
+    try {
+      const q = new URLSearchParams();
+      if (p) q.set("persona", p);
+      if (a) q.set("accion", a);
+      if (r) q.set("rango", r);
+      const filas = await pedir(`/api/trazabilidad?${q}`, {}, token);
+      setTraza(filas);
+      const partes = [];
+      if (a) partes.push(`de ${a.toLowerCase()}`);
+      if (p) partes.push(`de ${p}`);
+      const etiquetaRango = r === "hoy" ? "hoy" : r === "semana" ? "en la última semana"
+                           : r === "mes" ? "en el último mes" : "en total";
+      const texto = `Encontré ${filas.length} acciones${partes.length ? " " + partes.join(" ") : ""} ${etiquetaRango}.`;
+      setMsg(texto);
+      hablar(texto);
+    } catch (e) { setMsg(e.message); }
   }
 
   // El cuadro "Pregúntele al agente" (arriba de las pestañas) es el
@@ -839,20 +870,29 @@ function TabTraza({ token }) {
   // solo desde el micrófono chiquito junto a los filtros. Como el
   // filtro ya vive aquí (sin pasar por el backend), se intercepta la
   // frase ANTES de que AsistenteVoz llegue a preguntarle al agente -
-  // event.preventDefault() es la señal de "ya lo resolví, no llames al
-  // backend para esto".
+  // event.preventDefault() debe llamarse de una, ANTES de cualquier
+  // await, para que AsistenteVoz vea la señal en el mismo ciclo
+  // síncrono del dispatchEvent (el fetch+anuncio siguen aparte, ya de
+  // forma asíncrona, sin que eso afecte esa señal).
   useEffect(() => {
     const interceptar = (e) => {
-      if (_interpretarFiltroVoz(e.detail.texto)) e.preventDefault();
+      const resuelto = _resolverFiltroVoz(e.detail.texto);
+      if (!resuelto) return;
+      e.preventDefault();
+      _aplicarFiltroYAnunciar(resuelto);
     };
     window.addEventListener("cuentavoz:filtro-local", interceptar);
     return () => window.removeEventListener("cuentavoz:filtro-local", interceptar);
-  }, [todasPersonas, acciones]);
+  }, [todasPersonas, acciones, token, rango, persona, accion]);
 
   function escucharFiltro() {
     setMsg("");
     escuchar({
-      alTexto: _interpretarFiltroVoz,
+      alTexto: (texto) => {
+        const resuelto = _resolverFiltroVoz(texto);
+        if (resuelto) _aplicarFiltroYAnunciar(resuelto);
+        else setMsg("No reconocí ningún filtro en lo que dijo.");
+      },
       alEstado: (e) => setEscuchandoFiltro(e === "escuchando"),
       alError: setMsg,
     });

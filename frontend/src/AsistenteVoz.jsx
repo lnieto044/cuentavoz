@@ -32,8 +32,10 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
     });
     window.dispatchEvent(evento);
     if (evento.defaultPrevented) {
-      setRespuesta("Listo, apliqué el filtro.");
-      hablar("Listo, apliqué el filtro.");
+      // El componente que lo reclamó (ej. TabTraza) es quien sabe el
+      // resultado real (cuántas filas encontró) - anuncia ESO por su
+      // cuenta de forma asíncrona en vez de un "listo, apliqué el
+      // filtro" genérico que no dice nada útil.
       return;
     }
     setPensando(true);
