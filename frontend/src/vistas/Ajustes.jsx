@@ -3,6 +3,7 @@ import { pedir, descargarReporte } from "../api";
 import { escuchar, hablar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
+import Icono from "../Iconos";
 
 const _EJEMPLOS_POR_PESTANA = {
   config: [
@@ -942,11 +943,22 @@ function TabTraza({ token }) {
         <button className={`mic-btn ${escuchandoFiltro ? "escuchando" : ""}`}
                 style={{ width: 40, height: 40, fontSize: "1.05rem" }}
                 onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»">🎤</button>
-        <button className="btn borde" style={{ marginLeft: "auto" }} onClick={exportar}>
+        <button className="btn verde"
+                style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}
+                onClick={exportar}>
+          <Icono nombre="descargar" tam={18} />
           Exportar
         </button>
       </div>
-      {msg && <p className="msg-ok">{msg}</p>}
+      {msg && (
+        <div className={`banner ${msg.startsWith("Encontré") || msg.startsWith("Exportado") ? "ok" : ""}`}
+             style={{ marginBottom: 12 }}>
+          <span className="ico">
+            {msg.startsWith("Encontré") || msg.startsWith("Exportado") ? "✓" : "!"}
+          </span>
+          <span>{msg}</span>
+        </div>
+      )}
       {traza.length === 0 ? (
         <p className="vacio">Sin acciones registradas todavía.</p>
       ) : (

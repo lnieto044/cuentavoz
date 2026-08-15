@@ -38,6 +38,8 @@ const FORMAS = {
   salir: <><path d="M14 4H6v16h8" /><path d="M11 12h9" /><path d="M17 8.5 20.5 12 17 15.5" /></>,
   // Candado: campo de PIN en el ingreso
   candado: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7.5a4 4 0 0 1 8 0V11" /></>,
+  // Descargar: flecha hacia una bandeja
+  descargar: <><path d="M12 3v11.5" /><path d="M7.5 10.5 12 15l4.5-4.5" /><path d="M4.5 17.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" /></>,
 };
 
 export default function Icono({ nombre, tam = 20 }) {
