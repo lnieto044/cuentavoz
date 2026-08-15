@@ -280,29 +280,36 @@ def _pcm_a_wav(pcm: bytes, tasa: int = 24000, canales: int = 1, bits: int = 16) 
 def sintetizar_voz(texto: str, voz: str = VOZ_DEFECTO) -> bytes | None:
     """Convierte texto a un WAV con voz neuronal real. None si Gemini no
     esta disponible - quien llama decide si cae de respaldo a la voz del
-    navegador."""
+    navegador (que suena distinta a la elegida en Mi perfil, asi que cada
+    caida de vuelta ahi es una voz distinta hablando a mitad de sesion)."""
     cliente = _obtener_cliente()
     if cliente is None or not texto.strip():
         return None
     nombre_voz = VOCES.get(voz, VOCES[VOZ_DEFECTO])["nombre"]
-    try:
-        from google.genai import types
-        r = _generar_con_limite(
-            cliente,
-            limite=12,
-            model=MODELO_VOZ,
-            contents=texto,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=nombre_voz)
-                    )
-                ),
-            ),
-        )
-        parte = r.candidates[0].content.parts[0].inline_data
-        return _pcm_a_wav(parte.data)
-    except Exception as e:
-        print(f"[cerebro] Voz neuronal no disponible: {e}")
-        return None
+    from google.genai import types
+    config = types.GenerateContentConfig(
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=nombre_voz)
+            )
+        ),
+    )
+    # Un reintento, y solo si la primera vez se agoto el tiempo (se ha visto
+    # que Gemini a veces tarda una vez bajo carga y responde rapido la
+    # siguiente) - no ante cualquier otra falla (cuota agotada, por
+    # ejemplo), donde insistir de una solo suma espera sin cambiar el
+    # resultado y hace mas notoria la caida a la voz del navegador.
+    for intento, limite in ((1, 12), (2, 6)):
+        try:
+            r = _generar_con_limite(cliente, limite=limite, model=MODELO_VOZ,
+                                     contents=texto, config=config)
+            parte = r.candidates[0].content.parts[0].inline_data
+            return _pcm_a_wav(parte.data)
+        except concurrent.futures.TimeoutError as e:
+            print(f"[cerebro] Voz neuronal tardo demasiado (intento {intento}): {e}")
+            continue
+        except Exception as e:
+            print(f"[cerebro] Voz neuronal no disponible: {e}")
+            return None
+    return None

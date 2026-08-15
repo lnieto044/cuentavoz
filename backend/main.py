@@ -794,6 +794,9 @@ _VERBOS_GENERAR_REPORTE = re.compile(
 _REP_DIFERENCIAS = re.compile(r"diferencia", re.IGNORECASE)
 _REP_ANALISIS = re.compile(r"an[aá]lisis|consumo", re.IGNORECASE)
 _REP_CONSOLIDADO = re.compile(r"consolidado", re.IGNORECASE)
+_REP_TABLERO = re.compile(r"tablero", re.IGNORECASE)
+_REP_DETALLE_BODEGA = re.compile(r"detalle\s+d?el?\s+(la\s+)?bodega|detalle\s+de\s+almac[eé]n", re.IGNORECASE)
+_REP_TRAZA_ARCHIVO = re.compile(r"trazabilidad", re.IGNORECASE)
 
 
 def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
@@ -915,7 +918,12 @@ def _previsualizar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
     lo mismo que darle clic a una tarjeta de "Archivos generados", sin
     tocar la pantalla. Exige la palabra "archivo" para no competir con
     «muéstrame el consolidado», que ya significa cambiar de pestaña
-    (_navegar_pestana_por_voz)."""
+    (_navegar_pestana_por_voz).
+
+    Cubre los cinco tipos que puede mostrar la lista (antes solo distinguía
+    diferencias y consolidado; el resto - tablero, detalle de bodega,
+    análisis, trazabilidad - siempre caía al último archivo generado, que
+    con frecuencia NO era el que se pedía)."""
     if u.perfil != "auditor" or not _VER_ARCHIVO_REPORTE.search(texto):
         return None
     recientes = reportes_recientes(u=u)
@@ -924,6 +932,14 @@ def _previsualizar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
                 "accion": None, "destino": None, "pestana": "consolidado"}
     if _REP_DIFERENCIAS.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Diferencias por bodega"), None)
+    elif _REP_TABLERO.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Estado del tablero"), None)
+    elif _REP_DETALLE_BODEGA.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Detalle de bodega"), None)
+    elif _REP_ANALISIS.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Análisis de consumo"), None)
+    elif _REP_TRAZA_ARCHIVO.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Registro de trazabilidad"), None)
     elif _REP_CONSOLIDADO.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Consolidado para My Inventory"), None)
     else:
@@ -2895,6 +2911,10 @@ def _parsear_archivo_reporte(t):
         titulo, subtitulo = "Estado del tablero", "Exportado"
     elif d.startswith("Detalle de bodega"):
         titulo, subtitulo = "Detalle de bodega", "Exportado"
+    elif d.startswith("Analisis de consumo"):
+        titulo, subtitulo = "Análisis de consumo", "Exportado"
+    elif d.startswith("Registro de trazabilidad"):
+        titulo, subtitulo = "Registro de trazabilidad", "Exportado"
     else:
         titulo, subtitulo = "Reporte", "Exportado"
     return {"titulo": titulo, "subtitulo": subtitulo, "archivo": archivo, "filas": filas,

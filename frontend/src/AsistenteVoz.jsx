@@ -54,6 +54,20 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         // para bodegaAuditar, su equivalente en Auditoría.
         ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined,
                         bodegaAuditar: r.bodega_auditar || undefined });
+      } else if (r.accion === "previsualizar_reporte" && r.pestana && ir) {
+        // Esta acción no trae "destino" (no cambia de PANTALLA: ya estamos
+        // en Reportes), pero sí puede pedirse desde OTRA pestaña de esta
+        // misma pantalla (ej. "muéstrame el archivo de análisis" mientras
+        // se está viendo Análisis de consumo). Sin este ir(), el evento de
+        // abajo llegaba a un TabConsolidado que ni siquiera estaba
+        // montado - solo se dibuja cuando la pestaña activa YA es
+        // "consolidado" - así que la vista previa no aparecía nunca si no
+        // se estaba, por casualidad, ya en esa pestaña. Va por props (como
+        // bodegaSugerida) en vez del evento genérico de abajo, precisamente
+        // porque necesita sobrevivir a un cambio de pestaña que todavía no
+        // ocurrió cuando se dispara el evento.
+        ir(vista, { tabInicial: r.pestana,
+                    archivoPrevisualizar: { archivo: r.archivo, titulo: r.titulo_archivo } });
       }
       // "actualizar": el agente cambió algo de verdad (ej. el modo sin
       // conexión en Ajustes) - la pantalla que lo pidió es quien sabe
@@ -63,11 +77,13 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
       // para abrir/cerrar un panel especifico de la pantalla) se avisa
       // como evento genérico - así un componente hijo que le interesa
       // puede escucharlo sin que este componente necesite saber qué es
-      // cada pantalla ni acumular una prop nueva por cada acción.
-      if (r.accion && r.accion !== "navegar" && r.accion !== "actualizar") {
-        // detail: r - para acciones como "previsualizar_reporte" que traen
-        // datos propios (ej. que archivo abrir), no solo la señal de que
-        // pasó algo. Las acciones que no lo necesitan simplemente lo ignoran.
+      // cada pantalla ni acumular una prop nueva por cada acción. Ojo:
+      // "previsualizar_reporte" queda afuera a propósito (va por props,
+      // ver arriba) para no disparar el mismo aviso dos veces.
+      if (r.accion && r.accion !== "navegar" && r.accion !== "actualizar"
+          && r.accion !== "previsualizar_reporte") {
+        // detail: r - para acciones que traen datos propios, no solo la
+        // señal de que pasó algo. Las que no lo necesitan lo ignoran.
         window.dispatchEvent(new CustomEvent(`cuentavoz:accion:${r.accion}`, { detail: r }));
       }
     } catch (e) {

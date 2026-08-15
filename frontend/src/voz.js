@@ -12,6 +12,13 @@ const TASA = { lenta: 0.82, normal: 1.02, rapida: 1.3 };
 let tasaActual = TASA.normal;
 let confirmacionHablada = true;
 
+// A que genero suena cada voz neuronal - para que, si la neuronal falla y
+// hay que caer al respaldo del navegador, se busque una voz de navegador
+// del mismo genero en vez de una elegida al azar. No es la MISMA voz (eso
+// no se puede: el navegador no tiene "Kore"), pero al menos no suena como
+// si de repente le estuviera hablando otra persona.
+const _GENERO_VOZ = { kore: "femenina", aoede: "femenina", puck: "masculina", charon: "masculina" };
+
 const Reconocedor =
   typeof window !== "undefined" &&
   (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -23,7 +30,14 @@ export const vozDisponible = () => Boolean(Reconocedor);
     configurarVoz(), pero ahora guarda la clave de la voz neuronal
     (kore, puck...), no un codigo de idioma de navegador. */
 export function configurarVoz({ idioma, velocidad, confirmacionHablada: ch } = {}) {
-  if (idioma) vozNeuronal = idioma;
+  if (idioma && idioma !== vozNeuronal) {
+    vozNeuronal = idioma;
+    // la voz de respaldo se habia elegido (o cacheado como "no hay") con
+    // la preferencia VIEJA - sin esto, cambiar la voz en Mi perfil no
+    // cambiaba nada si en algun momento se habia caido al respaldo antes.
+    vozNavegadorBuscada = false;
+    vozNavegadorElegida = null;
+  }
   if (velocidad && TASA[velocidad]) tasaActual = TASA[velocidad];
   if (ch !== undefined) confirmacionHablada = ch;
 }
@@ -36,7 +50,13 @@ export function configurarVoz({ idioma, velocidad, confirmacionHablada: ch } = {
 let vozNavegadorElegida = null;
 let vozNavegadorBuscada = false;
 
-function _puntuarVozNavegador(v) {
+// Nombres tipicos de voces de navegador/SO en espanol, para adivinar de
+// que genero suena cada una - el estandar Web Speech API no expone genero,
+// asi que esto es lo mas cercano a saberlo sin reproducirla.
+const _NOMBRES_FEM = /sabina|helena|elvira|laura|m[oó]nica|paulina|luc[ií]a|elena|isabela|marisol|conchita|pen[eé]lope|esperanza|camila|valentina|female|mujer/;
+const _NOMBRES_MASC = /ra[uú]l|jorge|diego|pablo|carlos|alonso|enrique|miguel|male|hombre/;
+
+function _puntuarVozNavegador(v, generoPreferido) {
   const lang = (v.lang || "").toLowerCase();
   const nombre = (v.name || "").toLowerCase();
   let p = 0;
@@ -47,6 +67,13 @@ function _puntuarVozNavegador(v) {
   if (/natural|online|neural|wavenet|premium/.test(nombre)) p += 30;
   if (/google/.test(nombre)) p += 10;
   if (/desktop|compact/.test(nombre)) p -= 20;
+  // que suene del mismo genero que la voz neuronal elegida en Mi perfil
+  // pesa mas que cualquier otra cosa: es justo lo que hace notorio el
+  // cambio de voz cuando toca caer al respaldo.
+  if (generoPreferido === "femenina" && _NOMBRES_FEM.test(nombre)) p += 50;
+  else if (generoPreferido === "masculina" && _NOMBRES_MASC.test(nombre)) p += 50;
+  else if (generoPreferido === "femenina" && _NOMBRES_MASC.test(nombre)) p -= 50;
+  else if (generoPreferido === "masculina" && _NOMBRES_FEM.test(nombre)) p -= 50;
   return p;
 }
 
@@ -54,7 +81,8 @@ function _elegirVozNavegador() {
   if (typeof window === "undefined" || !window.speechSynthesis) return null;
   const voces = window.speechSynthesis.getVoices();
   if (!voces.length) return null;
-  const candidatas = voces.map((v) => ({ v, p: _puntuarVozNavegador(v) }))
+  const generoPreferido = _GENERO_VOZ[vozNeuronal];
+  const candidatas = voces.map((v) => ({ v, p: _puntuarVozNavegador(v, generoPreferido) }))
     .filter((x) => x.p >= 0).sort((a, b) => b.p - a.p);
   return candidatas[0]?.v || null;
 }
