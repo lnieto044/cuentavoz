@@ -208,6 +208,19 @@ export default function Pedido({ token, usuario, ir }) {
 
     // «confirmo» aqui no es del conteo fisico: es seguir con el pedido.
     if (esConfirmacion(texto)) {
+      // Si lo último que dijo fue "no" a enviarlo, un "sí" suelto un rato
+      // después no debe mandarlo de golpe - puede ser un "sí" para otra
+      // cosa (confirmando que entendió, por ejemplo), no una segunda
+      // vuelta pidiendo enviarlo. Un "envíalo"/"mándalo" explícito sí
+      // pasa de una: no hay ambigüedad posible en eso.
+      const esExplicitoEnviar = /envi|mand/.test(quitarTildes(texto.toLowerCase()));
+      if (!esExplicitoEnviar && respuesta.includes("Para empezar uno nuevo")
+          && lineas && !enviado) {
+        const msg = "Para enviarlo dígalo de nuevo con «envíalo», o dígame otro plato para uno nuevo.";
+        setRespuesta(msg);
+        hablar(msg);
+        return;
+      }
       if (lineas && !enviado && porPedir === 0) {
         // igual que el botón, que se oculta en este caso: no hay nada que
         // enviar, así que "envíalo" no debe crear un pedido vacío.
@@ -229,15 +242,23 @@ export default function Pedido({ token, usuario, ir }) {
     // terminaba repitiendo el mismo mensaje una y otra vez.
     if (esNegacionSimple(texto, platos.map((p) => p.nombre))) {
       // si ya le habíamos contestado con la misma frase de cierre (porque
-      // ya dijo "no" antes, a "¿lo enviamos?" o a "¿algo más?"), un segundo
+      // ya dijo "no" antes, a "¿lo enviamos?" o a esta misma), un segundo
       // "no" no debe repetirla - hay que dar el cierre final de una vez,
       // no seguir insistiendo con la misma pregunta.
-      const yaSeDespidio = respuesta.includes("¿Algo más en que le ayude?")
+      const yaSeDespidio = respuesta.includes("Para empezar uno nuevo")
         || respuesta.includes("estaré pendiente");
       const msg = yaSeDespidio
         ? "Listo, gracias. Quedo pendiente si requiere consultar otro pedido. Que tenga un buen día."
         : (lineas && !enviado && porPedir > 0)
-          ? "Está bien, no lo envío por ahora; el pedido queda calculado aquí y lo puede enviar cuando usted quiera. ¿Algo más en que le ayude?"
+          // A propósito no termina en "¿sí o no?": un "sí" aquí se
+          // confundiría con el "sí" que envía el pedido (esConfirmacion
+          // más abajo lo manda directo con lineas && !enviado), justo lo
+          // opuesto de lo que la persona acaba de decir. En cambio se
+          // describe dónde queda el pedido y cómo empezar uno nuevo -
+          // nombrar otro plato ya lo hace, sin ambigüedad.
+          ? "Está bien, no lo envío por ahora; el pedido queda calculado aquí, "
+            + "pendiente de enviar cuando usted quiera. Para empezar uno nuevo, "
+            + "dígame otro plato."
           : "Listo, gracias. Que tenga un buen día — aquí estaré pendiente si desea consultar otro pedido.";
       setRespuesta(msg);
       hablar(msg);
@@ -296,6 +317,16 @@ export default function Pedido({ token, usuario, ir }) {
     setPedirPorciones(false);
     if (v && !isNaN(Number(v))) {
       const p = Number(v);
+      // cero o negativo no es una cantidad real de porciones - sin este
+      // chequeo, el campo lo dejaba pasar igual (aquí "0" es un string no
+      // vacío, así que sí entra al if de arriba) y el cálculo salía con
+      // "ya tiene todo, no hace falta pedir nada" para cualquier receta.
+      if (p <= 0) {
+        const msg = "Las porciones tienen que ser un número mayor a cero. ¿Cuántas son en realidad?";
+        setRespuesta(msg);
+        hablar(msg);
+        return;
+      }
       setPorciones(p);
       setLineas(null);
       // sin esto, tras elegir un plato de la lista y poner las porciones no

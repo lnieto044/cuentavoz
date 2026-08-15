@@ -82,6 +82,24 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
     turno.setdefault("respuesta_hablada", "")
     intencion = (turno.get("intencion") or "").lower()
 
+    # "cero porciones" (o un numero negativo) no es un pedido valido - sin
+    # esto, Gemini a veces lo aceptaba igual ("anotado cero porciones de
+    # ajiaco") y el frontend, al tratar 0 como "sin dato" (0 es falsy en
+    # JS), terminaba en un estado inconsistente: el plato quedaba puesto
+    # pero las porciones sin guardar, sin ningun aviso claro de que hacia
+    # falta corregir el numero.
+    if modo_pedido and turno.get("porciones") is not None and turno["porciones"] <= 0:
+        # el nombre del plato SI se guarda (si vino uno nuevo) - solo el
+        # numero invalido queda sin guardar, para no perder de vista de
+        # que plato se esta hablando mientras se corrige la cantidad.
+        if turno.get("preparacion"):
+            est["preparacion"] = turno["preparacion"]
+        plato_dicho = (turno.get("preparacion") or est.get("preparacion") or "ese plato").lower()
+        turno["porciones"] = None
+        turno["respuesta_hablada"] = ("Las porciones tienen que ser un número mayor a "
+                                      f"cero. ¿Para cuántas porciones prepara {plato_dicho}?")
+        return turno
+
     if modo_pedido:
         # guarda lo nuevo que se haya dicho esta vez, y si esta vez no vino
         # nada, rellena con lo que ya se sabia - asi el frontend no pierde
