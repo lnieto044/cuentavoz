@@ -44,6 +44,10 @@ const FORMAS = {
   aprobar: <><circle cx="12" cy="12" r="8.5" /><path d="M8 12.3l2.6 2.6L16 9.3" /></>,
   // Rechazar: equis en círculo
   rechazar: <><circle cx="12" cy="12" r="8.5" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+  // Advertencia: triángulo con exclamación (reportar un problema)
+  advertencia: <><path d="M12 3.5 21.5 20h-19z" /><path d="M12 9.5v5" /><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" /></>,
+  // Refrescar: dos flechas en ciclo (restaurar valores)
+  refrescar: <><path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" /><path d="M20 4v4.5h-4.5" /><path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" /><path d="M4 20v-4.5h4.5" /></>,
 };
 
 export default function Icono({ nombre, tam = 20 }) {

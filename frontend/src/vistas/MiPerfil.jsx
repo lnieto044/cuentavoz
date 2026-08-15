@@ -4,6 +4,7 @@ import { configurarVoz, hablar } from "../voz";
 import { hayAutenticadorDisponible, registrarHuellaDispositivo } from "../webauthn";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import AsistenteVoz from "../AsistenteVoz";
 
 function formatoAcceso(fechaStr) {
   if (!fechaStr) return "—";
@@ -12,7 +13,18 @@ function formatoAcceso(fechaStr) {
   return fecha === hoy ? `hoy ${hora}` : `${fecha.slice(5).replace("-", "/")} ${hora}`;
 }
 
-export default function MiPerfil({ token }) {
+// Lo que YA se puede cambiar por voz aquí (la voz, la velocidad, la
+// confirmación hablada, y preguntar por los datos de la cuenta). El PIN,
+// la huella y la foto son a propósito solo manuales, por seguridad - el
+// agente lo explica si se le pide, en vez de fingir que puede hacerlo.
+const _EJEMPLOS_PERFIL = [
+  "cambia mi voz a puck", "usa la voz aoede", "habla más lento", "velocidad normal",
+  "activa la confirmación hablada", "desactiva la confirmación hablada",
+  "¿cuándo fue mi último acceso?", "¿cuántos días le quedan a mi PIN?",
+  "¿qué bodegas tengo asignadas?", "¿tengo la huella registrada?",
+];
+
+export default function MiPerfil({ token, ir }) {
   const [datos, setDatos] = useState(null);
   const [bodegas, setBodegas] = useState([]);
   const [msg, setMsg] = useState("");
@@ -141,11 +153,29 @@ export default function MiPerfil({ token }) {
                     confirmacionHablada: nuevos.confirmacion_hablada });
   }
 
+  // El agente ("Pregúntele al agente", arriba) SÍ puede cambiar la voz, la
+  // velocidad y la confirmación hablada directo en la base de datos - a
+  // diferencia de elegirPreferencia() (que solo actualiza en memoria hasta
+  // "Guardar cambios"), aquí ya quedó guardado en el servidor, así que se
+  // trae de nuevo (en vez de adivinar qué cambió) y se aplica de una con
+  // configurarVoz(), para que la SIGUIENTE frase que diga el agente ya
+  // suene con la preferencia nueva sin esperar a recargar la página.
+  function recargarPreferencias() {
+    pedir("/api/usuarios/yo", {}, token).then((d) => {
+      setDatos(d);
+      configurarVoz({ idioma: d.idioma_voz, velocidad: d.velocidad_voz,
+                      confirmacionHablada: d.confirmacion_hablada });
+    }).catch(() => {});
+  }
+
   if (!datos) return <Marco titulo="Mi perfil"><p className="cargando">Cargando…</p></Marco>;
 
   return (
     <Marco titulo="Mi perfil  ·  datos personales"
            chip={{ texto: "SESIÓN ACTIVA", tipo: "verde" }}>
+      <AsistenteVoz token={token} vista="perfil" ir={ir} ejemplos={_EJEMPLOS_PERFIL}
+                    placeholder="cambia mi voz a puck, ¿cuándo fue mi último acceso?…"
+                    alActualizar={recargarPreferencias} />
       <div className="perfil-cols">
         <div className="card mic-caja">
           {fotoUrl ? (

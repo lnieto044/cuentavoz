@@ -4,6 +4,7 @@ import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
+import Icono from "../Iconos";
 
 const FAQ = [
   ["¿Cómo corrijo un conteo ya confirmado?",
@@ -187,6 +188,7 @@ export default function Ayuda({ token, usuario, ir }) {
   return (
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
       <div className="card">
+        <p className="rotulo">Pregúntele al agente</p>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input value={busca} onChange={(e) => alEscribir(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && confirmarBusqueda(busca)}
@@ -208,7 +210,7 @@ export default function Ayuda({ token, usuario, ir }) {
       </div>
       <div className="conteo-cols">
         <div className="card">
-          <h3>Preguntas frecuentes</h3>
+          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>❓</span>Preguntas frecuentes</h3>
           {faqFiltrado.length === 0 && <p className="vacio">Sin resultados para «{busca}».</p>}
           {faqFiltrado.map(([p, r], i) => (
             <div key={i} style={{ marginBottom: 12, paddingBottom: 12,
@@ -218,7 +220,10 @@ export default function Ayuda({ token, usuario, ir }) {
             </div>
           ))}
 
-          <h3 style={{ marginTop: 18 }}>Guía rápida de comandos de voz</h3>
+          <h3 style={{ marginTop: 18 }}>
+            <span className="icono-kpi" style={{ marginRight: 8 }}>🎙️</span>
+            Guía rápida de comandos de voz
+          </h3>
           {comandosFiltrados.length === 0 && <p className="vacio">Sin resultados para «{busca}».</p>}
           {comandosFiltrados.map(([c, d], i) => (
             <div className="registro" key={i}>
@@ -230,7 +235,7 @@ export default function Ayuda({ token, usuario, ir }) {
 
         <div>
           <div className="card">
-            <h3>Soporte en vivo</h3>
+            <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🤝</span>Soporte en vivo</h3>
             {admin?.nombre ? (
               <>
                 <p style={{ fontSize: ".88rem" }}>
@@ -239,7 +244,9 @@ export default function Ayuda({ token, usuario, ir }) {
                 </p>
                 <div className="grilla-botones">
                   <button className="btn" disabled={enviandoAdmin}
-                          onClick={() => setEscribiendoAdmin(true)}>
+                          onClick={() => setEscribiendoAdmin(true)}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <Icono nombre="mensajes" tam={18} />
                     {enviandoAdmin ? "Enviando…" : "Escribirle al administrador"}
                   </button>
                 </div>
@@ -262,30 +269,41 @@ export default function Ayuda({ token, usuario, ir }) {
             </p>
             <div className="grilla-botones">
               {(admin?.nombre || admin?.es_usted) && (
-                <button className="btn borde" onClick={() => ir("mensajes")}>
+                <button className="btn borde" onClick={() => ir("mensajes")}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <Icono nombre="mensajes" tam={18} />
                   Ver mensajes
                 </button>
               )}
-              <button className="btn oro" disabled={reportando} onClick={() => setPedirDetalle(true)}>
+              <button className="btn oro" disabled={reportando} onClick={() => setPedirDetalle(true)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="advertencia" tam={18} />
                 {reportando ? "Enviando…" : "Reportar un problema"}
               </button>
             </div>
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3>Estado del sistema</h3>
-            {servicios.map(([t, ok], i) => (
-              <div className="registro" key={i}>
-                <span className="ok" style={{ background: ok ? "var(--verde)" : "#B3261E" }}>
-                  {ok ? "✓" : "!"}
-                </span>
-                <span>{t}</span>
-                <span className="cant" style={{ color: ok ? "var(--verde)" : "#B3261E",
-                      fontWeight: 700 }}>
-                  {ok ? "operativo" : "revisar"}
-                </span>
-              </div>
-            ))}
+            <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🩺</span>Estado del sistema</h3>
+            <div className="kpis" style={{ gridTemplateColumns: "1fr" }}>
+              {servicios.map(([t, ok], i) => (
+                <div className={ok ? "kpi verde" : "kpi"} key={i}
+                     style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                              padding: "10px 16px" }}>
+                  <div className="kpi-cabeza" style={{ marginBottom: 0 }}>
+                    <span className="icono-kpi" style={{
+                      background: ok ? "var(--verde-bg)" : "#FBE8E6",
+                      color: ok ? "var(--verde)" : "#B3261E" }}>
+                      {ok ? "✓" : "!"}
+                    </span>
+                    <small>{t}</small>
+                  </div>
+                  <b style={{ fontSize: ".92rem", color: ok ? "var(--verde)" : "#B3261E" }}>
+                    {ok ? "operativo" : "revisar"}
+                  </b>
+                </div>
+              ))}
+            </div>
             {!salud?.gemini && (
               <p className="pista" style={{ marginTop: 10 }}>
                 Sin la llave de Gemini el agente usa el intérprete local: el flujo

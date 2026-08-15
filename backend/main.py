@@ -416,6 +416,140 @@ def _responder_panel_por_voz(texto: str, u: Usuario) -> dict | None:
     return None
 
 
+def _formato_acceso_hablado(fecha_dt) -> str | None:
+    """Mismo criterio que formatoAcceso() en MiPerfil.jsx (hoy HH:MM vs
+    DD/MM HH:MM) - para que lo que diga el agente coincida con lo que la
+    pantalla ya muestra escrito."""
+    if not fecha_dt:
+        return None
+    if fecha_dt.date() == ahora().date():
+        return f"hoy a las {fecha_dt.strftime('%H:%M')}"
+    return f"el {fecha_dt.strftime('%d/%m')} a las {fecha_dt.strftime('%H:%M')}"
+
+
+def _datos_perfil_narrados(u: Usuario) -> dict:
+    from agente.cerebro import VOCES, VOZ_DEFECTO
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        asigs = s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()
+        nombres_bodegas = [b.nombre_oficial.title() for b in
+                           (s.get(Bodega, a.bodega_id) for a in asigs) if b]
+        dias_pin = (ahora() - (usr.pin_actualizado or ahora())).days
+        voz = usr.idioma_voz if usr.idioma_voz in VOCES else VOZ_DEFECTO
+        return {
+            "ultimo_acceso_hablado": _formato_acceso_hablado(usr.ultimo_acceso),
+            "pin_vence_en_dias": max(90 - dias_pin, 0),
+            "n_bodegas": len(nombres_bodegas),
+            "texto_bodegas": "; ".join(nombres_bodegas),
+            "huella_registrada": bool(usr.huella_registrada),
+            "perfil": usr.perfil,
+            "velocidad_voz": usr.velocidad_voz,
+            "confirmacion_hablada": bool(usr.confirmacion_hablada),
+            "voz_nombre": VOCES[voz]["nombre"],
+            "voz_etiqueta": VOCES[voz]["etiqueta"],
+        }
+
+
+_PERFIL_PREGUNTAS = [
+    (re.compile(r"[uú]ltimo\s+acceso|cu[aá]ndo\s+(entr[eé]|ingres[eé])", re.IGNORECASE),
+     lambda d: f"Su último acceso fue {d['ultimo_acceso_hablado']}." if d["ultimo_acceso_hablado"]
+               else "Todavía no hay un acceso anterior registrado."),
+    (re.compile(r"\bpin\b.*\bvence|vence\b.*\bpin\b|cu[aá]nt\w*\s+d[ií]as.*\bpin\b", re.IGNORECASE),
+     lambda d: f"Su PIN vence en {d['pin_vence_en_dias']} días."),
+    (re.compile(r"bodegas?\s+(tengo|asignad\w*)|cu[aá]nt\w*\s+bodegas", re.IGNORECASE),
+     lambda d: (f"Tiene {d['n_bodegas']} bodegas asignadas: {d['texto_bodegas']}."
+                if d["n_bodegas"] else "Todavía no tiene bodegas asignadas.")),
+    (re.compile(r"huella", re.IGNORECASE),
+     lambda d: ("Sí, tiene la huella registrada en este dispositivo." if d["huella_registrada"]
+                else "No tiene la huella registrada todavía; eso solo se hace desde la "
+                     "pantalla, por seguridad.")),
+    (re.compile(r"mi\s+perfil\b|qu[eé]\s+perfil|soy\s+(auxiliar|admin\w*)", re.IGNORECASE),
+     lambda d: f"Su perfil es {'administrador de bodega' if d['perfil'] == 'auditor' else 'auxiliar de inventarios'}."),
+    (re.compile(r"qu[eé]\s+voz\s+(tengo|est[aá]|uso)|voz\s+actual", re.IGNORECASE),
+     lambda d: f"Está usando la voz {d['voz_nombre']}: {d['voz_etiqueta'].lower()}."),
+]
+
+
+def _responder_perfil_por_voz(texto: str, u: Usuario) -> dict | None:
+    for patron, respuesta in _PERFIL_PREGUNTAS:
+        if patron.search(texto):
+            return {"respuesta_hablada": respuesta(_datos_perfil_narrados(u)),
+                    "accion": None, "destino": None, "pestana": None}
+    return None
+
+
+_VOCES_HABLADAS = ("kore", "aoede", "puck", "charon")
+_VERBO_CAMBIAR_VOZ = re.compile(
+    r"\b(cambia\w*|usa\w*|pon\w*|quiero|eli[jg]\w*|selecciona\w*)\b", re.IGNORECASE)
+
+
+def _cambiar_voz_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Cambia mi voz a puck" / "usa la voz aoede" - exige el nombre EXACTO
+    de una de las cuatro voces (no un genero o descripcion), para no
+    competir con "¿qué voz tengo?" ni con "prueba la voz" (probarVoz solo
+    demuestra la que ya está elegida, no cambia nada)."""
+    if not _VERBO_CAMBIAR_VOZ.search(texto):
+        return None
+    clave = next((k for k in _VOCES_HABLADAS if re.search(rf"\b{k}\b", texto, re.IGNORECASE)), None)
+    if not clave:
+        return None
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        usr.idioma_voz = clave
+        s.commit()
+    from agente.cerebro import VOCES
+    registrar(u, "PERFIL", f"{u.nombre} cambió su voz a {VOCES[clave]['nombre']} por voz", "ok")
+    return {"respuesta_hablada": f"Listo, ahora hablo con la voz {VOCES[clave]['nombre']}: "
+                                 f"{VOCES[clave]['etiqueta'].lower()}.",
+            "accion": "actualizar", "destino": None, "pestana": None, "idioma_voz": clave}
+
+
+_VELOCIDAD_LENTA = re.compile(r"\blenta\b|m[aá]s\s+despacio|m[aá]s\s+lento", re.IGNORECASE)
+_VELOCIDAD_RAPIDA = re.compile(r"\br[aá]pida\b|m[aá]s\s+r[aá]pido", re.IGNORECASE)
+_VELOCIDAD_NORMAL = re.compile(r"velocidad\s+normal|voz\s+normal", re.IGNORECASE)
+
+
+def _cambiar_velocidad_por_voz(texto: str, u: Usuario) -> dict | None:
+    if _VELOCIDAD_LENTA.search(texto):
+        nueva = "lenta"
+    elif _VELOCIDAD_RAPIDA.search(texto):
+        nueva = "rapida"
+    elif _VELOCIDAD_NORMAL.search(texto):
+        nueva = "normal"
+    else:
+        return None
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        usr.velocidad_voz = nueva
+        s.commit()
+    registrar(u, "PERFIL", f"{u.nombre} cambió la velocidad de voz a {nueva} por voz", "ok")
+    return {"respuesta_hablada": f"Listo, la velocidad queda en {nueva}.",
+            "accion": "actualizar", "destino": None, "pestana": None, "velocidad_voz": nueva}
+
+
+_CONFIRMACION_HABLADA_FRASE = re.compile(r"confirmaci[oó]n\s+hablada", re.IGNORECASE)
+
+
+def _cambiar_confirmacion_hablada_por_voz(texto: str, u: Usuario) -> dict | None:
+    if not _CONFIRMACION_HABLADA_FRASE.search(texto):
+        return None
+    if _ACTIVAR.search(texto):
+        nuevo = True
+    elif _DESACTIVAR.search(texto):
+        nuevo = False
+    else:
+        return None
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        usr.confirmacion_hablada = 1 if nuevo else 0
+        s.commit()
+    estado = "activada" if nuevo else "desactivada"
+    registrar(u, "PERFIL", f"{u.nombre} dejó la confirmación hablada {estado} por voz", "ok")
+    return {"respuesta_hablada": f"Listo, la confirmación hablada quedó {estado}.",
+            "accion": "actualizar", "destino": None, "pestana": None,
+            "confirmacion_hablada": nuevo}
+
+
 def _contexto_asistente(vista: str, u: Usuario) -> str:
     """Un resumen honesto de lo que hay AHORA en esa pantalla, para que el
     agente conteste con datos reales y no invente nada. Reusa las mismas
@@ -577,6 +711,24 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
     if vista == "ayuda":
         faq = "; ".join(f"{p} -> {r}" for p, r in _FAQ_ASISTENTE)
         return f"Pantalla: Ayuda. Preguntas frecuentes conocidas: {faq}."
+    if vista == "perfil":
+        d = _datos_perfil_narrados(u)
+        return (
+            f"Pantalla: Mi perfil, de {u.nombre} ({u.perfil}). Datos personales, seguridad "
+            "de la cuenta y preferencias de voz. "
+            f"Último acceso: {d['ultimo_acceso_hablado'] or 'sin registro'}. PIN vence en "
+            f"{d['pin_vence_en_dias']} días. Bodegas asignadas: {d['n_bodegas']}"
+            + (f" ({d['texto_bodegas']})" if d["texto_bodegas"] else "") + ". "
+            f"Huella registrada en este dispositivo: {'sí' if d['huella_registrada'] else 'no'}. "
+            f"Voz actual: {d['voz_nombre']} ({d['voz_etiqueta'].lower()}), velocidad "
+            f"{d['velocidad_voz']}, confirmación hablada "
+            f"{'activada' if d['confirmacion_hablada'] else 'desactivada'}. "
+            "SÍ se puede cambiar por voz: la voz neuronal («cambia mi voz a puck/kore/aoede/"
+            "charon»), la velocidad («habla más lento/rápido», «velocidad normal») y la "
+            "confirmación hablada («activa/desactiva la confirmación hablada»). Cambiar el "
+            "PIN, registrar o quitar la huella, subir una foto, y editar nombre/correo/"
+            "teléfono son A PROPÓSITO solo manuales, por seguridad - nunca diga que ya "
+            "cambió el PIN o la huella por voz, eso sería falso.")
     if vista == "bodegas":
         with Sesion() as s:
             ids_permitidos = _ids_permitidos_para_buscar(s, u)
@@ -2008,6 +2160,14 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
             return respondida
     if vista == "panel":
         respondida = _responder_panel_por_voz(texto, u)
+        if respondida:
+            return respondida
+    if vista == "perfil":
+        cambio = (_cambiar_voz_por_voz(texto, u) or _cambiar_velocidad_por_voz(texto, u)
+                 or _cambiar_confirmacion_hablada_por_voz(texto, u))
+        if cambio:
+            return cambio
+        respondida = _responder_perfil_por_voz(texto, u)
         if respondida:
             return respondida
     navegada = _navegar_pestana_por_voz(vista, texto)

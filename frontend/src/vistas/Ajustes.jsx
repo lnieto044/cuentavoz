@@ -134,9 +134,41 @@ function TabConfig({ token, esAuditor }) {
 
   return (
     <>
+      <div className="kpis">
+        <div className="kpi">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">👥</span>
+            <small>Usuarios activos</small>
+          </div>
+          <b>{cfg.usuarios_activos}</b><i>con acceso al sistema</i>
+        </div>
+        <div className={cfg.aprobaciones_pendientes > 0 ? "kpi oro" : "kpi verde"}>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">✅</span>
+            <small>Aprobaciones pendientes</small>
+          </div>
+          <b>{cfg.aprobaciones_pendientes}</b>
+          <i>{cfg.aprobaciones_pendientes > 0 ? "por revisar en Auditoría" : "todo al día"}</i>
+        </div>
+        <div className={offline ? "kpi verde" : "kpi"}>
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🌐</span>
+            <small>Modo sin conexión</small>
+          </div>
+          <b>{offline ? "Activo" : "Inactivo"}</b><i>refresco del tablero en tiempo real</i>
+        </div>
+        <div className="kpi">
+          <div className="kpi-cabeza">
+            <span className="icono-kpi">🛡️</span>
+            <small>Versión de CuentaVoz</small>
+          </div>
+          <b>{cfg.version}</b><i>{cfg.modelo}</i>
+        </div>
+      </div>
+
       <div className="dos-columnas" style={{ gap: 16 }}>
         <div className="card">
-          <h3>Validación de datos</h3>
+          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🔒</span>Validación de datos</h3>
           <table>
             <tbody>
               <tr>
@@ -166,7 +198,7 @@ function TabConfig({ token, esAuditor }) {
         </div>
 
         <div className="card">
-          <h3>Conexión y sincronización</h3>
+          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🌐</span>Conexión y sincronización</h3>
           <table>
             <tbody>
               <tr><td>Modo sin conexión</td>
@@ -177,7 +209,7 @@ function TabConfig({ token, esAuditor }) {
         </div>
 
         <div className="card">
-          <h3>Administración</h3>
+          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>👥</span>Administración</h3>
           <table>
             <tbody>
               <tr><td>Usuarios activos</td><td><b>{cfg.usuarios_activos}</b></td></tr>
@@ -189,7 +221,7 @@ function TabConfig({ token, esAuditor }) {
         </div>
 
         <div className="card">
-          <h3>Acerca de CuentaVoz</h3>
+          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🛡️</span>Acerca de CuentaVoz</h3>
           <table>
             <tbody>
               <tr><td>Versión</td><td><b>{cfg.version}</b></td></tr>
@@ -203,8 +235,16 @@ function TabConfig({ token, esAuditor }) {
 
       {esAuditor && (
         <div className="grilla-botones" style={{ marginTop: 4 }}>
-          <button className="btn" onClick={guardar}>Guardar configuración</button>
-          <button className="btn borde" onClick={cargar}>Restaurar valores</button>
+          <button className="btn" onClick={guardar}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Icono nombre="aprobar" tam={18} />
+            Guardar configuración
+          </button>
+          <button className="btn borde" onClick={cargar}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Icono nombre="refrescar" tam={18} />
+            Restaurar valores
+          </button>
         </div>
       )}
       {msg && <p className="msg-ok">{msg}</p>}
@@ -328,6 +368,8 @@ function TabUsuarios({ token, usuario }) {
 
   return (
     <div className="card">
+      <h3><span className="icono-kpi" style={{ marginRight: 8 }}>👥</span>
+        Gestión de usuarios ({usuarios.length})</h3>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div className="chips" style={{ marginBottom: 0 }}>
@@ -924,7 +966,8 @@ function TabTraza({ token }) {
 
   return (
     <div className="card">
-      <h3>Registro de trazabilidad ({traza.length} acciones)</h3>
+      <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🕘</span>
+        Registro de trazabilidad ({traza.length} acciones)</h3>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <select value={rango} onChange={(e) => setRango(e.target.value)}
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
