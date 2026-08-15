@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pedir, enviarTurno } from "../api";
 import { escuchar, hablar, vozDisponible } from "../voz";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 import AsistenteVoz from "../AsistenteVoz";
+import Icono from "../Iconos";
 
 const TABS = [
   { id: "recuento", t: "Recuento ciego y cierre" },
@@ -100,6 +101,31 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
   useEffect(cargarBodegas, [token]);
 
   const candidatas = (bodegas || []).filter((b) => b.estado === "en_auditoria" || b.estado === "cerrada");
+  const [saludoLista, setSaludoLista] = useState("");
+  const yaSaludoLista = useRef(false);
+
+  // Al llegar a esta pestaña sin pedir una bodega puntual, el agente dice
+  // de una vez si hay algo listo para recuento o cierre y qué es. Si ya
+  // llegó con bodegaAuditar (pidió una bodega específica por voz), esto
+  // no se repite: la respuesta de esa orden ya lo dijo.
+  useEffect(() => {
+    if (bodegas === null || yaSaludoLista.current || bodegaAuditar) return;
+    yaSaludoLista.current = true;
+    let texto;
+    if (candidatas.length === 0) {
+      texto = "No hay ninguna bodega lista para recuento ciego o cierre en este momento.";
+    } else if (candidatas.length === 1) {
+      const estadoTxt = candidatas[0].estado === "cerrada" ? "lista para cerrar" : "lista para recuento ciego";
+      texto = `Tiene una bodega ${estadoTxt}: ${candidatas[0].bodega.toLowerCase()}. ¿Quiere auditarla?`;
+    } else {
+      const nombres = candidatas.slice(0, 5).map((b) => b.bodega.toLowerCase()).join(", ");
+      texto = `Tiene ${candidatas.length} bodegas listas para recuento ciego o cierre: ${nombres}. `
+             + "¿Cuál quiere auditar?";
+    }
+    setSaludoLista(texto);
+    hablar(texto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodegas, bodegaAuditar]);
 
   // "Audita <bodega>" por voz llega hasta aquí como bodegaAuditar - lo
   // mismo que darle clic a "Abrir" en su tarjeta, sin tocar firmar/cerrar.
@@ -196,6 +222,12 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
       {!bodegaId ? (
         <div className="card">
           <h3>Bodegas listas para recuento ciego o cierre</h3>
+          {saludoLista && (
+            <>
+              <p className="rotulo">CuentaVoz responde</p>
+              <p className="burbuja" style={{ marginBottom: 12 }}>{saludoLista}</p>
+            </>
+          )}
           {bodegas === null ? (
             <p className="cargando">Cargando…</p>
           ) : candidatas.length === 0 ? (
@@ -462,6 +494,8 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar }) {
 function TabAprobaciones({ token, esAuditor, onEnFoco }) {
   const [lista, setLista] = useState(null);
   const [msg, setMsg] = useState("");
+  const [saludo, setSaludo] = useState("");
+  const yaSaludo = useRef(false);
 
   function cargar() {
     pedir("/api/aprobaciones?estado=pendiente", {}, token).then(setLista)
@@ -481,6 +515,26 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
               chip: { texto: lista === null ? "…" : `${lista.length} PENDIENTES`, tipo: "borde oro" } });
   }, [lista]);
 
+  // Al llegar a esta pestaña (por clic o por voz), el agente dice de una
+  // vez si hay algo pendiente y qué es, en vez de esperar a que se lo
+  // pregunten - yaSaludo evita que se repita en cada refresco de la
+  // lista (ej. justo después de aprobar algo por voz).
+  useEffect(() => {
+    if (lista === null || yaSaludo.current) return;
+    yaSaludo.current = true;
+    let texto;
+    if (lista.length === 0) {
+      texto = "No hay aprobaciones pendientes.";
+    } else if (lista.length === 1) {
+      texto = `Tiene una aprobación pendiente: ${lista[0].nombre.toLowerCase()}. ¿Quiere aprobarla o rechazarla?`;
+    } else {
+      const nombres = lista.slice(0, 5).map((a) => a.nombre.toLowerCase()).join(", ");
+      texto = `Tiene ${lista.length} aprobaciones pendientes: ${nombres}. ¿Cuál quiere aprobar o rechazar?`;
+    }
+    setSaludo(texto);
+    hablar(texto);
+  }, [lista]);
+
   async function resolver(id, accion) {
     try {
       await pedir(`/api/aprobaciones/${id}/${accion}`, { method: "POST" }, token);
@@ -496,6 +550,12 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
       <p className="pista" style={{ marginTop: 0 }}>
         Productos y bodegas creados durante la toma que esperan su firma para entrar al catálogo oficial.
       </p>
+      {saludo && (
+        <>
+          <p className="rotulo">CuentaVoz responde</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+        </>
+      )}
       {msg && <p className="msg-ok">{msg}</p>}
       {lista === null ? (
         <p className="cargando">Cargando…</p>
@@ -527,8 +587,16 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
               </small>
             </span>
             <span style={{ display: "flex", gap: 8 }}>
-              <button className="btn gris" onClick={() => resolver(a.id, "rechazar")}>Rechazar</button>
-              <button className="btn verde" onClick={() => resolver(a.id, "aprobar")}>Aprobar</button>
+              <button className="btn gris" onClick={() => resolver(a.id, "rechazar")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icono nombre="rechazar" tam={16} />
+                Rechazar
+              </button>
+              <button className="btn verde" onClick={() => resolver(a.id, "aprobar")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icono nombre="aprobar" tam={16} />
+                Aprobar
+              </button>
             </span>
           </div>
         ))
@@ -546,6 +614,8 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
 function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
   const [lista, setLista] = useState(null);
   const [msg, setMsg] = useState("");
+  const [saludo, setSaludo] = useState("");
+  const yaSaludo = useRef(false);
 
   function cargar() {
     pedir("/api/pedidos/pendientes", {}, token).then(setLista)
@@ -560,6 +630,24 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
   useEffect(() => {
     onEnFoco({ titulo: "Pedidos pendientes de aprobación",
               chip: { texto: lista === null ? "…" : `${lista.length} PENDIENTES`, tipo: "borde oro" } });
+  }, [lista]);
+
+  useEffect(() => {
+    if (lista === null || yaSaludo.current) return;
+    yaSaludo.current = true;
+    let texto;
+    if (lista.length === 0) {
+      texto = "No hay pedidos pendientes.";
+    } else if (lista.length === 1) {
+      texto = `Tiene un pedido pendiente: ${lista[0].plato.toLowerCase()}, de `
+             + `${lista[0].persona}. ¿Quiere aprobarlo o rechazarlo?`;
+    } else {
+      const nombres = lista.slice(0, 5)
+        .map((p) => `${p.plato.toLowerCase()} de ${p.persona}`).join(", ");
+      texto = `Tiene ${lista.length} pedidos pendientes: ${nombres}. ¿Cuál quiere aprobar o rechazar?`;
+    }
+    setSaludo(texto);
+    hablar(texto);
   }, [lista]);
 
   async function resolver(numero, aprobar) {
@@ -581,6 +669,12 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
         El auxiliar pide y queda registrado de una vez, pero solo sale del almacén
         cuando usted lo aprueba aquí - igual que con productos y bodegas nuevas.
       </p>
+      {saludo && (
+        <>
+          <p className="rotulo">CuentaVoz responde</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+        </>
+      )}
       {msg && <p className="msg-ok">{msg}</p>}
       {lista === null ? (
         <p className="cargando">Cargando…</p>
@@ -610,8 +704,16 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
               </ul>
             </span>
             <span style={{ display: "flex", gap: 8, flex: "none" }}>
-              <button className="btn gris" onClick={() => resolver(p.numero_pedido, false)}>Rechazar</button>
-              <button className="btn verde" onClick={() => resolver(p.numero_pedido, true)}>Aprobar</button>
+              <button className="btn gris" onClick={() => resolver(p.numero_pedido, false)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icono nombre="rechazar" tam={16} />
+                Rechazar
+              </button>
+              <button className="btn verde" onClick={() => resolver(p.numero_pedido, true)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icono nombre="aprobar" tam={16} />
+                Aprobar
+              </button>
             </span>
           </div>
         ))
@@ -632,6 +734,8 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
   const [resumen, setResumen] = useState(null);
   const [verDetalle, setVerDetalle] = useState(null);
   const [msg, setMsg] = useState("");
+  const [saludo, setSaludo] = useState("");
+  const yaSaludo = useRef(false);
 
   function cargar() {
     pedir("/api/alertas?resueltas=0", {}, token).then(setAlertas)
@@ -648,6 +752,25 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
     onEnFoco({ titulo: "Auditoría  ·  Bandeja de alertas",
               chip: { texto: alertas === null ? "…" : `${alertas.length} ABIERTAS`, tipo: "borde oro" } });
   }, [alertas]);
+
+  useEffect(() => {
+    if (alertas === null || yaSaludo.current) return;
+    yaSaludo.current = true;
+    const etiqueta = (a) => a.articulo || a.bodega || a.titulo.toLowerCase();
+    let texto;
+    if (alertas.length === 0) {
+      texto = "No hay alertas abiertas.";
+    } else if (alertas.length === 1) {
+      texto = `Tiene una alerta abierta: ${etiqueta(alertas[0]).toLowerCase()}.`
+             + (esAuditor ? " ¿Quiere resolverla?" : "");
+    } else {
+      const nombres = alertas.slice(0, 5).map((a) => etiqueta(a).toLowerCase()).join(", ");
+      texto = `Tiene ${alertas.length} alertas abiertas: ${nombres}.`
+             + (esAuditor ? " ¿Cuál quiere resolver?" : "");
+    }
+    setSaludo(texto);
+    hablar(texto);
+  }, [alertas, esAuditor]);
 
   async function resolver(id) {
     try {
@@ -666,6 +789,12 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
           Tiempo medio: {resumen?.tiempo_medio_min != null ? `${resumen.tiempo_medio_min} min` : "—"}
         </span>
       </div>
+      {saludo && (
+        <>
+          <p className="rotulo">CuentaVoz responde</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+        </>
+      )}
       {msg && <p className="msg-ok">{msg}</p>}
       {alertas === null ? (
         <p className="cargando">Cargando…</p>
@@ -697,7 +826,11 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
             <span style={{ display: "flex", gap: 8, flex: "none" }}>
               <button className="btn borde" onClick={() => setVerDetalle(a)}>Ver</button>
               {esAuditor && (
-                <button className="btn" onClick={() => resolver(a.id)}>Resolver</button>
+                <button className="btn verde" onClick={() => resolver(a.id)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Icono nombre="aprobar" tam={16} />
+                  Resolver
+                </button>
               )}
             </span>
           </div>
