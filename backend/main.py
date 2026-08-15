@@ -3804,6 +3804,29 @@ def sembrar_conteo(datos: ConteoSemillaIn, u: Usuario = Depends(requiere_perfil(
     return {"ok": True, "guardados": guardados, "saltados": saltados}
 
 
+class DuracionSemillaIn(BaseModel):
+    sesion_id: int
+    minutos: float
+
+
+@app.post("/api/admin/sembrar-duracion")
+def sembrar_duracion(datos: DuracionSemillaIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Ajusta cuánto "duró" una sesión de conteo (su inicio, relativo al fin
+    que ya tiene) - para cuando una sesión de muestra se abrió hace rato
+    (en otra prueba) y se firma/cierra recién ahora: sin esto, "tiempo
+    promedio de conteo" del panel sale con la diferencia real entre esos
+    dos momentos, que no fue tiempo contando de verdad."""
+    with Sesion() as s:
+        ses = s.get(SesionConteo, datos.sesion_id)
+        if ses is None:
+            raise HTTPException(404, "Sesion no encontrada.")
+        if not ses.fin:
+            raise HTTPException(409, "Esta sesion todavia no tiene fin (no está firmada/cerrada).")
+        ses.inicio = ses.fin - timedelta(minutes=datos.minutos)
+        s.commit()
+    return {"ok": True}
+
+
 @app.get("/api/usuarios/yo/bodegas")
 def bodegas_asignadas(u: Usuario = Depends(usuario_actual)):
     """Las bodegas asignadas a la persona que tiene la sesion. Va ANTES de
