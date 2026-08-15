@@ -27,6 +27,19 @@ function nombreCorto(nombre) {
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesCorto = (fechaISO) => MESES[Number(fechaISO.slice(5, 7)) - 1];
 
+// Ejemplos de lo que ya entiende el agente en esta pantalla: navegar entre
+// las dos pestañas y preguntar por lo que muestra cada tarjeta o gráfica.
+const _EJEMPLOS_PANEL = [
+  "resumen ejecutivo", "bodegas y alertas", "llévame a bodegas y alertas",
+  "¿cuál es la exactitud primera pasada?", "¿cuántas referencias se han contado?",
+  "¿cuántas alertas se han gestionado?", "¿cuántas bodegas están cerradas?",
+  "¿qué bodega tiene más diferencia?", "¿cómo va el stock por unidad de medida?",
+  "¿cómo va la tendencia de exactitud?", "¿cuántos negativos se han corregido?",
+  "¿cuál es el tiempo promedio de conteo?", "¿cuántos alias aprendió el agente?",
+  "¿cómo están las bodegas?", "¿cuáles son las alertas por tipo?",
+  "¿cuál es el descuadre principal?",
+];
+
 export default function Panel({ token, ir, tabInicial }) {
   const [tab, setTab] = useState(tabInicial || "resumen");
   // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
@@ -44,7 +57,7 @@ export default function Panel({ token, ir, tabInicial }) {
 
   return (
     <Marco titulo="Panel gerencial" chip={{ texto: "ACTUALIZADO AHORA", tipo: "verde" }}>
-      <AsistenteVoz token={token} vista="panel" ir={ir}
+      <AsistenteVoz token={token} vista="panel" ir={ir} ejemplos={_EJEMPLOS_PANEL}
                     placeholder="¿cuál es la exactitud primera pasada?, lléveme a inicio…" />
       <div className="chips">
         <button className={`chip ${tab === "resumen" ? "azul" : ""}`}

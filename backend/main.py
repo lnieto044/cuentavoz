@@ -408,11 +408,51 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"todavía no cambia por voz. {permiso_offline}")
     if vista == "panel" and u.perfil == "auditor":
         r = analitica.resumen_ejecutivo()
-        return (f"Pantalla: Panel gerencial. Exactitud primera pasada: "
-                f"{r['exactitud_primera_pasada']}%. Referencias contadas: "
-                f"{r['referencias_contadas']}. Alertas gestionadas: "
-                f"{r['alertas_gestionadas']} de {r['alertas_total']}. "
-                f"Bodegas cerradas: {r['bodegas_cerradas']} de {r['bodegas_total']}.")
+        a = analitica.resumen_alertas_panel()
+        dif_bod = r["diferencia_por_bodega"]
+        texto_dif = ("sin diferencias registradas todavía" if not dif_bod else
+                     "; ".join(f"{d['bodega'].title()}: {d['diferencia']}" for d in dif_bod[:6]))
+        stock = r["stock_por_unidad"]
+        texto_stock = ("sin datos de stock todavía" if not stock else
+                       ", ".join(f"{s['unidad']} {s['pct']}% ({s['cantidad']})" for s in stock))
+        hist = r["historial_exactitud"]
+        if len(hist) < 2:
+            texto_hist = "todavía no hay suficientes cierres para ver una tendencia"
+        else:
+            tendencia = "mejorando" if hist[-1]["exactitud"] >= hist[0]["exactitud"] else "bajando"
+            texto_hist = (f"{len(hist)} tomas registradas, la más reciente en "
+                          f"{hist[-1]['bodega'].title()} con {hist[-1]['exactitud']}%, "
+                          f"tendencia {tendencia}")
+        etiquetas_estado = {"cerrada": "cerradas", "en_conteo": "en conteo",
+                            "en_auditoria": "en auditoría", "pendiente": "pendientes"}
+        texto_estado = (", ".join(f"{n} {etiquetas_estado.get(e, e)}"
+                                  for e, n in a["estado_bodegas"].items())
+                        or "sin bodegas registradas")
+        alertas_tipo = a["alertas_por_tipo"]
+        texto_alertas_tipo = ("sin alertas registradas todavía" if not alertas_tipo else
+                              ", ".join(f"{x['tipo']}: {x['cantidad']}" for x in alertas_tipo))
+        descuadres = a["descuadres_recurrentes"]
+        texto_descuadres = ("sin descuadres repetidos todavía" if not descuadres else
+                            "; ".join(f"{d['articulo'].title()} ({d['tipo']}, diferencia "
+                                     f"{d['diferencia']} en {d['tomas']} tomas, acción sugerida: "
+                                     f"{d['accion']})" for d in descuadres[:5]))
+        return (
+            "Pantalla: Panel gerencial, con dos pestañas: «Resumen ejecutivo» y «Bodegas y "
+            "alertas» - decir el nombre de cualquiera de las dos (o «llévame a...») navega "
+            "directo a ella. "
+            f"Pestaña Resumen ejecutivo - tarjetas: exactitud primera pasada "
+            f"{r['exactitud_primera_pasada']}%, referencias contadas "
+            f"{r['referencias_contadas']}, alertas gestionadas {r['alertas_gestionadas']} de "
+            f"{r['alertas_total']}, bodegas cerradas {r['bodegas_cerradas']} de "
+            f"{r['bodegas_total']}. Gráfica «Diferencia absoluta por bodega»: {texto_dif}. "
+            f"Gráfica «Stock por unidad de medida»: {texto_stock}. Gráfica «Exactitud por toma "
+            f"de inventario»: {texto_hist}. "
+            f"Pestaña Bodegas y alertas - tarjetas: negativos detectados en el sistema "
+            f"{a['negativos_iniciales']} corregidos a {a['negativos_actuales']} durante la "
+            f"toma, tiempo promedio de conteo por bodega {a['tiempo_promedio_min']} minutos, "
+            f"alias aprendidos por el agente {a['alias_aprendidos']}. Tarjeta «Estado de las "
+            f"bodegas»: {texto_estado}. Tarjeta «Alertas por tipo»: {texto_alertas_tipo}. Tabla "
+            f"«Descuadres recurrentes»: {texto_descuadres}.")
     if vista == "reportes" and u.perfil == "auditor":
         return ("Pantalla: Reportes. Aquí se genera el consolidado para My "
                 "Inventory, las diferencias por bodega, y el análisis de consumo "
