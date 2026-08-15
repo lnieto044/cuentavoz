@@ -12,6 +12,31 @@ const ICONO_ESTADO = {
   pendiente: "🕗", en_conteo: "🎙️", en_auditoria: "🔍", cerrada: "✅",
 };
 
+// Frases que este buscador ya entiende sin pasar por el agente general -
+// se resuelven de una en el propio frontend (_accionLocalDeLista /
+// _accionLocalDeResultado más abajo). Documentarlas aquí es lo mismo que
+// el desplegable "Ver frases exactas" de las demás pantallas.
+function _ejemplosLista(esAuditor) {
+  return [
+    "arroz, aceite, tres tablas para picar…",
+    "bodega nueva",
+    ...(esAuditor ? ["exportar estado", "asignar personas a bodegas"] : []),
+    "ver movimientos", "comparar con la receta",
+    ...(esAuditor ? ["generar reporte"] : []),
+    "volver al tablero",
+  ];
+}
+function _ejemplosDetalle(esAuditor, estado) {
+  return [
+    "un artículo de esta bodega",
+    ...(estado === "pendiente" || estado === "en_conteo" ? ["seguir contando"] : []),
+    ...(esAuditor && estado === "cerrada" ? ["reabrir"] : []),
+    "todos los artículos",
+    ...(esAuditor ? ["descargar", "ver en el panel gerencial"] : []),
+    "cerrar detalle",
+  ];
+}
+
 export default function Bodegas({ token, usuario, ir }) {
   const [lista, setLista] = useState(null);
   const [filtro, setFiltro] = useState("todas");
@@ -383,7 +408,21 @@ export default function Bodegas({ token, usuario, ir }) {
                   onClick={buscarPorVoz} title="o pregunte por voz">🎤</button>
           <button className="btn" onClick={() => buscarArticulo()}>Buscar</button>
         </div>
-        {!consulta && <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>}
+        {!consulta && (
+          <>
+            <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
+            <details style={{ marginTop: 4 }}>
+              <summary className="pista" style={{ cursor: "pointer" }}>
+                Ver frases exactas que entiende el agente aquí
+              </summary>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                {_ejemplosLista(esAuditor).map((ej, i) => (
+                  <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+                ))}
+              </ul>
+            </details>
+          </>
+        )}
 
         {consulta && (
           <>
@@ -487,9 +526,19 @@ export default function Bodegas({ token, usuario, ir }) {
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
                     onClick={buscarEnBodegaPorVoz} title="o pregunte por voz">🎤</button>
           </div>
-          <p className="pista" style={{ marginTop: 8, marginBottom: 14 }}>
+          <p className="pista" style={{ marginTop: 8, marginBottom: 4 }}>
             o pregunte por voz - si no es un artículo de esta bodega, se lo pregunta al agente
           </p>
+          <details style={{ marginBottom: 14 }}>
+            <summary className="pista" style={{ cursor: "pointer" }}>
+              Ver frases exactas que entiende el agente aquí
+            </summary>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {_ejemplosDetalle(esAuditor, detalle.estado).map((ej, i) => (
+                <li key={i} className="pista" style={{ marginBottom: 4 }}>«{ej}»</li>
+              ))}
+            </ul>
+          </details>
           {respuestaAgenteDetalle && (
             <>
               <p className="rotulo">CuentaVoz responde</p>
