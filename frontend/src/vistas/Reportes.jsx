@@ -26,6 +26,18 @@ const ICONO_TITULO = {
   "Estado del tablero": "📋",
 };
 
+// Ejemplos de lo que ya entiende el agente en esta pantalla: generar los
+// tres tipos de archivo, ver el contenido de uno ya generado, y preguntar
+// por lo que muestra el análisis de consumo.
+const _EJEMPLOS_REPORTES = [
+  "genera el consolidado", "exporta las diferencias", "exporta el análisis de consumo",
+  "muéstrame el archivo de diferencias", "consolidado de la toma", "análisis de consumo",
+  "¿cuántas filas tiene el último consolidado?", "¿cuántas bodegas tienen descuadre?",
+  "¿qué archivos se han generado?", "¿cuánto se pidió en el período?",
+  "¿cuánto se usó realmente?", "¿cuál es el ahorro potencial?",
+  "¿cuántos insumos están subutilizados?", "¿cuál insumo tiene más sobrepedido?",
+];
+
 export default function Reportes({ token, usuario, ir, tabInicial }) {
   const [tab, setTab] = useState(tabInicial || "consolidado");
   // Pedir una pestaña de esta MISMA pantalla por voz no remonta el
@@ -38,8 +50,9 @@ export default function Reportes({ token, usuario, ir, tabInicial }) {
                                         : "Reportes  ·  análisis de consumo"}
            chip={tab === "consolidado" ? { texto: "ARCHIVOS", tipo: "borde azul" }
                                        : { texto: "ÚLTIMOS 30 DÍAS", tipo: "borde azul" }}>
-      <AsistenteVoz token={token} vista="reportes" ir={ir}
-                    placeholder="¿cuántas filas tiene el último consolidado?, lléveme al panel…" />
+      <AsistenteVoz token={token} vista="reportes" ir={ir} ejemplos={_EJEMPLOS_REPORTES}
+                    placeholder="¿cuántas filas tiene el último consolidado?, lléveme al panel…"
+                    alActualizar={() => window.dispatchEvent(new Event("cuentavoz:reportes-actualizados"))} />
       <div className="chips">
         <button className={`chip ${tab === "consolidado" ? "azul" : ""}`}
                 onClick={() => setTab("consolidado")}>Consolidado de la toma</button>
@@ -93,6 +106,14 @@ function TabConsolidado({ token }) {
     pedir("/api/reportes/recientes", {}, token).then(setRecientes).catch(() => setRecientes([]));
   }
   useEffect(cargar, [token]);
+  // Generar un archivo por voz pasa por el backend directo, no por
+  // generarConsolidado/generarDiferencias de aquí abajo - sin escuchar
+  // este evento la lista de "Archivos generados" se quedaba vieja hasta
+  // que se recargaba la página a mano.
+  useEffect(() => {
+    window.addEventListener("cuentavoz:reportes-actualizados", cargar);
+    return () => window.removeEventListener("cuentavoz:reportes-actualizados", cargar);
+  }, [token]);
 
   async function previsualizar(archivo, titulo) {
     setErr("");
@@ -103,6 +124,15 @@ function TabConsolidado({ token }) {
       setTotalFilas(d.total);
     } catch (e) { setErr(e.message); }
   }
+  // "Muéstrame el archivo de diferencias" - lo mismo que darle clic a la
+  // tarjeta, pero pedido por voz; el backend ya resolvió CUÁL archivo es.
+  useEffect(() => {
+    function alPrevisualizarPorVoz(e) {
+      if (e.detail?.archivo) previsualizar(e.detail.archivo, e.detail.titulo_archivo);
+    }
+    window.addEventListener("cuentavoz:accion:previsualizar_reporte", alPrevisualizarPorVoz);
+    return () => window.removeEventListener("cuentavoz:accion:previsualizar_reporte", alPrevisualizarPorVoz);
+  }, [token]);
 
   async function generarConsolidado(formato) {
     setErr(""); setMsg("");
@@ -212,6 +242,10 @@ function TabAnalisis({ token }) {
     pedir("/api/analisis/consumo?dias=30", {}, token).then(setAnalisis).catch((e) => setErr(e.message));
   }
   useEffect(cargar, [token]);
+  useEffect(() => {
+    window.addEventListener("cuentavoz:reportes-actualizados", cargar);
+    return () => window.removeEventListener("cuentavoz:reportes-actualizados", cargar);
+  }, [token]);
 
   async function exportar() {
     setErr(""); setMsg("");

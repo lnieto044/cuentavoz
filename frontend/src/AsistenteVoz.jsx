@@ -63,7 +63,10 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
       // puede escucharlo sin que este componente necesite saber qué es
       // cada pantalla ni acumular una prop nueva por cada acción.
       if (r.accion && r.accion !== "navegar" && r.accion !== "actualizar") {
-        window.dispatchEvent(new CustomEvent(`cuentavoz:accion:${r.accion}`));
+        // detail: r - para acciones como "previsualizar_reporte" que traen
+        // datos propios (ej. que archivo abrir), no solo la señal de que
+        // pasó algo. Las acciones que no lo necesitan simplemente lo ignoran.
+        window.dispatchEvent(new CustomEvent(`cuentavoz:accion:${r.accion}`, { detail: r }));
       }
     } catch (e) {
       setError(e.message);

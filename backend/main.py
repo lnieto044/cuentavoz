@@ -522,12 +522,22 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             f"bodegas»: {d['texto_estado']}. Tarjeta «Alertas por tipo»: {d['texto_alertas_tipo']}. "
             f"Tabla «Descuadres recurrentes»: {d['texto_descuadres']}.")
     if vista == "reportes" and u.perfil == "auditor":
-        return ("Pantalla: Reportes. Aquí se genera el consolidado para My "
+        d = _datos_reportes_narrados(u)
+        a = d["analisis"]
+        return ("Pantalla: Reportes, con dos pestañas: «Consolidado de la toma» y «Análisis de "
+                "consumo». Aquí se genera el consolidado para My "
                 "Inventory, las diferencias por bodega, y el análisis de consumo "
                 "de los últimos 30 días. Los tres SÍ se pueden generar por voz "
                 "(«genera el consolidado», «exporta las diferencias», «exporta el "
                 "análisis de consumo») - queda igual que si le hubiera dado clic "
-                "al botón.")
+                f"al botón. Archivos generados recientemente: {d['texto_recientes']}. "
+                f"Pestaña Análisis de consumo, últimos {a['dias']} días: pedido total "
+                f"{a['pedido_total']} kg en {a['servicios_periodo']} servicios, usado "
+                f"realmente {a['usado_total']} kg ({a['aprovechamiento']}% de "
+                f"aprovechamiento), ahorro potencial {a['ahorro_potencial']} kg al mes. "
+                f"Insumos subutilizados: {d['texto_subutil']}. También se puede pedir "
+                "«muéstrame el archivo de <consolidado o diferencias>» para ver su "
+                "contenido, igual que darle clic a la tarjeta.")
     if vista == "auditoria" and u.perfil == "auditor":
         with Sesion() as s:
             pendientes = s.query(Aprobacion).filter_by(estado="pendiente").all()
@@ -788,6 +798,116 @@ def _generar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
         return {"respuesta_hablada": f"Listo, generé el consolidado: {d['filas']} filas.",
                 "accion": "actualizar", "destino": None, "pestana": "consolidado"}
     return None
+
+
+def _datos_reportes_narrados(u: Usuario) -> dict:
+    """Los archivos recientes (misma fuente que la lista de Reportes) y el
+    análisis de consumo de los últimos 30 días, ya en frases listas para
+    hablar - los usan tanto el contexto completo que recibe Gemini como
+    las respuestas determinísticas de _responder_reportes_por_voz."""
+    recientes = reportes_recientes(u=u)
+    analisis = api_analisis(dias=30, u=u)
+
+    def _fila(a):
+        extra = f", {a['filas']} filas" if a["filas"] is not None else ""
+        return f"{a['titulo']} ({a['formato']}, hoy {a['hora']}{extra})"
+
+    texto_recientes = ("todavía no se ha generado ningún archivo" if not recientes else
+                       "; ".join(_fila(x) for x in recientes[:5]))
+    ultimo_consolidado = next((x for x in recientes if x["titulo"] == "Consolidado para My Inventory"), None)
+    ultimas_diferencias = next((x for x in recientes if x["titulo"] == "Diferencias por bodega"), None)
+    subutil = analisis["subutilizados"]
+    texto_subutil = ("sin insumos subutilizados en el período" if not subutil else
+                     "; ".join(f"{s['nombre'].title()}: sobran {s['sobra']} kg "
+                              f"({s['sobrepedido_pct']}% de sobrepedido, en {s['veces']} servicios)"
+                              for s in subutil[:5]))
+    return {"recientes": recientes, "analisis": analisis, "texto_recientes": texto_recientes,
+            "ultimo_consolidado": ultimo_consolidado, "ultimas_diferencias": ultimas_diferencias,
+            "texto_subutil": texto_subutil}
+
+
+_REPORTES_PREGUNTAS = [
+    (re.compile(r"\bcu[aá]nt\w*\s+filas\b.*\b[uú]ltimo\s+consolidado\b|"
+               r"\bfilas\s+tiene\s+el\s+consolidado\b", re.IGNORECASE),
+     lambda d: (f"El último consolidado tiene {d['ultimo_consolidado']['filas']} filas, "
+               f"generado hoy {d['ultimo_consolidado']['hora']}."
+               if d["ultimo_consolidado"] else "Todavía no se ha generado ningún consolidado.")),
+    (re.compile(r"\bcu[aá]nt\w*\s+(filas|bodegas)\b.*\bdiferencias\b|"
+               r"\bbodegas\s+tienen\s+descuadre\b", re.IGNORECASE),
+     lambda d: (f"Las últimas diferencias exportadas tienen {d['ultimas_diferencias']['filas']} "
+               f"filas, generadas hoy {d['ultimas_diferencias']['hora']}."
+               if d["ultimas_diferencias"] else "Todavía no se han exportado diferencias por bodega.")),
+    (re.compile(r"\bqu[eé]\s+archivos\b.*\bgenerad\w*|\barchivos\s+(recientes|generados)\b",
+               re.IGNORECASE),
+     lambda d: f"Archivos recientes: {d['texto_recientes']}."),
+    (re.compile(r"\bcu[aá]nto\b.*\bpidi[oó]\b|\bpedido\s+total\b|\bpedido\s+en\s+el\s+per[ií]odo\b",
+               re.IGNORECASE),
+     lambda d: f"En el período se pidieron {d['analisis']['pedido_total']} kilogramos, en "
+               f"{d['analisis']['servicios_periodo']} servicios."),
+    (re.compile(r"\bcu[aá]nto\b.*\bus[oó]\b|\baprovechamiento\b|\busado\s+realmente\b",
+               re.IGNORECASE),
+     lambda d: f"Se usaron realmente {d['analisis']['usado_total']} kilogramos, el "
+               f"{d['analisis']['aprovechamiento']}% de lo pedido."),
+    (re.compile(r"\bahorro\s+potencial\b", re.IGNORECASE),
+     lambda d: f"El ahorro potencial es de {d['analisis']['ahorro_potencial']} kilogramos al "
+               "mes si se ajustan las recetas."),
+    (re.compile(r"\bcu[aá]nt\w*\s+insumos\s+(est[aá]n\s+)?subutilizad\w*|\binsumos\s+subutilizados\b",
+               re.IGNORECASE),
+     lambda d: f"Hay {len(d['analisis']['subutilizados'])} insumos subutilizados: "
+               f"{d['texto_subutil']}."),
+    (re.compile(r"\b(m[aá]s|mayor)\s+sobrepedido\b|\brecomendaci[oó]n\s+(del\s+)?agente\b",
+               re.IGNORECASE),
+     lambda d: (f"El insumo con más sobrepedido es "
+               f"{d['analisis']['subutilizados'][0]['nombre'].title()}: sobra en "
+               f"{d['analisis']['subutilizados'][0]['veces']} servicios, "
+               f"{d['analisis']['subutilizados'][0]['sobrepedido_pct']}% más de lo que se usa."
+               if d["analisis"]["subutilizados"] else
+               "No hay insumos subutilizados en el período.")),
+]
+
+
+def _responder_reportes_por_voz(texto: str, u: Usuario) -> dict | None:
+    """Preguntas frecuentes de Reportes (ambas pestañas), resueltas sin
+    pasar por Gemini - mismo motivo que _responder_panel_por_voz: estas
+    frases ya se ofrecen como garantizadas en el desplegable de ejemplos."""
+    if u.perfil != "auditor":
+        return None
+    for patron, respuesta in _REPORTES_PREGUNTAS:
+        if patron.search(texto):
+            return {"respuesta_hablada": respuesta(_datos_reportes_narrados(u)),
+                    "accion": None, "destino": None, "pestana": None}
+    return None
+
+
+_VER_ARCHIVO_REPORTE = re.compile(
+    r"\b(mu[eé]stra\w*|ense[ñn]a\w*|[aá]bre\w*)\b.*\barchivo\b", re.IGNORECASE)
+
+
+def _previsualizar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
+    """"Muéstrame el archivo de diferencias" / "ábreme el último archivo" -
+    lo mismo que darle clic a una tarjeta de "Archivos generados", sin
+    tocar la pantalla. Exige la palabra "archivo" para no competir con
+    «muéstrame el consolidado», que ya significa cambiar de pestaña
+    (_navegar_pestana_por_voz)."""
+    if u.perfil != "auditor" or not _VER_ARCHIVO_REPORTE.search(texto):
+        return None
+    recientes = reportes_recientes(u=u)
+    if not recientes:
+        return {"respuesta_hablada": "Todavía no se ha generado ningún archivo.",
+                "accion": None, "destino": None, "pestana": "consolidado"}
+    if _REP_DIFERENCIAS.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Diferencias por bodega"), None)
+    elif _REP_CONSOLIDADO.search(texto):
+        elegido = next((x for x in recientes if x["titulo"] == "Consolidado para My Inventory"), None)
+    else:
+        elegido = recientes[0]
+    if not elegido:
+        return {"respuesta_hablada": "No encontré ese archivo entre los generados recientemente.",
+                "accion": None, "destino": None, "pestana": "consolidado"}
+    detalle_filas = f", {elegido['filas']} filas" if elegido["filas"] is not None else ""
+    return {"respuesta_hablada": f"Aquí está: {elegido['titulo']}{detalle_filas}.",
+            "accion": "previsualizar_reporte", "destino": None, "pestana": "consolidado",
+            "archivo": elegido["archivo"], "titulo_archivo": elegido["titulo"]}
 
 
 # Palabras que identifican cada pestaña, para navegar entre ellas sin
@@ -1642,6 +1762,12 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
         generado = _generar_reporte_por_voz(texto, u)
         if generado:
             return generado
+        previsualizado = _previsualizar_reporte_por_voz(texto, u)
+        if previsualizado:
+            return previsualizado
+        respondida = _responder_reportes_por_voz(texto, u)
+        if respondida:
+            return respondida
     if vista == "auditoria":
         resuelta = _resolver_aprobacion_por_voz(texto, u)
         if resuelta:
