@@ -12,10 +12,10 @@
 
 [![React](https://img.shields.io/badge/React-18-149ECA?style=for-the-badge&logo=react&logoColor=white)](frontend)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python-0B9260?style=for-the-badge&logo=fastapi&logoColor=white)](backend)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Producción-336791?style=for-the-badge&logo=postgresql&logoColor=white)](backend/bd.py)
-[![Gemini AI](https://img.shields.io/badge/Google_Gemini-Agente_de_voz-1B3A6B?style=for-the-badge&logo=googlegemini&logoColor=white)](backend/agente)
-[![WebAuthn](https://img.shields.io/badge/WebAuthn-Ingreso_seguro-D4A017?style=for-the-badge)](backend/servicios/huella.py)
-[![Render](https://img.shields.io/badge/Render-Despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-produccion-336791?style=for-the-badge&logo=postgresql&logoColor=white)](backend/bd.py)
+[![Gemini AI](https://img.shields.io/badge/Google_Gemini-agente_de_voz-1B3A6B?style=for-the-badge&logo=googlegemini&logoColor=white)](backend/agente)
+[![WebAuthn](https://img.shields.io/badge/WebAuthn-ingreso_con_huella-D4A017?style=for-the-badge)](backend/servicios/huella.py)
+[![Render](https://img.shields.io/badge/Render-despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
 
 <br>
 
