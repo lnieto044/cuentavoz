@@ -41,11 +41,22 @@ input  { font-family: inherit; font-size: 1rem; }
    :focus explícito, todo lo demás dependía del anillo por defecto del
    navegador, que sobre botones de color queda con poco contraste o casi
    invisible. :focus-visible (no :focus) para no dibujar el anillo en un
-   clic de mouse, solo al navegar con Tab/flechas. */
+   clic de mouse, solo al navegar con Tab/flechas.
+
+   --azul-prof (no --amarillo) por defecto: casi toda la app vive sobre
+   tarjetas blancas o el fondo claro, y --amarillo ahí da 1.47:1 de
+   contraste (por debajo del 3:1 que exige WCAG para el aro de foco) -
+   el mismo error que ya se corrigió en .kpi.oro b más abajo, esta vez en
+   el propio indicador de foco. --azul-prof da 14.55:1 sobre blanco. La
+   única zona con fondo oscuro de verdad es el menú lateral, así que ahí
+   se vuelve a --amarillo (9.89:1 sobre su fondo azul marino). */
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
 textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
-  outline: 3px solid var(--amarillo);
+  outline: 3px solid var(--azul-prof);
   outline-offset: 2px;
+}
+.sidebar :focus-visible {
+  outline-color: var(--amarillo);
 }
 
 /* ── Estructura ── */
@@ -238,7 +249,13 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .kpi small { color: var(--grafito); font-size: .76rem; display: block; }
 .kpi b { font-size: 1.6rem; color: var(--azul); display: block; margin: 3px 0; }
 .kpi.verde b { color: var(--verde); }
-.kpi.oro b   { color: var(--amarillo); }
+/* --amarillo (#FFD000) es el acento de marca, hecho para franjas y fondos,
+   no para texto: sobre blanco da 1.47:1 de contraste, muy por debajo del
+   3:1 mínimo (WCAG) hasta para texto grande en negrita. --amarillo-tx
+   (#8A6D00) es la variante ya pensada para texto - Reportes.jsx ya la usa
+   por esta misma razón para los chips "oro"; esta regla se había quedado
+   con la de fondo por error. */
+.kpi.oro b   { color: var(--amarillo-tx); }
 .kpi i { font-size: .72rem; color: var(--grafito); font-style: normal; }
 .kpi-cabeza { display: flex; align-items: center; gap: 9px; margin-bottom: 2px; }
 .kpi-cabeza small { margin: 0; }

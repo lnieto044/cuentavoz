@@ -229,6 +229,7 @@ export default function Mensajes({ token, usuario }) {
         <Dialogo titulo="Responder mensaje"
                  mensaje={`Para: ${capitalizar(original?.de) || "la persona"}\nDe: ${capitalizar(usuario?.nombre) || "Usted"}\n\nMensaje original:\n${original?.mensaje || ""}\n\nEscriba su respuesta:`}
                  conCampo conVoz multilinea placeholder="Ya quedó asignada esa bodega, revise en unos minutos…"
+                 etiquetaCampo={`Su respuesta a ${capitalizar(original?.de) || "la persona"}`}
                  valorInicial={respuestaPrellenada}
                  confirmarAlAbrir={Boolean(respuestaPrellenada)}
                  textoAceptar="Enviar"

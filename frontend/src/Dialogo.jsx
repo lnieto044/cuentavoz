@@ -19,6 +19,15 @@ export default function Dialogo({
   titulo, mensaje, conCampo = false, conVoz = false, multilinea = false, tipo = "text",
   valorInicial = "", placeholder = "", textoAceptar = "Aceptar",
   textoCancelar = "Cancelar", peligro = false, confirmarAlAbrir = false, onAceptar, onCancelar,
+  // Nombre accesible del campo para un lector de pantalla - por defecto se
+  // usa "mensaje" (funciona bien cuando es una pregunta corta, como "¿Cuántas
+  // porciones son en realidad?"), pero en varios diálogos "mensaje" es un
+  // párrafo explicativo largo o hasta el contenido de un mensaje ajeno
+  // (ver Mensajes.jsx "Responder mensaje": ahí incluye el mensaje ORIGINAL
+  // completo) - leerlo entero cada vez que el campo recibe foco es
+  // ruidoso e inútil como etiqueta. Estos casos pasan su propio
+  // etiquetaCampo, corto y específico.
+  etiquetaCampo,
 }) {
   const [valor, setValor] = useState(valorInicial);
   const [escuchando, setEscuchando] = useState(false);
@@ -171,7 +180,7 @@ export default function Dialogo({
             {multilinea ? (
               <textarea autoFocus value={valor} placeholder={placeholder} rows={3}
                         onChange={(e) => setValor(e.target.value)}
-                        aria-label={mensaje || titulo}
+                        aria-label={etiquetaCampo || mensaje || titulo}
                         style={{ flex: 1, padding: "12px 14px",
                                  border: "1px solid var(--borde)", borderRadius: 12,
                                  fontFamily: "inherit", fontSize: "1rem", resize: "vertical" }} />
@@ -179,7 +188,7 @@ export default function Dialogo({
               <input type={tipo} autoFocus value={valor} placeholder={placeholder}
                      onChange={(e) => setValor(e.target.value)}
                      onKeyDown={(e) => e.key === "Enter" && aceptar()}
-                     aria-label={mensaje || titulo}
+                     aria-label={etiquetaCampo || mensaje || titulo}
                      style={{ flex: 1, padding: "12px 14px",
                               border: "1px solid var(--borde)", borderRadius: 12,
                               textAlign: "center", fontSize: "1.05rem" }} />

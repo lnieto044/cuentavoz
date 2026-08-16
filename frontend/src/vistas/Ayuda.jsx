@@ -330,6 +330,7 @@ export default function Ayuda({ token, usuario, ir }) {
         <Dialogo titulo="Escribirle al administrador"
                  mensaje={`Para: ${capitalizar(admin?.nombre) || "Administrador"}\nDe: ${capitalizar(usuario?.nombre) || "Usted"}\nAsunto: Mensaje desde CuentaVoz\n\nEscriba su mensaje:`}
                  conCampo conVoz multilinea placeholder="Necesito que me asigne la bodega de Kiosco Taquilla…"
+                 etiquetaCampo={`Su mensaje para ${capitalizar(admin?.nombre) || "el administrador"}`}
                  textoAceptar="Enviar"
                  onAceptar={enviarMensajeAdministrador}
                  onCancelar={() => setEscribiendoAdmin(false)} />
