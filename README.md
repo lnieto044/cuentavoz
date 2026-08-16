@@ -29,8 +29,9 @@
 
 [Descripción](#-descripción) · [Características](#-características-principales) · [Capturas](#️-capturas) ·
 [Arquitectura](#-arquitectura) · [Momentos que cubre](#-los-tres-momentos-manuales-que-cubre) ·
-[Ingreso seguro](#-ingreso-seguro) · [Datos reales](#-datos-reales) · [Tecnologías](#-tecnologías) ·
-[Seguridad](#-seguridad) · [Ejecutar / Desplegar](#️-ejecutar-y-desplegar) · [Equipo](#-equipo--stockxperts)
+[Accesibilidad](#-accesibilidad) · [Ingreso seguro](#-ingreso-seguro) · [Datos reales](#-datos-reales) ·
+[Tecnologías](#-tecnologías) · [Seguridad](#-seguridad) · [Ejecutar / Desplegar](#️-ejecutar-y-desplegar) ·
+[Equipo](#-equipo--stockxperts)
 
 ---
 
@@ -65,36 +66,51 @@ momento.
 
 <sub>Todas las vistas funcionando en **modo tablet** (el diseño responsivo real de la aplicación, no un mockup de escritorio).</sub>
 
-<table>
-<tr>
-<td width="50%"><sub><b>Ingreso</b> — detección automática de perfil</sub><br/><img src="docs/capturas/tablet/ingreso.png" alt="Ingreso" /></td>
-<td width="50%"><sub><b>Inicio</b> — lo que hay para hoy, según el perfil</sub><br/><img src="docs/capturas/tablet/inicio.png" alt="Inicio" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Pedidos por voz</b> — receta + stock = pedido calculado</sub><br/><img src="docs/capturas/tablet/pedidos.png" alt="Pedidos por voz" /></td>
-<td width="50%"><sub><b>Conteo</b> — tablero de bodegas listas para contar</sub><br/><img src="docs/capturas/tablet/conteo.png" alt="Conteo" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Legalización</b> — pedidos y líneas de servicio</sub><br/><img src="docs/capturas/tablet/legalizacion.png" alt="Legalización" /></td>
-<td width="50%"><sub><b>Bodegas</b> — estado en vivo, filtros y doble firma</sub><br/><img src="docs/capturas/tablet/bodegas.png" alt="Bodegas" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Auditoría</b> — recuento ciego, aprobaciones y cierre</sub><br/><img src="docs/capturas/tablet/auditoria.png" alt="Auditoría" /></td>
-<td width="50%"><sub><b>Reportes</b> — trazabilidad exportable</sub><br/><img src="docs/capturas/tablet/reportes.png" alt="Reportes" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Panel gerencial</b> — exactitud, diferencias y stock</sub><br/><img src="docs/capturas/tablet/panel.png" alt="Panel gerencial" /></td>
-<td width="50%"><sub><b>Ajustes</b> — catálogo, recetas y configuración</sub><br/><img src="docs/capturas/tablet/ajustes.png" alt="Ajustes" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Ayuda</b> — preguntas frecuentes y comandos de voz</sub><br/><img src="docs/capturas/tablet/ayuda.png" alt="Ayuda" /></td>
-<td width="50%"><sub><b>Mi perfil</b> — datos personales y seguridad de la cuenta</sub><br/><img src="docs/capturas/tablet/mi-perfil.png" alt="Mi perfil" /></td>
-</tr>
-<tr>
-<td width="50%"><sub><b>Mensajes</b> — soporte en vivo entre auxiliares y administrador</sub><br/><img src="docs/capturas/tablet/mensajes.png" alt="Mensajes" /></td>
-<td width="50%"><sub><b>Cerrar sesión</b> — confirma antes de salir si hay trabajo sin guardar</sub><br/><img src="docs/capturas/tablet/cerrar-sesion.png" alt="Cerrar sesión" /></td>
-</tr>
-</table>
+<div align="center">
+
+**Ingreso** — detección automática de perfil
+<img width="700" src="docs/capturas/tablet/ingreso.png" alt="Ingreso" />
+
+**Inicio** — lo que hay para hoy, según el perfil
+<img width="700" src="docs/capturas/tablet/inicio.png" alt="Inicio" />
+
+**Pedidos por voz** — receta + stock = pedido calculado
+<img width="700" src="docs/capturas/tablet/pedidos.png" alt="Pedidos por voz" />
+
+**Conteo** — tablero de bodegas listas para contar
+<img width="700" src="docs/capturas/tablet/conteo.png" alt="Conteo" />
+
+**Legalización** — pedidos y líneas de servicio
+<img width="700" src="docs/capturas/tablet/legalizacion.png" alt="Legalización" />
+
+**Bodegas** — estado en vivo, filtros y doble firma
+<img width="700" src="docs/capturas/tablet/bodegas.png" alt="Bodegas" />
+
+**Auditoría** — recuento ciego, aprobaciones y cierre
+<img width="700" src="docs/capturas/tablet/auditoria.png" alt="Auditoría" />
+
+**Reportes** — trazabilidad exportable
+<img width="700" src="docs/capturas/tablet/reportes.png" alt="Reportes" />
+
+**Panel gerencial** — exactitud, diferencias y stock
+<img width="700" src="docs/capturas/tablet/panel.png" alt="Panel gerencial" />
+
+**Ajustes** — catálogo, recetas y configuración
+<img width="700" src="docs/capturas/tablet/ajustes.png" alt="Ajustes" />
+
+**Ayuda** — preguntas frecuentes y comandos de voz
+<img width="700" src="docs/capturas/tablet/ayuda.png" alt="Ayuda" />
+
+**Mi perfil** — datos personales y seguridad de la cuenta
+<img width="700" src="docs/capturas/tablet/mi-perfil.png" alt="Mi perfil" />
+
+**Mensajes** — soporte en vivo entre auxiliares y administrador
+<img width="700" src="docs/capturas/tablet/mensajes.png" alt="Mensajes" />
+
+**Cerrar sesión** — confirma antes de salir si hay trabajo sin guardar
+<img width="700" src="docs/capturas/tablet/cerrar-sesion.png" alt="Cerrar sesión" />
+
+</div>
 
 ## 🏗️ Arquitectura
 
@@ -126,6 +142,32 @@ archivos; el backend necesita correr código de verdad) — ver
 - **Cantidades fuera de lo esperado:** «noventa cazuelas» → *«el sistema espera alrededor de 10, ¿confirma 90?»*
 - **Unidades equivocadas:** «cinco kilos» no se confunde con cinco gramos.
 - **Saldos imposibles:** una cantidad negativa se rechaza con explicación.
+
+## ♿ Accesibilidad
+
+Pensada para que la use cualquier persona, incluida gente con discapacidad —
+un criterio que Colsubsidio pidió explícitamente para este reto, no un
+agregado de último momento:
+
+- **Navegación completa por teclado:** el menú principal, los modales y
+  todos los campos se manejan sin mouse (Tab, Enter, Escape).
+- **Etiquetas accesibles** en los controles que solo tenían un ícono:
+  micrófonos, interruptores y grupos de botones usados como selectores.
+- **Foco visible** en toda la aplicación, con contraste verificado contra
+  el estándar WCAG AA tanto en el sidebar oscuro como en el resto de
+  pantallas claras.
+- **Modales semánticos** (`role="dialog"`, foco atrapado, cierre con
+  Escape) en vez de simples `<div>` con estilo de ventana.
+- **Regiones en vivo** (`aria-live`) para que un lector de pantalla
+  anuncie las respuestas del agente sin que el usuario tenga que ir a
+  buscarlas.
+- **Soporte para movimiento reducido**, respetando la preferencia del
+  sistema operativo.
+- **Áreas táctiles** de al menos 44px, cómodas también en tablet.
+
+Diseñada y verificada siguiendo las pautas WCAG 2.1 AA — no reemplaza una
+auditoría formal con lectores de pantalla certificados, pero cubre las
+fallas que hoy suelen dejar afuera a un usuario que no usa mouse.
 
 ## 🔐 Ingreso seguro
 
