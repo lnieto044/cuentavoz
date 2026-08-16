@@ -1,0 +1,74 @@
+# Índice de capturas para el manual
+
+Todas las capturas están tomadas en **modo tablet** (viewport 820×1180 @2x)
+contra producción (`https://cuentavoz.onrender.com`), con datos reales de
+la demo — ninguna es un mockup ni tiene datos inventados. Cada imagen está
+recortada a su alto real de contenido (sin recortes a mitad de pantalla).
+
+Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
+
+- **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
+  cada ítem de la barra lateral, más Ingreso). Ya referenciadas también
+  desde el README.
+- **`docs/capturas/manual/`** (esta carpeta) — las 15 sub-pantallas,
+  pestañas secundarias y modales que no aparecen en `tablet/` porque no
+  son la vista por defecto de ningún ítem del menú.
+
+## 1) Vistas de nivel de menú — `docs/capturas/tablet/`
+
+| Archivo | Ruta / cómo llegar | Componente |
+|---|---|---|
+| `ingreso.png` | Pantalla de login, sin sesión iniciada | `frontend/src/vistas/Ingreso.jsx` |
+| `inicio.png` | Menú **Inicio** | `frontend/src/vistas/Inicio.jsx` |
+| `pedidos.png` | Menú **Pedidos** | `frontend/src/vistas/Pedido.jsx` |
+| `conteo.png` | Menú **Conteo** → selector de bodega | `frontend/src/vistas/Conteo.jsx` |
+| `legalizacion.png` | Menú **Legalización** | `frontend/src/vistas/Legalizacion.jsx` |
+| `bodegas.png` | Menú **Bodegas** | `frontend/src/vistas/Bodegas.jsx` |
+| `auditoria.png` | Menú **Auditoría** → pestaña *Recuento ciego y cierre* (por defecto) | `frontend/src/vistas/Auditoria.jsx` |
+| `reportes.png` | Menú **Reportes** → pestaña *Consolidado de la toma* (por defecto) | `frontend/src/vistas/Reportes.jsx` |
+| `panel.png` | Menú **Panel** → pestaña *Resumen ejecutivo* (por defecto) | `frontend/src/vistas/Panel.jsx` |
+| `ajustes.png` | Menú **Ajustes** → pestaña *Configuración* (por defecto) | `frontend/src/vistas/Ajustes.jsx` |
+| `ayuda.png` | Menú **Ayuda** | `frontend/src/vistas/Ayuda.jsx` |
+| `mi-perfil.png` | Menú **Mi perfil** | `frontend/src/vistas/MiPerfil.jsx` |
+| `mensajes.png` | Menú **Mensajes** | `frontend/src/vistas/Mensajes.jsx` |
+| `cerrar-sesion.png` | Menú **Cerrar sesión** (modal de confirmación) | `frontend/src/vistas/CerrarSesion.jsx` |
+
+## 2) Sub-pantallas, pestañas y modales — esta carpeta
+
+| Archivo | Ruta / cómo llegar | Componente / función |
+|---|---|---|
+| `auditoria-aprobaciones.png` | **Auditoría** → pestaña *Aprobaciones* | `Auditoria.jsx` → `TabAprobaciones` |
+| `auditoria-pedidos-pendientes.png` | **Auditoría** → pestaña *Pedidos pendientes* | `Auditoria.jsx` → `TabPedidosPendientes` |
+| `auditoria-bandeja-alertas.png` | **Auditoría** → pestaña *Bandeja de alertas* | `Auditoria.jsx` → `TabAlertas` |
+| `auditoria-bodega-cerrada-detalle.png` | **Auditoría** → *Recuento ciego y cierre* → abrir una bodega que ya está **CERRADA** (KPIs de cierre, solo lectura) | `Auditoria.jsx` → rama `!sesion && estado === "cerrada"` |
+| `auditoria-comparacion-doble-firma.png` | **Auditoría** → abrir una bodega *en auditoría* → *Iniciar recuento ciego* → *Ver comparación* (tabla sistema vs. conteo, con el botón **Cerrar con doble firma** visible) | `Auditoria.jsx` → `verComparar()` |
+| `reportes-analisis-consumo.png` | **Reportes** → pestaña *Análisis de consumo* | `Reportes.jsx` |
+| `ajustes-usuarios.png` | **Ajustes** → pestaña *Gestión de usuarios* | `Ajustes.jsx` → `TabUsuarios` |
+| `ajustes-editar-usuario.png` | **Ajustes** → *Gestión de usuarios* → botón **Editar** de una persona | `Ajustes.jsx` → `TabUsuarios`, modal `editando` |
+| `ajustes-asignar-bodegas.png` | **Ajustes** → *Gestión de usuarios* → botón **Asignar bodegas** | `Ajustes.jsx` → `TabUsuarios`, modal `asignando` |
+| `ajustes-recetas.png` | **Ajustes** → pestaña *Recetas* | `Ajustes.jsx` → `TabRecetas` |
+| `ajustes-editar-receta.png` | **Ajustes** → *Recetas* → botón **Editar** de una receta | `Ajustes.jsx` → `TabRecetas`, modal `editando` |
+| `ajustes-trazabilidad.png` | **Ajustes** → pestaña *Registro de trazabilidad* | `Ajustes.jsx` → `TabTrazabilidad` |
+| `bodegas-nueva.png` | **Bodegas** → botón **Bodega nueva** | `Bodegas.jsx`, `<Dialogo>` con `conCampo conVoz` |
+| `bodegas-reabrir.png` | **Bodegas** → detalle de una bodega **CERRADA** → botón **Reabrir la bodega** | `Bodegas.jsx`, `<Dialogo>` `peligro` |
+| `legalizacion-merma.png` | **Legalización** → servicio con merma → botón **Explicar la merma** | `Legalizacion.jsx`, `<Dialogo>` `verMerma` |
+| `conteo-teclado.png` | **Conteo** → bodega abierta → botón **Teclado** ("Escribir en vez de hablar") | `Conteo.jsx`, `<Dialogo>` `mostrarTeclado` |
+| `conteo-desambiguacion.png` | **Conteo** → se dicta/escribe un artículo con nombre ambiguo (ej. «hay noventa cazuelas» → CAZUELA 16 ONZ / TAPA CAZUELA 16 ONZ) | `Conteo.jsx`, tarjetas `.opciones` |
+
+## Pendiente: alerta de cantidad fuera de lo esperado
+
+La tercera captura "de voz" —la alerta *«el sistema espera alrededor de
+X, ¿confirma Y?»*— **no se incluye** en este lote. El backend solo la
+dispara si el artículo dictado tiene un `StockSistema` real para esa
+bodega (`backend/servicios/validacion.py:44-52`), y las únicas 8 bodegas
+con stock real ya están en estados curados para la demo (cerradas, en
+conteo o en auditoría) que no se debían alterar — de hecho, al intentar
+abrir una de ellas para probarlo, el propio backend lo bloqueó con
+*"Esa bodega ya está en conteo por otra persona"*, confirmando que ese
+candado de sesión funciona como debe.
+
+Para conseguir esta captura sin tocar la demo real haría falta un
+endpoint temporal para sembrar una fila de stock (dos despliegues extra
+solo para una imagen) — se dejó pendiente en vez de hacerlo. El
+comportamiento se puede documentar en el manual citando directamente
+`validacion.py:46-52`.
