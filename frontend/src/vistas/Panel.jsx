@@ -215,10 +215,26 @@ function TabAlertas({ a }) {
         <div className="kpi oro">
           <div className="kpi-cabeza">
             <span className="icono-kpi">📉</span>
-            <small>Negativos detectados en el sistema</small>
+            <small>Saldos negativos en el sistema</small>
           </div>
-          <b>{a.negativos_iniciales} → {a.negativos_actuales}</b>
-          <i>corregidos durante la toma</i></div>
+          {/* La corrección de un saldo negativo pasa por fuera de
+              CuentaVoz (My Inventory, no esta app) - dentro de UNA sola
+              toma este número no se mueve solo, así que la flecha
+              "antes → ahora" solo se muestra si de verdad hay una
+              diferencia real que contar; mostrarla igualada a sí misma
+              ("79 → 79") no cuenta nada y parece un dato inventado. */}
+          {a.negativos_iniciales !== a.negativos_actuales ? (
+            <>
+              <b>{a.negativos_iniciales} → {a.negativos_actuales}</b>
+              <i>corregidos desde el inicio de este período</i>
+            </>
+          ) : (
+            <>
+              <b>{a.negativos_actuales}</b>
+              <i>artículos - la corrección se hace en My Inventory</i>
+            </>
+          )}
+        </div>
         <div className="kpi">
           <div className="kpi-cabeza">
             <span className="icono-kpi">⏱️</span>

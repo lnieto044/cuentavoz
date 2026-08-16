@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { pedir, descargarReporte } from "../api";
+import { hablar, esAfirmacion, esNegacion } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 import Icono from "../Iconos";
@@ -113,6 +114,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
   const [totalFilas, setTotalFilas] = useState(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+  // Solo se activa cuando la vista previa llegó por VOZ (ver el useEffect
+  // de archivoPrevisualizar) - un clic manual ya tiene el botón "Descargar
+  // este archivo" a la vista, no hace falta preguntar nada por voz ahí.
+  const [pidiendoDescarga, setPidiendoDescarga] = useState(false);
 
   function cargar() {
     pedir("/api/reportes/recientes", {}, token).then(setRecientes).catch(() => setRecientes([]));
@@ -148,9 +153,37 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
   useEffect(() => {
     if (archivoPrevisualizar?.archivo) {
       previsualizar(archivoPrevisualizar.archivo, archivoPrevisualizar.titulo);
+      setPidiendoDescarga(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archivoPrevisualizar, navSeq]);
+
+  // "Sí"/"no" después de que el agente preguntó "¿desea descargarlo?" -
+  // intercepta ANTES de que AsistenteVoz le pregunte al agente general
+  // (que no tiene ni idea de esa pregunta pendiente). Mismo patrón que el
+  // filtro local de Registro de trazabilidad en Ajustes.
+  useEffect(() => {
+    function interceptar(e) {
+      if (!pidiendoDescarga) return;
+      const texto = e.detail.texto;
+      if (esAfirmacion(texto)) {
+        e.preventDefault();
+        setPidiendoDescarga(false);
+        descargarReporte(archivoActivo.archivo, token).catch((err2) => setErr(err2.message));
+        const msg2 = "Descargando el archivo.";
+        setMsg(msg2);
+        hablar(msg2);
+      } else if (esNegacion(texto)) {
+        e.preventDefault();
+        setPidiendoDescarga(false);
+        const msg2 = "Listo, queda pendiente. Dígame si desea ver otro archivo.";
+        setMsg(msg2);
+        hablar(msg2);
+      }
+    }
+    window.addEventListener("cuentavoz:filtro-local", interceptar);
+    return () => window.removeEventListener("cuentavoz:filtro-local", interceptar);
+  }, [pidiendoDescarga, archivoActivo, token]);
 
   async function generarConsolidado(formato) {
     setErr(""); setMsg("");

@@ -1108,7 +1108,8 @@ def _previsualizar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
         return {"respuesta_hablada": "No encontré ese archivo entre los generados recientemente.",
                 "accion": None, "destino": None, "pestana": "consolidado"}
     detalle_filas = f", {elegido['filas']} filas" if elegido["filas"] is not None else ""
-    return {"respuesta_hablada": f"Aquí está: {elegido['titulo']}{detalle_filas}.",
+    return {"respuesta_hablada": f"Aquí está: {elegido['titulo']}{detalle_filas}. "
+                                 "¿Desea descargarlo?",
             "accion": "previsualizar_reporte", "destino": None, "pestana": "consolidado",
             "archivo": elegido["archivo"], "titulo_archivo": elegido["titulo"]}
 
