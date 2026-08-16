@@ -442,6 +442,7 @@ export default function Pedido({ token, usuario, ir }) {
         {bodegas.length > 0 && (
           <select value={bodegaId || ""}
                   onChange={(e) => { setBodegaId(Number(e.target.value)); setLineas(null); }}
+                  aria-label="Bodega de la que se descuenta el pedido"
                   style={{ marginLeft: "auto", padding: "6px 12px", border: "1px solid var(--borde)",
                            borderRadius: 20, fontSize: ".8rem", fontWeight: 700, color: "var(--azul)" }}>
             {bodegas.map((b) => (

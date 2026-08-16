@@ -200,16 +200,16 @@ export default function MiPerfil({ token, ir }) {
             {[["Nombre completo", "nombre"], ["Correo corporativo", "correo"],
               ["Teléfono de contacto", "telefono"], ["Código de empleado", "codigo"]].map(([l, k]) => (
               <div key={k} style={{ marginBottom: 10 }}>
-                <label className="pista">{l}</label>
-                <input value={datos[k] || ""}
+                <label className="pista" htmlFor={`campo-perfil-${k}`}>{l}</label>
+                <input id={`campo-perfil-${k}`} value={datos[k] || ""}
                        onChange={(e) => setDatos({ ...datos, [k]: e.target.value })}
                        style={{ width: "100%", padding: "11px 13px",
                                 border: "1px solid var(--borde)", borderRadius: 12 }} />
               </div>
             ))}
           </div>
-          <label className="pista">Bodegas asignadas</label>
-          <div className="chips" style={{ marginTop: 6 }}>
+          <label className="pista" id="etiqueta-bodegas-asignadas">Bodegas asignadas</label>
+          <div className="chips" style={{ marginTop: 6 }} aria-labelledby="etiqueta-bodegas-asignadas">
             {bodegas.length === 0 ? (
               <span className="pista">Sin bodegas asignadas todavía.</span>
             ) : bodegas.map((b) => <span key={b.id} className="chip">{b.bodega}</span>)}
@@ -230,16 +230,19 @@ export default function MiPerfil({ token, ir }) {
           <input type="password" placeholder="PIN actual" value={pinActual}
                  autoComplete="current-password"
                  onChange={(e) => setPinActual(e.target.value)}
+                 aria-label="PIN actual"
                  style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <input type="password" placeholder="PIN nuevo (6 dígitos)" value={pin}
                  autoComplete="new-password"
                  onChange={(e) => setPin(e.target.value)}
+                 aria-label="PIN nuevo, 6 dígitos"
                  style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <input type="password" placeholder="Confirmar PIN" value={pin2}
                  autoComplete="new-password"
                  onChange={(e) => setPin2(e.target.value)}
+                 aria-label="Confirmar PIN nuevo"
                  style={{ width: "100%", padding: "11px 13px",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <div className="grilla-botones">
@@ -273,8 +276,8 @@ export default function MiPerfil({ token, ir }) {
 
         <div className="card">
           <h3>Preferencias de voz</h3>
-          <label className="pista">Voz de CuentaVoz</label>
-          <select value={datos.idioma_voz}
+          <label className="pista" htmlFor="campo-voz">Voz de CuentaVoz</label>
+          <select id="campo-voz" value={datos.idioma_voz}
                   onChange={(e) => elegirPreferencia({ idioma_voz: e.target.value })}
                   style={{ width: "100%", marginTop: 6, marginBottom: 8, padding: "10px 12px",
                            border: "1px solid var(--borde)", borderRadius: 10 }}>
@@ -291,31 +294,36 @@ export default function MiPerfil({ token, ir }) {
             de Colombia; esto solo cambia cómo suena CuentaVoz al responder.
           </p>
 
-          <label className="pista">Velocidad de la respuesta</label>
-          <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 12 }}>
+          <label className="pista" id="etiqueta-velocidad">Velocidad de la respuesta</label>
+          <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 12 }}
+               role="group" aria-labelledby="etiqueta-velocidad">
             {["lenta", "normal", "rapida"].map((v2) => (
               <button key={v2}
                       className={`btn ${datos.velocidad_voz === v2 ? "" : "borde"}`}
-                      onClick={() => elegirPreferencia({ velocidad_voz: v2 })}>
+                      onClick={() => elegirPreferencia({ velocidad_voz: v2 })}
+                      aria-pressed={datos.velocidad_voz === v2}>
                 {v2[0].toUpperCase() + v2.slice(1)}
               </button>
             ))}
           </div>
 
-          <label className="pista">Confirmación hablada</label>
-          <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 18 }}>
+          <label className="pista" id="etiqueta-confirmacion">Confirmación hablada</label>
+          <div className="grilla-botones" style={{ marginTop: 6, marginBottom: 18 }}
+               role="group" aria-labelledby="etiqueta-confirmacion">
             <button className={`btn ${datos.confirmacion_hablada ? "" : "borde"}`}
-                    onClick={() => elegirPreferencia({ confirmacion_hablada: true })}>
+                    onClick={() => elegirPreferencia({ confirmacion_hablada: true })}
+                    aria-pressed={!!datos.confirmacion_hablada}>
               Activada
             </button>
             <button className={`btn ${!datos.confirmacion_hablada ? "" : "borde"}`}
-                    onClick={() => elegirPreferencia({ confirmacion_hablada: false })}>
+                    onClick={() => elegirPreferencia({ confirmacion_hablada: false })}
+                    aria-pressed={!datos.confirmacion_hablada}>
               Desactivada
             </button>
           </div>
 
-          {err && <p className="error">{err}</p>}
-          {msg && <p className="msg-ok">{msg}</p>}
+          {err && <p className="error" role="alert">{err}</p>}
+          {msg && <p className="msg-ok" aria-live="polite">{msg}</p>}
           <button className="btn" style={{ width: "100%" }} onClick={guardar}>
             Guardar cambios
           </button>

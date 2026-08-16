@@ -498,6 +498,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
               onChange={(e) => setTextoBodega(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && abrirPorBoton()}
               placeholder="nombre de la bodega…"
+              aria-label="Nombre de la bodega"
             />
             <button className="btn" onClick={abrirPorBoton}
                     style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -890,8 +891,8 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
 
       <div className="conteo-cols" style={{ marginTop: 16 }}>
         <div>
-          <label className="pista">Nombre tal como lo dictó</label>
-          <input value={crear.nombre}
+          <label className="pista" htmlFor="campo-nombre-articulo">Nombre tal como lo dictó</label>
+          <input id="campo-nombre-articulo" value={crear.nombre}
                  onChange={(e) => setCrear({ ...crear, nombre: e.target.value })}
                  style={{ width: "100%", padding: "11px 13px", marginTop: 6,
                           border: "1px solid var(--borde)", borderRadius: 12,
@@ -907,20 +908,21 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
 
       <div className="dos-columnas" style={{ marginTop: 16 }}>
         <div>
-          <label className="pista">Unidad de medida</label>
-          <div className="grilla-botones" style={{ marginTop: 6 }}>
+          <label className="pista" id="etiqueta-unidad-medida">Unidad de medida</label>
+          <div className="grilla-botones" style={{ marginTop: 6 }} role="group" aria-labelledby="etiqueta-unidad-medida">
             {UNIDADES.map((u) => (
               <button key={u}
                       className={`btn ${crear.unidad_medida === u ? "" : "borde"}`}
-                      onClick={() => setCrear({ ...crear, unidad_medida: u })}>
+                      onClick={() => setCrear({ ...crear, unidad_medida: u })}
+                      aria-pressed={crear.unidad_medida === u}>
                 {u}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <label className="pista">Cantidad inicial contada en {bodega}</label>
-          <input type="number" min="0" value={crear.cantidad_inicial}
+          <label className="pista" htmlFor="campo-cantidad-inicial">Cantidad inicial contada en {bodega}</label>
+          <input id="campo-cantidad-inicial" type="number" min="0" value={crear.cantidad_inicial}
                  onChange={(e) => setCrear({ ...crear, cantidad_inicial: Number(e.target.value) })}
                  style={{ width: "100%", padding: "11px 13px", marginTop: 6,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
@@ -1040,6 +1042,7 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
           <input value={texto} onChange={(e) => setTexto(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && procesarTexto(texto)}
                  placeholder="hay noventa cazuelas blancas…"
+                 aria-label="Escriba el artículo y la cantidad contada"
                  style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <button className="btn" onClick={() => procesarTexto(texto)}>Enviar</button>
@@ -1054,8 +1057,8 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
 
         {mostrarManual && (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--borde)" }}>
-            <label className="pista">Artículo</label>
-            <input value={articulo} onChange={(e) => setArticulo(e.target.value)}
+            <label className="pista" htmlFor="campo-articulo-manual">Artículo</label>
+            <input id="campo-articulo-manual" value={articulo} onChange={(e) => setArticulo(e.target.value)}
                    placeholder="tabla acril…"
                    style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
@@ -1070,14 +1073,18 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
             <div style={{ display: "flex", gap: 10, marginTop: 6, marginBottom: 10,
                           alignItems: "center" }}>
               <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
-                      onClick={() => setCantidad((c) => Math.max(0, Number(c) - 1))}>−</button>
+                      onClick={() => setCantidad((c) => Math.max(0, Number(c) - 1))}
+                      aria-label="Restar uno a la cantidad">−</button>
               <input type="number" value={cantidad}
                      onChange={(e) => setCantidad(e.target.value)}
+                     aria-label="Cantidad contada"
                      style={{ width: 90, padding: "11px 13px", textAlign: "center",
                               border: "1px solid var(--borde)", borderRadius: 12 }} />
               <button className="btn borde" style={{ minHeight: 0, padding: "8px 16px" }}
-                      onClick={() => setCantidad((c) => Number(c) + 1)}>+</button>
-              <button className="chip azul" onClick={ciclarUnidad}>{unidad}</button>
+                      onClick={() => setCantidad((c) => Number(c) + 1)}
+                      aria-label="Sumar uno a la cantidad">+</button>
+              <button className="chip azul" onClick={ciclarUnidad}
+                      aria-label={`Unidad: ${unidad}. Toque para cambiarla`}>{unidad}</button>
             </div>
             <button className="btn" onClick={guardarManual}>Guardar</button>
           </div>

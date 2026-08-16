@@ -82,11 +82,14 @@ export default function Ajustes({ token, usuario, ir, tabInicial, recetaId, navS
 }
 
 /* ── Interruptor simple, sin librería ── */
-function Interruptor({ activo, onChange, disabled }) {
+function Interruptor({ activo, onChange, disabled, etiqueta }) {
   return (
     <button
       onClick={() => !disabled && onChange(!activo)}
       disabled={disabled}
+      role="switch"
+      aria-checked={activo}
+      aria-label={etiqueta}
       style={{
         width: 44, height: 24, borderRadius: 14, padding: 2,
         background: activo ? "var(--verde)" : "#C3CAD6",
@@ -174,6 +177,7 @@ function TabConfig({ token, esAuditor }) {
                   {esAuditor ? (
                     <input type="number" min="1" max="500" value={umbral}
                            onChange={(e) => setUmbral(Number(e.target.value))}
+                           aria-label="Umbral de anomalía, en porcentaje"
                            style={{ width: 80, padding: "6px 10px",
                                     border: "1px solid var(--borde)", borderRadius: 8 }} />
                   ) : <b>{cfg.umbral} %</b>}
@@ -181,11 +185,14 @@ function TabConfig({ token, esAuditor }) {
                 </td>
               </tr>
               <tr><td>Bloquear cantidades negativas</td>
-                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+                <td><Interruptor activo disabled onChange={() => {}}
+                                  etiqueta="Bloquear cantidades negativas" /></td></tr>
               <tr><td>Exigir confirmación en alertas</td>
-                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+                <td><Interruptor activo disabled onChange={() => {}}
+                                  etiqueta="Exigir confirmación en alertas" /></td></tr>
               <tr><td>Permitir crear productos pendientes</td>
-                <td><Interruptor activo disabled onChange={() => {}} /></td></tr>
+                <td><Interruptor activo disabled onChange={() => {}}
+                                  etiqueta="Permitir crear productos pendientes" /></td></tr>
             </tbody>
           </table>
           <p className="pista" style={{ marginTop: 8 }}>
@@ -199,7 +206,8 @@ function TabConfig({ token, esAuditor }) {
           <table>
             <tbody>
               <tr><td>Modo sin conexión</td>
-                <td><Interruptor activo={offline} onChange={setOffline} disabled={!esAuditor} /></td></tr>
+                <td><Interruptor activo={offline} onChange={setOffline} disabled={!esAuditor}
+                                  etiqueta="Modo sin conexión" /></td></tr>
               <tr><td>Refresco del tablero</td><td><b>tiempo real</b></td></tr>
             </tbody>
           </table>
@@ -262,6 +270,19 @@ function TabUsuarios({ token, usuario }) {
     window.addEventListener("cuentavoz:ajustes-actualizados", cargar);
     return () => window.removeEventListener("cuentavoz:ajustes-actualizados", cargar);
   }, [token]);
+
+  // Estos dos modales estan armados a mano (overlay + modal), no con el
+  // componente Dialogo compartido - por eso no traian ya el mismo Escape
+  // para cerrar que ese componente sí tiene.
+  useEffect(() => {
+    function alTecla(e) {
+      if (e.key !== "Escape") return;
+      if (editando) setEditando(null);
+      else if (asignando) setAsignando(null);
+    }
+    window.addEventListener("keydown", alTecla);
+    return () => window.removeEventListener("keydown", alTecla);
+  }, [editando, asignando]);
 
   function cargarCobertura() {
     pedir("/api/bodegas/asignaciones", {}, token).then(setCobertura).catch(() => {});
@@ -423,12 +444,15 @@ function TabUsuarios({ token, usuario }) {
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input placeholder="nombre de usuario" value={nuevo.nombre || ""}
                  onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
+                 aria-label="Nombre de usuario"
                  style={{ padding: "10px 12px", border: "1px solid var(--borde)", borderRadius: 10 }} />
           <input placeholder="correo (opcional)" value={nuevo.correo || ""}
                  onChange={(e) => setNuevo({ ...nuevo, correo: e.target.value })}
+                 aria-label="Correo, opcional"
                  style={{ padding: "10px 12px", border: "1px solid var(--borde)", borderRadius: 10 }} />
           <select value={nuevo.perfil || "auxiliar"}
                   onChange={(e) => setNuevo({ ...nuevo, perfil: e.target.value })}
+                  aria-label="Perfil del nuevo usuario"
                   style={{ padding: "10px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
             <option value="auxiliar">Auxiliar</option>
             <option value="auditor">Administrador</option>
@@ -522,15 +546,18 @@ function TabUsuarios({ token, usuario }) {
       {editando && (
         <div className="overlay" onClick={() => setEditando(null)}>
           <div className="modal" style={{ maxWidth: 420, textAlign: "left" }}
-               onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ textTransform: "capitalize" }}>Editar a {editando.nombre}</h2>
-            <label className="pista">Correo</label>
-            <input value={editando.correo || ""}
+               onClick={(e) => e.stopPropagation()}
+               role="dialog" aria-modal="true" aria-labelledby="titulo-editar-usuario">
+            <h2 id="titulo-editar-usuario" style={{ textTransform: "capitalize" }}>
+              Editar a {editando.nombre}
+            </h2>
+            <label className="pista" htmlFor="campo-correo-editar">Correo</label>
+            <input id="campo-correo-editar" value={editando.correo || ""}
                    onChange={(e) => setEditando({ ...editando, correo: e.target.value })}
                    style={{ width: "100%", padding: "10px 12px", marginTop: 6, marginBottom: 14,
                             border: "1px solid var(--borde)", borderRadius: 10 }} />
-            <label className="pista">Perfil</label>
-            <select value={editando.perfil}
+            <label className="pista" htmlFor="campo-perfil-editar">Perfil</label>
+            <select id="campo-perfil-editar" value={editando.perfil}
                     onChange={(e) => setEditando({ ...editando, perfil: e.target.value })}
                     style={{ width: "100%", padding: "10px 12px", marginTop: 6,
                              border: "1px solid var(--borde)", borderRadius: 10 }}
@@ -554,8 +581,11 @@ function TabUsuarios({ token, usuario }) {
       {asignando && (
         <div className="overlay" onClick={() => setAsignando(null)}>
           <div className="modal" style={{ maxWidth: 520, textAlign: "left" }}
-               onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ textTransform: "capitalize" }}>Bodegas para {asignando.nombre}</h2>
+               onClick={(e) => e.stopPropagation()}
+               role="dialog" aria-modal="true" aria-labelledby="titulo-asignar-bodegas">
+            <h2 id="titulo-asignar-bodegas" style={{ textTransform: "capitalize" }}>
+              Bodegas para {asignando.nombre}
+            </h2>
             <p className="pista">
               {asignando.perfil === "auditor"
                 ? "Marque las bodegas de las que esta persona es responsable como administradora (recuento ciego, cierre)."
@@ -609,6 +639,14 @@ function TabRecetas({ token, recetaInicial }) {
       abrir(recetaInicial);
     }
   }, [recetaInicial, recetas]);
+
+  // Mismo caso que en TabUsuarios: este modal esta armado a mano, no con
+  // el componente Dialogo compartido, asi que necesita su propio Escape.
+  useEffect(() => {
+    function alTecla(e) { if (e.key === "Escape" && editando) setEditando(null); }
+    window.addEventListener("keydown", alTecla);
+    return () => window.removeEventListener("keydown", alTecla);
+  }, [editando]);
 
   async function abrir(id) {
     try {
@@ -717,28 +755,31 @@ function TabRecetas({ token, recetaInicial }) {
         <div className="overlay" onClick={() => setEditando(null)}>
           <div className="modal" style={{ maxWidth: 660, textAlign: "left", maxHeight: "88vh",
                                           overflowY: "auto" }}
-               onClick={(e) => e.stopPropagation()}>
-            <h2>{editando.id ? `Editar ${editando.nombre}` : "Nueva receta"}</h2>
+               onClick={(e) => e.stopPropagation()}
+               role="dialog" aria-modal="true" aria-labelledby="titulo-editar-receta">
+            <h2 id="titulo-editar-receta">
+              {editando.id ? `Editar ${editando.nombre}` : "Nueva receta"}
+            </h2>
             <p className="pista" style={{ marginTop: -6, marginBottom: 18 }}>
               Cada campo queda disponible de inmediato para calcular pedidos por voz.
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 20 }}>
               <div>
-                <label className="pista" style={{ display: "block", marginBottom: 6 }}>
+                <label className="pista" htmlFor="campo-nombre-plato" style={{ display: "block", marginBottom: 6 }}>
                   Nombre del plato
                 </label>
-                <input value={editando.nombre}
+                <input id="campo-nombre-plato" value={editando.nombre}
                        onChange={(e) => setEditando({ ...editando, nombre: e.target.value })}
                        placeholder="ej. ajiaco"
                        style={{ width: "100%", padding: "10px 12px",
                                 border: "1px solid var(--borde)", borderRadius: 10 }} />
               </div>
               <div>
-                <label className="pista" style={{ display: "block", marginBottom: 6 }}>
+                <label className="pista" htmlFor="campo-rendimiento" style={{ display: "block", marginBottom: 6 }}>
                   Rendimiento (porciones)
                 </label>
-                <input type="number" min="1" value={editando.rendimiento}
+                <input id="campo-rendimiento" type="number" min="1" value={editando.rendimiento}
                        onChange={(e) => setEditando({ ...editando, rendimiento: e.target.value })}
                        style={{ width: "100%", padding: "10px 12px",
                                 border: "1px solid var(--borde)", borderRadius: 10 }} />
@@ -755,6 +796,7 @@ function TabRecetas({ token, recetaInicial }) {
                   <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                     <select value={l.articulo_codigo}
                             onChange={(e) => actualizarLinea(i, "articulo_codigo", e.target.value)}
+                            aria-label={`Artículo del ingrediente ${i + 1}`}
                             style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--borde)",
                                      borderRadius: 8, background: "#fff" }}>
                       <option value="">— elija un artículo del catálogo —</option>
@@ -765,10 +807,11 @@ function TabRecetas({ token, recetaInicial }) {
                     <input type="number" step="0.001" min="0" placeholder="cantidad"
                            value={l.cantidad_por_porcion}
                            onChange={(e) => actualizarLinea(i, "cantidad_por_porcion", e.target.value)}
+                           aria-label={`Cantidad por porción del ingrediente ${i + 1}`}
                            style={{ width: 100, padding: "8px 10px", border: "1px solid var(--borde)",
                                     borderRadius: 8, background: "#fff" }} />
                     <button className="btn gris" style={{ padding: "6px 10px", minHeight: 0, flex: "none" }}
-                            onClick={() => quitarLinea(i)}>✕</button>
+                            onClick={() => quitarLinea(i)} aria-label={`Quitar ingrediente ${i + 1}`}>✕</button>
                   </div>
                 ))}
               </div>
@@ -787,6 +830,7 @@ function TabRecetas({ token, recetaInicial }) {
               <textarea value={editando.preparacion}
                         onChange={(e) => setEditando({ ...editando, preparacion: e.target.value })}
                         placeholder="1. Pele y pique las papas...&#10;2. Sofría la cebolla...&#10;3. ..."
+                        aria-label="Preparación paso a paso, opcional"
                         rows={5}
                         style={{ width: "100%", padding: "10px 12px",
                                  border: "1px solid var(--borde)", borderRadius: 10,
@@ -955,6 +999,7 @@ function TabTraza({ token }) {
         Registro de trazabilidad ({traza.length} acciones)</h3>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <select value={rango} onChange={(e) => setRango(e.target.value)}
+                aria-label="Rango de fechas del registro de trazabilidad"
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
           <option value="hoy">Hoy</option>
           <option value="semana">Última semana</option>
@@ -962,11 +1007,13 @@ function TabTraza({ token }) {
           <option value="">Todo</option>
         </select>
         <select value={persona} onChange={(e) => setPersona(e.target.value)}
+                aria-label="Filtrar por persona"
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
           <option value="">Todas las personas</option>
           {personas.map((p) => <option key={p} value={p} style={{ textTransform: "capitalize" }}>{p}</option>)}
         </select>
         <select value={accion} onChange={(e) => setAccion(e.target.value)}
+                aria-label="Filtrar por tipo de acción"
                 style={{ padding: "9px 12px", border: "1px solid var(--borde)", borderRadius: 10 }}>
           {acciones.map((a) => <option key={a} value={a}>{a || "Todas las acciones"}</option>)}
         </select>

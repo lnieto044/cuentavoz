@@ -80,10 +80,11 @@ export default function Ingreso({ alEntrar }) {
           <h2>Iniciar sesión</h2>
           <p className="pista">Ingrese con su usuario corporativo.</p>
 
-          <label>Usuario o código de empleado</label>
+          <label htmlFor="campo-usuario">Usuario o código de empleado</label>
           <div className="campo-icono">
             <Icono nombre="perfil" tam={18} />
             <input
+              id="campo-usuario"
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
               autoComplete="username"
@@ -91,10 +92,11 @@ export default function Ingreso({ alEntrar }) {
             />
           </div>
 
-          <label>PIN</label>
+          <label htmlFor="campo-pin">PIN</label>
           <div className="campo-icono">
             <Icono nombre="candado" tam={18} />
             <input
+              id="campo-pin"
               type="password"
               value={clave}
               onChange={(e) => setClave(e.target.value)}
@@ -103,8 +105,17 @@ export default function Ingreso({ alEntrar }) {
           </div>
 
           <div>
-            <label>Perfil</label>
-            <div className="perfiles">
+            <span id="etiqueta-perfil" style={{ fontSize: ".8rem", color: "var(--grafito)" }}>
+              Perfil
+            </span>
+            {/* aria-live: el texto de arriba no cambia (siempre dice "Perfil"),
+                pero esta línea sí - solo así un lector de pantalla se entera
+                de qué perfil se detectó al escribir el usuario, sin depender
+                del color que solo ve quien puede ver la pantalla. */}
+            <p aria-live="polite" className="pista" style={{ minHeight: "1.1em", margin: "2px 0 4px" }}>
+              {perfil ? `Perfil detectado: ${ETIQUETAS_PERFIL[perfil]}` : ""}
+            </p>
+            <div className="perfiles" role="group" aria-labelledby="etiqueta-perfil">
               <span className={perfil === "auxiliar" ? "sel" : ""}>
                 {ETIQUETAS_PERFIL.auxiliar}
               </span>
@@ -114,7 +125,7 @@ export default function Ingreso({ alEntrar }) {
             </div>
           </div>
 
-          {err && <span className="error">{err}</span>}
+          {err && <span className="error" role="alert">{err}</span>}
 
           <button className="btn" type="submit" disabled={cargando || !usuario || !clave}>
             {cargando ? "Entrando…" : "ENTRAR"}
