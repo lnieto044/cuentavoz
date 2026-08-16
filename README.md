@@ -477,11 +477,8 @@ Se puede entrar con el usuario o con el código de empleado, indistintamente.
 ---
 
 <div align="center">
-
 Proyecto desarrollado para la **Hackatón Colsubsidio × 30X**.
-
 © 2026 — **Equipo StockXperts**
-
 </div>
 
-   local<br/>(reglas + fuzzy match)"]
+   loal<br/>(reglas + fuzzy match)"]
