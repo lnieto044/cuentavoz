@@ -86,6 +86,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
   const [respuesta, setRespuesta] = useState("");
   const [comparar, setComparar] = useState(null);
   const [firmas, setFirmas] = useState(null);
+  const [detalle, setDetalle] = useState(null);
   const [modoCierre, setModoCierre] = useState(false);
   const [msg, setMsg] = useState("");
   const [estado, setEstado] = useState("listo");
@@ -106,6 +107,13 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
   useEffect(cargarBodegas, [token]);
 
   const candidatas = (bodegas || []).filter((b) => b.estado === "en_auditoria" || b.estado === "cerrada");
+  // "cerrada" ya significa cerrada de verdad (doble firma), no "lista
+  // para cerrar" - se queda en la lista solo para poder revisarla
+  // (ver el resumen de su cierre), no como algo pendiente de hacer.
+  // Sin esta distinción, el saludo decía "lista para cerrar" o la
+  // contaba entre las "listas para auditar" aunque ya estuviera cerrada.
+  const pendientes = candidatas.filter((b) => b.estado === "en_auditoria");
+  const cerradas = candidatas.filter((b) => b.estado === "cerrada");
   const [saludoLista, setSaludoLista] = useState("");
   const yaSaludoLista = useRef(false);
 
@@ -117,14 +125,17 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
     if (bodegas === null || yaSaludoLista.current || bodegaAuditar) return;
     yaSaludoLista.current = true;
     let texto;
-    if (candidatas.length === 0) {
-      texto = "No hay ninguna bodega lista para recuento ciego o cierre en este momento.";
-    } else if (candidatas.length === 1) {
-      const estadoTxt = candidatas[0].estado === "cerrada" ? "lista para cerrar" : "lista para recuento ciego";
-      texto = `Tiene una bodega ${estadoTxt}: ${candidatas[0].bodega.toLowerCase()}. ¿Quiere auditarla?`;
+    if (pendientes.length === 0) {
+      texto = cerradas.length > 0
+        ? `No hay ninguna bodega pendiente de recuento ciego. ${cerradas.length} `
+          + `ya ${cerradas.length === 1 ? "está cerrada" : "están cerradas"}.`
+        : "No hay ninguna bodega lista para recuento ciego o cierre en este momento.";
+    } else if (pendientes.length === 1) {
+      texto = `Tiene una bodega lista para recuento ciego: ${pendientes[0].bodega.toLowerCase()}. `
+             + "¿Quiere auditarla?";
     } else {
-      const nombres = candidatas.slice(0, 5).map((b) => b.bodega.toLowerCase()).join(", ");
-      texto = `Tiene ${candidatas.length} bodegas listas para recuento ciego o cierre: ${nombres}. `
+      const nombres = pendientes.slice(0, 5).map((b) => b.bodega.toLowerCase()).join(", ");
+      texto = `Tiene ${pendientes.length} bodegas listas para recuento ciego: ${nombres}. `
              + "¿Cuál quiere auditar?";
     }
     setSaludoLista(texto);
@@ -139,22 +150,29 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
   useEffect(() => {
     if (!bodegaAuditar) return;
     const encontrada = candidatas.find((b) => b.bodega === bodegaAuditar);
-    if (encontrada) { setBodegaId(encontrada.id); verFirmas(encontrada.id); }
+    if (encontrada) {
+      setBodegaId(encontrada.id); verFirmas(encontrada.id);
+      if (encontrada.estado === "cerrada") verDetalle(encontrada.id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bodegaAuditar, navSeq]);
 
   useEffect(() => {
     if (!bodegaId) { onEnFoco(null); return; }
-    const nombre = comparar?.bodega || firmas?.bodega || (bodegas || []).find((b) => b.id === bodegaId)?.bodega;
+    const bActual = (bodegas || []).find((b) => b.id === bodegaId);
+    const nombre = comparar?.bodega || firmas?.bodega || detalle?.bodega || bActual?.bodega;
     if (!nombre) return;
     if (modoCierre) {
       onEnFoco({ titulo: `Cierre de bodega  ·  ${nombre}`,
                 chip: { texto: "LISTA PARA CERRAR", tipo: "borde verde" } });
+    } else if (!sesion && bActual?.estado === "cerrada") {
+      onEnFoco({ titulo: `Auditoría  ·  ${nombre}`,
+                chip: { texto: "CERRADA", tipo: "verde" } });
     } else {
       onEnFoco({ titulo: `Auditoría  ·  ${nombre}`,
                 chip: { texto: "RECONTEO CIEGO", tipo: "borde oro" } });
     }
-  }, [bodegaId, comparar, firmas, bodegas, modoCierre]);
+  }, [bodegaId, comparar, firmas, detalle, bodegas, modoCierre, sesion]);
 
   async function iniciar(id) {
     setMsg(""); setComparar(null);
@@ -172,6 +190,15 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
 
   async function verFirmas(id) {
     try { setFirmas(await pedir(`/api/bodegas/${id}/firmas`, {}, token)); }
+    catch (_) {}
+  }
+
+  // Solo para una bodega ya CERRADA: sin esto, abrirla aquí mostraba
+  // igual "Iniciar recuento ciego" (sesion sigue null hasta llamar
+  // iniciar()) como si le faltara auditoria, cuando ya quedó cerrada con
+  // doble firma - una pantalla casi vacía y encima engañosa.
+  async function verDetalle(id) {
+    try { setDetalle(await pedir(`/api/bodegas/${id}/detalle`, {}, token)); }
     catch (_) {}
   }
 
@@ -208,14 +235,15 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
     try {
       const r = await pedir(`/api/bodegas/${bodegaId}/cerrar`, { method: "POST" }, token);
       setMsg(`${r.bodega} cerrada definitivamente con doble firma.`);
-      setBodegaId(null); setSesion(null); setComparar(null); setFirmas(null); setModoCierre(false);
+      setBodegaId(null); setSesion(null); setComparar(null); setFirmas(null);
+      setDetalle(null); setModoCierre(false);
       cargarBodegas();
     } catch (e) { setMsg(e.message); }
   }
 
   function volverALaLista() {
     setBodegaId(null); setSesion(null); setComparar(null); setFirmas(null);
-    setModoCierre(false); setMostrarDictado(false);
+    setDetalle(null); setModoCierre(false); setMostrarDictado(false);
   }
 
   if (!esAuditor) return null;
@@ -246,7 +274,10 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
                 <span>{b.bodega}</span>
                 <span className="cant">{b.referencias} refs</span>
                 <button className="btn" style={{ padding: "6px 12px", minHeight: 0 }}
-                        onClick={() => { setBodegaId(b.id); verFirmas(b.id); }}>
+                        onClick={() => {
+                          setBodegaId(b.id); verFirmas(b.id);
+                          if (b.estado === "cerrada") verDetalle(b.id);
+                        }}>
                   Abrir
                 </button>
               </div>
@@ -257,10 +288,65 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
             hasta comparar.
           </p>
         </div>
+      ) : !sesion && (bodegas || []).find((b) => b.id === bodegaId)?.estado === "cerrada" ? (
+        <div className="card">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <h3 style={{ margin: 0 }}>{detalle?.bodega
+              || (bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
+            <span className="chip verde" style={{ marginLeft: "auto" }}>CERRADA</span>
+          </div>
+          {!detalle ? (
+            <p className="cargando">Cargando…</p>
+          ) : (
+            <>
+              <div className="kpis">
+                <div className="kpi verde">
+                  <div className="kpi-cabeza">
+                    <span className="icono-kpi">✅</span>
+                    <small>Exactitud del cierre</small>
+                  </div>
+                  <b>{detalle.exactitud}</b>
+                  <i>{detalle.diferencias.length} diferencias de {detalle.referencias}</i>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-cabeza">
+                    <span className="icono-kpi">📦</span>
+                    <small>Referencias</small>
+                  </div>
+                  <b>{detalle.referencias}</b>
+                  <i>{detalle.contadas} contadas</i>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-cabeza">
+                    <span className="icono-kpi">🕘</span>
+                    <small>Hora de cierre</small>
+                  </div>
+                  <b>{detalle.hora_cierre || "—"}</b>
+                </div>
+                <div className="kpi">
+                  <div className="kpi-cabeza">
+                    <span className="icono-kpi">🧑</span>
+                    <small>Auditó</small>
+                  </div>
+                  <b>{detalle.revisor || "—"}</b>
+                </div>
+              </div>
+              <p className="pista" style={{ marginTop: 12 }}>
+                Esta bodega ya está cerrada con doble firma. Para volver a contarla hace
+                falta reabrirla desde Bodegas con una justificación escrita.
+              </p>
+            </>
+          )}
+          <div className="grilla-botones" style={{ marginTop: 12 }}>
+            <button className="btn gris" onClick={volverALaLista}>Volver a la lista</button>
+          </div>
+        </div>
       ) : !sesion ? (
         <div className="card">
           <h3>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
-          <button className="btn" onClick={() => iniciar(bodegaId)}>
+          <button className="btn" onClick={() => iniciar(bodegaId)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Icono nombre="auditoria" tam={18} />
             Iniciar recuento ciego
           </button>
           <div className="grilla-botones" style={{ marginTop: 12 }}>

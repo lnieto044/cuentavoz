@@ -3923,6 +3923,36 @@ def borrar_historial_cierre(historial_id: int, u: Usuario = Depends(requiere_per
     return {"ok": True}
 
 
+class UsoSemillaItem(BaseModel):
+    articulo_codigo: str
+    usado: float
+
+
+class UsoSemillaIn(BaseModel):
+    servicio_id: int
+    usos: list[UsoSemillaItem]
+
+
+@app.put("/api/admin/legalizacion-uso")
+def sembrar_uso_legalizacion(datos: UsoSemillaIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Registra cuánto se usó de verdad en las líneas ya "abierto" de un
+    servicio, SIN legalizarlo - a diferencia de /api/legalizacion/confirmar,
+    que además cierra el servicio de una vez. Para dejar una comparación
+    real y completa (pedido vs. usado) lista para revisar y confirmar en
+    vivo en la demo, en vez de una pantalla vacía o con todo en cero."""
+    with Sesion() as s:
+        actualizadas = 0
+        for item in datos.usos:
+            l = (s.query(LineaServicio)
+                .filter_by(servicio_id=datos.servicio_id, articulo_codigo=item.articulo_codigo,
+                            estado="abierto").first())
+            if l:
+                l.usado = item.usado
+                actualizadas += 1
+        s.commit()
+    return {"ok": True, "actualizadas": actualizadas}
+
+
 @app.get("/api/usuarios/yo/bodegas")
 def bodegas_asignadas(u: Usuario = Depends(usuario_actual)):
     """Las bodegas asignadas a la persona que tiene la sesion. Va ANTES de
