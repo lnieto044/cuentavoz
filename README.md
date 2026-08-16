@@ -114,7 +114,7 @@ archivos; el backend necesita correr código de verdad) — ver
 |---|---|---|
 | **1. Pedido al almacén** | menú Pedidos | «hoy preparamos cincuenta ajiacos» → explota la receta, descuenta el stock y pide solo lo que falta |
 | **2. Toma física** | menú Conteo y Bodegas | dicta y el agente concilia, valida y registra |
-| **3. Legalización** | menú Legalización | lo pedido contra lo usado, con sobrante y merma explicados |
+| **3. Legalización** | menú Legalización | concilia lo pedido contra lo usado, con sobrante y merma explicados |
 
 ### 🛡️ Lo que valida antes de guardar
 
