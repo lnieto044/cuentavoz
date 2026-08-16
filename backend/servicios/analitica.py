@@ -104,7 +104,7 @@ def historial_exactitud(limite: int = 12) -> list[dict]:
     with Sesion() as s:
         filas = (s.query(HistorialCierre).order_by(HistorialCierre.fecha).all())[-limite:]
         nombres = {b.id: b.nombre_oficial for b in s.query(Bodega).all()}
-    return [{"fecha": f.fecha.strftime("%Y-%m-%d"), "exactitud": round(f.exactitud, 1),
+    return [{"id": f.id, "fecha": f.fecha.strftime("%Y-%m-%d"), "exactitud": round(f.exactitud, 1),
              "bodega_id": f.bodega_id, "bodega": nombres.get(f.bodega_id, "")} for f in filas]
 
 

@@ -3884,6 +3884,24 @@ def ajustar_negativos_iniciales(datos: NegativosSemillaIn, u: Usuario = Depends(
     return {"ok": True}
 
 
+@app.delete("/api/admin/historial-cierre/{historial_id}")
+def borrar_historial_cierre(historial_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Para limpiar una foto de "Exactitud por toma de inventario" que
+    quedó mal (ej. una bodega de muestra que se cerró antes de tener
+    suficientes items contados, y después se reabrió para completarla) -
+    a diferencia de la Traza, HistorialCierre no es un registro legal
+    inmutable: es una serie de tiempo para la gráfica del panel, y una
+    foto tomada por error de una prueba no debería quedar mezclada con el
+    histórico real."""
+    with Sesion() as s:
+        h = s.get(HistorialCierre, historial_id)
+        if h is None:
+            raise HTTPException(404, "Registro no encontrado.")
+        s.delete(h)
+        s.commit()
+    return {"ok": True}
+
+
 @app.get("/api/usuarios/yo/bodegas")
 def bodegas_asignadas(u: Usuario = Depends(usuario_actual)):
     """Las bodegas asignadas a la persona que tiene la sesion. Va ANTES de
