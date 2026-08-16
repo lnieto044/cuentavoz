@@ -671,23 +671,41 @@ export default function Bodegas({ token, usuario, ir }) {
               // alguien que llega aquí buscando "abrir la bodega" se
               // queda sin poder hacerlo y tiene que volver a decir/buscar
               // el nombre desde cero en otra pantalla.
-              <button className="btn" onClick={() => ir && ir("conteo", { bodegaSugerida: detalle.bodega })}>
+              <button className="btn" onClick={() => ir && ir("conteo", { bodegaSugerida: detalle.bodega })}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="conteo" tam={18} />
                 {detalle.estado === "en_conteo" ? "Seguir contando" : "Contar esta bodega"}
               </button>
             )}
             {esAuditor && detalle.estado === "cerrada" && (
-              <button className="btn borde" onClick={() => setPedirMotivo(true)}>Reabrir la bodega</button>
+              <button className="btn borde" onClick={() => setPedirMotivo(true)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="candado" tam={18} />
+                Reabrir la bodega
+              </button>
             )}
-            <button className="btn borde" onClick={verTodosLosArticulos}>
+            <button className="btn borde" onClick={verTodosLosArticulos}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="reportes" tam={18} />
               {articulosBodega ? "Ocultar artículos" : `Ver todos los artículos (${detalle.referencias})`}
             </button>
             {esAuditor && (
-              <button className="btn borde" onClick={exportarDetalle}>Descargar detalle</button>
+              <button className="btn borde" onClick={exportarDetalle}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="descargar" tam={18} />
+                Descargar detalle
+              </button>
             )}
             {esAuditor && (
-              <button className="btn" onClick={() => ir && ir("panel")}>Ver en el panel gerencial</button>
+              <button className="btn" onClick={() => ir && ir("panel")}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="panel" tam={18} />
+                Ver en el panel gerencial
+              </button>
             )}
-            <button className="btn gris" onClick={() => { setDetalle(null); setDetalleId(null); }}>
+            <button className="btn gris" onClick={() => { setDetalle(null); setDetalleId(null); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="salir" tam={18} />
               Cerrar detalle
             </button>
           </div>

@@ -55,7 +55,7 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         // para bodegaAuditar, su equivalente en Auditoría.
         ir(r.destino, { tabInicial: r.pestana || undefined, bodegaSugerida: r.bodega || undefined,
                         bodegaAuditar: r.bodega_auditar || undefined });
-      } else if (r.archivo && r.pestana && ir) {
+      } else if (r.archivo && r.titulo_archivo && r.pestana && ir) {
         // Cubre dos casos: "previsualizar_reporte" (pedir VER un archivo
         // ya generado) y "actualizar" con archivo (GENERAR uno nuevo por
         // voz - "genera el consolidado", "exporta las diferencias") -
@@ -69,6 +69,13 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         // (como bodegaSugerida) en vez del evento genérico de abajo,
         // precisamente porque necesita sobrevivir a un cambio de pestaña
         // que todavía no ocurrió cuando se dispara el evento.
+        // r.titulo_archivo exigido a proposito: "exporta el análisis de
+        // consumo" trae archivo+pestana ("analisis") pero SIN
+        // titulo_archivo (usa su propio evento "descargar_reporte", ver
+        // TabAnalisis) - sin este chequeo, ese caso también disparaba
+        // este ir() con titulo undefined, y al volver a la pestaña
+        // "Consolidado" a mano, TabConsolidado remontaba y previsualizaba
+        // ese archivo viejo con "Vista previa · undefined" de encabezado.
         ir(vista, { tabInicial: r.pestana,
                     archivoPrevisualizar: { archivo: r.archivo, titulo: r.titulo_archivo } });
       }

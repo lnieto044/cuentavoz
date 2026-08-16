@@ -1,5 +1,6 @@
 """El endpoint del flujo: informacion limpia lista para el ERP."""
 import pandas as pd
+from sqlalchemy import text
 from bd import motor
 from horario import ahora
 from servicios.archivos import guardar_df
@@ -53,7 +54,14 @@ def diferencias_archivo(formato: str = "xlsx") -> tuple[str, int, int]:
 
 def detalle_bodega(bodega_id: int, formato: str = "xlsx") -> str:
     """«Descargar detalle»: el conteo completo de una sola bodega."""
-    df = pd.read_sql(CONSULTA + " AND b.id = :bodega_id",
+    # text() - no un str plano - porque un str plano hace que pandas use
+    # exec_driver_sql() (ejecuta tal cual contra el driver, sin pasar por
+    # la traduccion de parametros de SQLAlchemy): en SQLite ":bodega_id"
+    # funciona porque el driver sqlite3 lo entiende nativo, pero en
+    # Postgres (psycopg2, que solo entiende %(nombre)s) ese ":bodega_id"
+    # llega como texto literal invalido y revienta con 500 - paso
+    # solo detectable en produccion, no en la base local.
+    df = pd.read_sql(text(CONSULTA + " AND b.id = :bodega_id"),
                      motor, params={"bodega_id": bodega_id})
     df["Diferencia"] = df["Diferencia"].round(2)
     marca = ahora().strftime("%Y%m%d_%H%M")

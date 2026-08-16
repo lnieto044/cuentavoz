@@ -40,6 +40,7 @@ const ICONO_TITULO = {
 const _EJEMPLOS_REPORTES = [
   "genera el consolidado", "exporta las diferencias", "exporta el análisis de consumo",
   "muéstrame el archivo de diferencias", "muéstrame el archivo del estado del tablero",
+  "muéstrame el archivo de trazabilidad", "muéstrame el archivo del consolidado",
   "consolidado de la toma", "análisis de consumo",
   "¿cuántas filas tiene el último consolidado?", "¿cuántas bodegas tienen descuadre?",
   "¿qué archivos se han generado?", "¿cuánto se pidió en el período?",
@@ -114,9 +115,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
   const [totalFilas, setTotalFilas] = useState(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
-  // Solo se activa cuando la vista previa llegó por VOZ (ver el useEffect
-  // de archivoPrevisualizar) - un clic manual ya tiene el botón "Descargar
-  // este archivo" a la vista, no hace falta preguntar nada por voz ahí.
+  // Se activa con cualquier vista previa (clic manual o por voz) y con
+  // cada archivo recién generado - así un "sí"/"no" hablado después
+  // sirve para descargarlo sin importar cómo se llegó hasta ahí. Ver
+  // previsualizar().
   const [pidiendoDescarga, setPidiendoDescarga] = useState(false);
 
   function cargar() {
@@ -132,13 +134,27 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
     return () => window.removeEventListener("cuentavoz:reportes-actualizados", cargar);
   }, [token]);
 
-  async function previsualizar(archivo, titulo) {
+  // anunciar: true en un clic manual a una tarjeta - sin voz de por medio,
+  // alguien con problemas de vista no tiene otra forma de saber qué
+  // encontró la vista previa (antes solo se narraba cuando el pedido
+  // llegaba por voz, porque ese camino ya trae su propia respuesta
+  // hablada del backend - un clic de mouse no). false cuando el pedido
+  // YA llegó por voz (ver el useEffect de abajo), para no narrar dos
+  // veces lo mismo que el agente acaba de decir.
+  async function previsualizar(archivo, titulo, { anunciar = false } = {}) {
     setErr("");
     try {
       const d = await pedir(`/api/reportes/vista-previa?archivo=${encodeURIComponent(archivo)}`, {}, token);
       setArchivoActivo({ archivo, titulo });
       setFilasPrevia(d.filas);
       setTotalFilas(d.total);
+      setPidiendoDescarga(true);
+      if (anunciar) {
+        const resumen = `Vista previa de ${titulo}, ${d.total} `
+                       + `${d.total === 1 ? "fila" : "filas"}. ¿Desea descargarlo?`;
+        setMsg(resumen);
+        hablar(resumen);
+      }
     } catch (e) { setErr(e.message); }
   }
   // "Muéstrame el archivo de diferencias" - lo mismo que darle clic a la
@@ -153,7 +169,6 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
   useEffect(() => {
     if (archivoPrevisualizar?.archivo) {
       previsualizar(archivoPrevisualizar.archivo, archivoPrevisualizar.titulo);
-      setPidiendoDescarga(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archivoPrevisualizar, navSeq]);
@@ -192,7 +207,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
       setArchivoActivo({ archivo: d.archivo, titulo: "Consolidado para My Inventory" });
       setFilasPrevia(d.vista_previa || null);
       setTotalFilas(d.filas);
-      setMsg(`Consolidado generado: ${d.filas} filas.`);
+      setPidiendoDescarga(true);
+      const resumen = `Consolidado generado: ${d.filas} filas. ¿Desea descargarlo?`;
+      setMsg(resumen);
+      hablar(resumen);
       cargar();
     } catch (e) { setErr(e.message); }
   }
@@ -200,7 +218,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
     setErr(""); setMsg("");
     try {
       const d = await pedir(`/api/reportes/diferencias?formato=${formato}`, { method: "POST" }, token);
-      setMsg(`Diferencias exportadas: ${d.filas} filas en ${d.bodegas_con_descuadre} bodegas.`);
+      const resumen = `Diferencias exportadas: ${d.filas} filas en ${d.bodegas_con_descuadre} `
+                     + "bodegas. ¿Desea descargarlo?";
+      setMsg(resumen);
+      hablar(resumen);
       cargar();
       await previsualizar(d.archivo, "Diferencias por bodega");
     } catch (e) { setErr(e.message); }
@@ -238,7 +259,7 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
             const colorVar = clase === "oro" ? "var(--amarillo-tx)" : `var(--${VAR_TITULO[a.titulo] || "azul"})`;
             const activo = archivoActivo?.archivo === a.archivo;
             return (
-            <div key={i} onClick={() => previsualizar(a.archivo, a.titulo)}
+            <div key={i} onClick={() => previsualizar(a.archivo, a.titulo, { anunciar: true })}
                  style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               borderTop: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
