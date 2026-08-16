@@ -68,6 +68,22 @@ momento.
 
 <div align="center">
 
+**Inicio** — lo que hay para hoy, según el perfil
+<img width="700" src="docs/capturas/tablet/inicio.png" alt="Inicio" />
+
+**Bodegas** — estado en vivo, filtros y doble firma
+<img width="700" src="docs/capturas/tablet/bodegas.png" alt="Bodegas" />
+
+**Panel gerencial** — exactitud, diferencias y stock
+<img width="700" src="docs/capturas/tablet/panel.png" alt="Panel gerencial" />
+
+</div>
+
+<details>
+<summary><b>Ver las 14 capturas completas</b> (Ingreso, Pedidos, Conteo, Legalización, Auditoría, Reportes, Ajustes, Ayuda, Mi perfil, Mensajes, Cerrar sesión...)</summary>
+
+<div align="center">
+
 **Ingreso** — detección automática de perfil
 <img width="700" src="docs/capturas/tablet/ingreso.png" alt="Ingreso" />
 
@@ -111,6 +127,8 @@ momento.
 <img width="700" src="docs/capturas/tablet/cerrar-sesion.png" alt="Cerrar sesión" />
 
 </div>
+
+</details>
 
 ## 🏗️ Arquitectura
 
