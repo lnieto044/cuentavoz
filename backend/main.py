@@ -3094,12 +3094,23 @@ def _parsear_archivo_reporte(t):
 def reportes_recientes(u: Usuario = Depends(requiere_perfil("auditor"))):
     """El historial real de archivos generados (via pantalla o por voz),
     leido de la trazabilidad - para que la lista sobreviva a salir de la
-    pantalla o recargar, en vez de vivir solo en el estado del componente."""
+    pantalla o recargar, en vez de vivir solo en el estado del componente.
+    Un solo archivo por tipo (el mas reciente): generar el mismo reporte
+    varias veces en el dia no debe ir apilando copias viejas - lo que
+    importa es el ultimo, los anteriores ya quedaron obsoletos apenas se
+    genero uno nuevo del mismo tipo."""
     with Sesion() as s:
         trazas = (s.query(Traza).filter_by(accion="REPORTE")
-                 .order_by(Traza.id.desc()).limit(20).all())
-    salida = [_parsear_archivo_reporte(t) for t in trazas]
-    return [x for x in salida if x][:10]
+                 .order_by(Traza.id.desc()).limit(40).all())
+    vistos = set()
+    salida = []
+    for t in trazas:
+        x = _parsear_archivo_reporte(t)
+        if not x or x["titulo"] in vistos:
+            continue
+        vistos.add(x["titulo"])
+        salida.append(x)
+    return salida[:10]
 
 
 @app.post("/api/bodegas/{bodega_id}/exportar-detalle")
@@ -3823,6 +3834,52 @@ def sembrar_duracion(datos: DuracionSemillaIn, u: Usuario = Depends(requiere_per
         if not ses.fin:
             raise HTTPException(409, "Esta sesion todavia no tiene fin (no está firmada/cerrada).")
         ses.inicio = ses.fin - timedelta(minutes=datos.minutos)
+        s.commit()
+    return {"ok": True}
+
+
+class AlertaSemillaIn(BaseModel):
+    tipo: str          # negativo | unidad | inexistente | desviacion
+    detalle: str
+
+
+@app.post("/api/admin/sembrar-alerta")
+def sembrar_alerta(datos: AlertaSemillaIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Crea una Alerta suelta (sin conteo asociado) para los tipos que en
+    el flujo real NUNCA llegan a guardarse como conteo (negativo, unidad
+    equivocada, artículo inexistente) - la persona tiene que repetir el
+    dato, así que lo único que queda de ese intento es la alerta misma.
+    Para poblar Auditoría/Panel con variedad real de tipos antes de una
+    demo, no solo "desviación" (que sí se puede sembrar junto con su
+    conteo via /admin/sembrar-conteo con forzar=true)."""
+    if datos.tipo not in ("negativo", "unidad", "inexistente", "desviacion"):
+        raise HTTPException(400, "Tipo de alerta no reconocido.")
+    with Sesion() as s:
+        s.add(Alerta(conteo_id=None, tipo=datos.tipo, detalle=datos.detalle))
+        s.commit()
+    return {"ok": True}
+
+
+class NegativosSemillaIn(BaseModel):
+    inicial: int
+
+
+@app.put("/api/admin/negativos-iniciales")
+def ajustar_negativos_iniciales(datos: NegativosSemillaIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """La tarjeta "Negativos detectados en el sistema" compara el inicio de
+    ESTE período contra el conteo actual - si nunca se fijó un punto de
+    partida (o se fijó igual al valor de hoy, por default), la tarjeta
+    siempre muestra "X → X" y no cuenta ninguna historia. Este valor es la
+    foto de hace un tiempo (de antes de que My Inventory corrigiera los
+    que ya se corrigieron), no algo que la app recalcule sola: por diseño,
+    corregir un negativo del sistema pasa por fuera de CuentaVoz."""
+    with Sesion() as s:
+        existente = s.get(ConfigClave, "negativos_iniciales")
+        valor = str(datos.inicial)
+        if existente:
+            existente.valor = valor
+        else:
+            s.add(ConfigClave(clave="negativos_iniciales", valor=valor))
         s.commit()
     return {"ok": True}
 

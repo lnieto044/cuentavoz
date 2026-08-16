@@ -250,7 +250,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
             </p>
             <div className="grilla-botones">
               <button className="btn verde"
-                      onClick={() => descargarReporte(archivoActivo.archivo, token).catch((e) => setErr(e.message))}>
+                      onClick={() => descargarReporte(archivoActivo.archivo, token).catch((e) => setErr(e.message))}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8, width: "100%",
+                               justifyContent: "center" }}>
+                <Icono nombre="descargar" tam={18} />
                 Descargar este archivo
               </button>
             </div>

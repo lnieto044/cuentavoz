@@ -157,14 +157,11 @@ function TabConfig({ token, esAuditor }) {
           </div>
           <b>{offline ? "Activo" : "Inactivo"}</b><i>refresco del tablero en tiempo real</i>
         </div>
-        <div className="kpi">
-          <div className="kpi-cabeza">
-            <span className="icono-kpi">🛡️</span>
-            <small>Versión de CuentaVoz</small>
-          </div>
-          <b>{cfg.version}</b><i>{cfg.modelo}</i>
-        </div>
       </div>
+      {/* La versión/modelo ya se ve completa en la tarjeta "Acerca de
+          CuentaVoz" de abajo (con base de datos e idioma también) - un KPI
+          arriba con solo dos de esos cuatro datos era la misma información
+          dos veces, no una tarjeta nueva. */}
 
       <div className="dos-columnas" style={{ gap: 16 }}>
         <div className="card">
