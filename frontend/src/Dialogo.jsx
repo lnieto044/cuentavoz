@@ -29,6 +29,24 @@ export default function Dialogo({
   // (por ejemplo, mientras todavía se está diciendo "¿confirma X?") se
   // descarta en vez de procesarse como si fuera un nuevo valor dictado.
   const idEscucha = useRef(0);
+  const modalRef = useRef(null);
+
+  // Accesibilidad: quien navega con teclado o con un lector de pantalla
+  // necesita que Escape cierre el modal (como cualquier diálogo nativo),
+  // y que el foco entre al modal apenas aparece - sin esto, un lector de
+  // pantalla seguía anunciando el contenido de atrás como si el modal ni
+  // existiera. Si hay un campo, ese ya se autoenfoca solo (ver más abajo);
+  // si no lo hay, el modal mismo recibe el foco.
+  useEffect(() => {
+    function alTecla(e) { if (e.key === "Escape") onCancelar(); }
+    window.addEventListener("keydown", alTecla);
+    return () => window.removeEventListener("keydown", alTecla);
+  }, [onCancelar]);
+
+  useEffect(() => {
+    if (!conCampo) modalRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function aceptar(valorAUsar = valor) {
     if (conCampo && !String(valorAUsar).trim()) return;
@@ -142,8 +160,10 @@ export default function Dialogo({
 
   return (
     <div className="overlay" onClick={onCancelar}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{titulo}</h2>
+      <div className="modal" onClick={(e) => e.stopPropagation()}
+           role="dialog" aria-modal="true" aria-labelledby="dialogo-titulo"
+           ref={modalRef} tabIndex={-1}>
+        <h2 id="dialogo-titulo">{titulo}</h2>
         {mensaje && <p style={{ whiteSpace: "pre-line" }}>{mensaje}</p>}
         {conCampo && (
           <div style={{ display: "flex", gap: 10, marginBottom: conVoz ? 6 : 16,
@@ -151,6 +171,7 @@ export default function Dialogo({
             {multilinea ? (
               <textarea autoFocus value={valor} placeholder={placeholder} rows={3}
                         onChange={(e) => setValor(e.target.value)}
+                        aria-label={mensaje || titulo}
                         style={{ flex: 1, padding: "12px 14px",
                                  border: "1px solid var(--borde)", borderRadius: 12,
                                  fontFamily: "inherit", fontSize: "1rem", resize: "vertical" }} />
@@ -158,6 +179,7 @@ export default function Dialogo({
               <input type={tipo} autoFocus value={valor} placeholder={placeholder}
                      onChange={(e) => setValor(e.target.value)}
                      onKeyDown={(e) => e.key === "Enter" && aceptar()}
+                     aria-label={mensaje || titulo}
                      style={{ flex: 1, padding: "12px 14px",
                               border: "1px solid var(--borde)", borderRadius: 12,
                               textAlign: "center", fontSize: "1.05rem" }} />
@@ -165,7 +187,8 @@ export default function Dialogo({
             {conVoz && (
               <button type="button" className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                       style={{ width: 46, height: 46, fontSize: "1.2rem", flex: "none" }}
-                      onClick={porVoz} title="dígalo en voz alta"><Icono nombre="microfono" tam={22} /></button>
+                      onClick={porVoz} title="dígalo en voz alta"
+                      aria-label="Dígalo en voz alta"><Icono nombre="microfono" tam={22} /></button>
             )}
           </div>
         )}

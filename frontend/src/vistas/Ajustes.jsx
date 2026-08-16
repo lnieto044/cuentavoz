@@ -971,8 +971,9 @@ function TabTraza({ token }) {
           {acciones.map((a) => <option key={a} value={a}>{a || "Todas las acciones"}</option>)}
         </select>
         <button className={`mic-btn ${escuchandoFiltro ? "escuchando" : ""}`}
-                style={{ width: 40, height: 40, fontSize: "1.05rem" }}
-                onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»">
+                style={{ width: 46, height: 46, fontSize: "1.2rem" }}
+                onClick={escucharFiltro} title="filtrar por voz: «acciones de Luis hoy»"
+                aria-label="Filtrar el registro de trazabilidad por voz">
           <Icono nombre="microfono" tam={20} /></button>
         <button className="btn verde"
                 style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}

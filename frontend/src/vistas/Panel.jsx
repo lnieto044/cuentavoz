@@ -105,7 +105,7 @@ function TabResumen({ r, urlPBI }) {
       {saludo && (
         <div className="card">
           <p className="rotulo" style={{ marginTop: 0 }}>CuentaVoz responde</p>
-          <p className="burbuja">{saludo}</p>
+          <p className="burbuja" aria-live="polite" aria-atomic="true">{saludo}</p>
         </div>
       )}
       <div className="kpis">
@@ -211,7 +211,7 @@ function TabAlertas({ a }) {
       {saludo && (
         <div className="card">
           <p className="rotulo" style={{ marginTop: 0 }}>CuentaVoz responde</p>
-          <p className="burbuja">{saludo}</p>
+          <p className="burbuja" aria-live="polite" aria-atomic="true">{saludo}</p>
         </div>
       )}
       <div className="kpis">

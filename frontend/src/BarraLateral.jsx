@@ -44,6 +44,20 @@ export default function BarraLateral({ activo, usuario, token, onNavegar }) {
             key={m.id}
             className={m.id === activo ? "sel" : ""}
             onClick={() => onNavegar(m.id)}
+            role="button"
+            tabIndex={0}
+            aria-current={m.id === activo ? "page" : undefined}
+            // El menú principal solo tenía onClick - inalcanzable con
+            // teclado (Tab no lo enfocaba, nada respondía a Enter/Espacio).
+            // Para quien navega sin mouse (movilidad reducida, o un lector
+            // de pantalla), esto es el único menú de toda la app: sin
+            // esto, no había forma de cambiar de pantalla sin mouse.
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onNavegar(m.id);
+              }
+            }}
           >
             <span className="icono-menu">
               <Icono nombre={m.id} tam={19} />

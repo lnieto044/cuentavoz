@@ -259,9 +259,10 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
             const colorVar = clase === "oro" ? "var(--amarillo-tx)" : `var(--${VAR_TITULO[a.titulo] || "azul"})`;
             const activo = archivoActivo?.archivo === a.archivo;
             return (
-            <div key={i} onClick={() => previsualizar(a.archivo, a.titulo, { anunciar: true })}
+            <button key={i} onClick={() => previsualizar(a.archivo, a.titulo, { anunciar: true })}
                  style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
+              width: "100%", textAlign: "left", font: "inherit",
               borderTop: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
               borderRight: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
               borderBottom: activo ? "1px solid var(--azul)" : "1px solid var(--borde)",
@@ -282,7 +283,7 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
                 </span>
               </span>
               <span className={`chip ${clase}`}>{a.subtitulo}</span>
-            </div>
+            </button>
             );
           })
         )}

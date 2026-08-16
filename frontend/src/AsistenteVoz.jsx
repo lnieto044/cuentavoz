@@ -117,11 +117,13 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         <input value={texto} onChange={(e) => setTexto(e.target.value)}
                onKeyDown={(e) => e.key === "Enter" && preguntar(texto)}
                placeholder={placeholder || "pregunte algo, o pida ir a otra pantalla…"}
+               aria-label="Pregúntele al agente"
                style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
                         border: "1px solid var(--borde)", borderRadius: 12 }} />
         <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                 style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                onClick={porVoz} title="pregúntele por voz"><Icono nombre="microfono" tam={22} /></button>
+                onClick={porVoz} title="pregúntele por voz" aria-label="Pregúntele al agente por voz">
+          <Icono nombre="microfono" tam={22} /></button>
       </div>
       <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
       {ejemplos && ejemplos.length > 0 && (
@@ -140,7 +142,7 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
       {respuesta && !pensando && (
         <>
           <p className="rotulo" style={{ marginTop: 10 }}>CuentaVoz responde</p>
-          <p className="burbuja">{respuesta}</p>
+          <p className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</p>
         </>
       )}
       {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}

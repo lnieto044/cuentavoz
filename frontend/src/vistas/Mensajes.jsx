@@ -147,11 +147,13 @@ export default function Mensajes({ token, usuario }) {
                    placeholder={pendientes === 1
                      ? "Diga o escriba la respuesta…"
                      : "«Respóndele a Stephanie que ya quedó asignada la bodega…»"}
+                   aria-label="Responder por voz o escribiendo"
                    style={{ flex: 1, padding: "12px 14px",
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className={`mic-btn ${escuchandoOrden ? "escuchando" : ""}`}
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                    onClick={escucharOrdenVoz} title="responder por voz"><Icono nombre="microfono" tam={22} /></button>
+                    onClick={escucharOrdenVoz} title="responder por voz"
+                    aria-label="Responder por voz"><Icono nombre="microfono" tam={22} /></button>
           </div>
           <p className="pista" style={{ marginTop: 8 }}>
             {pendientes === 1

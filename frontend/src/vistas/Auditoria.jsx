@@ -258,7 +258,8 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
           {saludoLista && (
             <>
               <p className="rotulo">CuentaVoz responde</p>
-              <p className="burbuja" style={{ marginBottom: 12 }}>{saludoLista}</p>
+              <p className="burbuja" style={{ marginBottom: 12 }}
+                 aria-live="polite" aria-atomic="true">{saludoLista}</p>
             </>
           )}
           {bodegas === null ? (
@@ -359,7 +360,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
           <div className="conteo-cols">
             <div>
               <p className="rotulo">{dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}</p>
-              <div className="burbuja">{respuesta}</div>
+              <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
               {opciones && (
                 <div className="opciones" style={{ marginTop: 14 }}>
                   {opciones.map((o, i) => (
@@ -382,7 +383,8 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
             </div>
             <div className="mic-caja">
               <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
-                      onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}>
+                      onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}
+                      aria-label="Hable para dictar el artículo y la cantidad del recuento ciego">
                 <Icono nombre="microfono" tam={52} />
               </button>
               <small>{vozDisponible() ? "Reconocimiento en español" : "Use el teclado"}</small>
@@ -441,7 +443,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
             <div className="conteo-cols" style={{ marginTop: 16 }}>
               <div>
                 <p className="rotulo">{dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}</p>
-                <div className="burbuja">{respuesta}</div>
+                <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
                 {opciones && (
                   <div className="opciones" style={{ marginTop: 14 }}>
                     {opciones.map((o, i) => (
@@ -463,7 +465,8 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
               </div>
               <div className="mic-caja">
                 <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
-                        onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}>
+                        onClick={() => escuchar({ alTexto: procesar, alEstado: setEstado })}
+                        aria-label="Hable para dictar el artículo y la cantidad del recuento ciego">
                   <Icono nombre="microfono" tam={52} />
                 </button>
                 <small>{vozDisponible() ? "Reconocimiento en español" : "Use el teclado"}</small>
@@ -644,7 +647,8 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
       {saludo && (
         <>
           <p className="rotulo">CuentaVoz responde</p>
-          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}
+             aria-live="polite" aria-atomic="true">{saludo}</p>
         </>
       )}
       {msg && <p className="msg-ok">{msg}</p>}
@@ -763,7 +767,8 @@ function TabPedidosPendientes({ token, esAuditor, onEnFoco }) {
       {saludo && (
         <>
           <p className="rotulo">CuentaVoz responde</p>
-          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}
+             aria-live="polite" aria-atomic="true">{saludo}</p>
         </>
       )}
       {msg && <p className="msg-ok">{msg}</p>}
@@ -883,7 +888,8 @@ function TabAlertas({ token, esAuditor, onEnFoco }) {
       {saludo && (
         <>
           <p className="rotulo">CuentaVoz responde</p>
-          <p className="burbuja" style={{ marginBottom: 12 }}>{saludo}</p>
+          <p className="burbuja" style={{ marginBottom: 12 }}
+             aria-live="polite" aria-atomic="true">{saludo}</p>
         </>
       )}
       {msg && <p className="msg-ok">{msg}</p>}

@@ -464,7 +464,8 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
             <button
               className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
               style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-              onClick={alMicrofonoBodega} title="diga el nombre de la bodega">
+              onClick={alMicrofonoBodega} title="diga el nombre de la bodega"
+              aria-label="Decir el nombre de la bodega por voz">
               <Icono nombre="microfono" tam={22} />
             </button>
             <small style={{ color: "var(--grafito)" }}>
@@ -679,7 +680,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
                 <p className="rotulo">
                   {dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}
                 </p>
-                <div className="burbuja">{respuesta}</div>
+                <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
                 {archivo && (
                   <div className="grilla-botones" style={{ marginTop: 10 }}>
                     <button className="btn verde"
@@ -728,6 +729,7 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
                 <button
                   className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
                   onClick={alMicrofono}
+                  aria-label="Toque y hable para dictar el artículo y la cantidad contada"
                 >
                   <Icono nombre="microfono" tam={52} />
                 </button>
@@ -813,7 +815,7 @@ function AlertaDesviacion({ contexto, respuesta, onRecontar, onConfirmar }) {
 
       <div className="card">
         <p className="rotulo">CuentaVoz responde</p>
-        <div className="burbuja">{respuesta}</div>
+        <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
       </div>
 
       <div className="conteo-cols">
@@ -874,12 +876,13 @@ function FormularioCrearProducto({ crear, setCrear, onCrear, onCancelar, bodega,
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <p className="rotulo" style={{ margin: 0 }}>CuentaVoz responde</p>
         <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
-                style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
-                onClick={alMicrofono} title="diga «sí» para crear, o «no» para cancelar">
+                style={{ width: 46, height: 46, fontSize: "1.2rem", flex: "none" }}
+                onClick={alMicrofono} title="diga «sí» para crear, o «no» para cancelar"
+                aria-label="Responder por voz: diga sí para crear, o no para cancelar">
           <Icono nombre="microfono" tam={20} />
         </button>
       </div>
-      <div className="burbuja">
+      <div className="burbuja" aria-live="polite" aria-atomic="true">
         No encontré «{crear.nombre}» en el catálogo. Lo creamos y queda pendiente
         del administrador.
       </div>
@@ -1031,7 +1034,7 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
         </div>
 
         <p className="rotulo">{dicho ? `Usted escribió: «${dicho}»` : "CuentaVoz responde"}</p>
-        <div className="burbuja">{respuesta}</div>
+        <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <input value={texto} onChange={(e) => setTexto(e.target.value)}

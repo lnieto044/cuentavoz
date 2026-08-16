@@ -402,11 +402,13 @@ export default function Bodegas({ token, usuario, ir }) {
           <input value={busca} onChange={(e) => setBusca(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && buscarArticulo()}
                  placeholder="arroz, aceite, cazuela…"
+                 aria-label="Buscar artículo, o pregúntele algo al agente"
                  style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                   style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                  onClick={buscarPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
+                  onClick={buscarPorVoz} title="o pregunte por voz"
+                  aria-label="Buscar por voz, o pregúntele al agente"><Icono nombre="microfono" tam={22} /></button>
         </div>
         {!consulta && (
           <>
@@ -427,7 +429,7 @@ export default function Bodegas({ token, usuario, ir }) {
         {consulta && (
           <>
             <p className="rotulo" style={{ marginTop: 14 }}>CuentaVoz responde</p>
-            <p className="burbuja">{consulta.resumen}</p>
+            <p className="burbuja" aria-live="polite" aria-atomic="true">{consulta.resumen}</p>
             {consulta.sugerencia_bodega && (
               <div className="banner" style={{ marginTop: 10 }}>
                 <span className="ico">💡</span>
@@ -520,11 +522,13 @@ export default function Bodegas({ token, usuario, ir }) {
                    onChange={(e) => buscarEnBodega(e.target.value)}
                    onKeyDown={(e) => e.key === "Enter" && confirmarBusquedaEnBodega(buscaArticuloBodega)}
                    placeholder="artículo en esta bodega, o pregúntele algo al agente…"
+                   aria-label="Buscar artículo en esta bodega, o pregúntele algo al agente"
                    style={{ flex: 1, minWidth: 200, padding: "13px 14px", fontSize: "1rem",
                             border: "1px solid var(--borde)", borderRadius: 12 }} />
             <button className={`mic-btn ${escuchandoBodega ? "escuchando" : ""}`}
                     style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                    onClick={buscarEnBodegaPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
+                    onClick={buscarEnBodegaPorVoz} title="o pregunte por voz"
+                    aria-label="Buscar por voz en esta bodega, o pregúntele al agente"><Icono nombre="microfono" tam={22} /></button>
           </div>
           <p className="pista" style={{ marginTop: 8, marginBottom: 4 }}>
             o pregunte por voz - si no es un artículo de esta bodega, se lo pregunta al agente
@@ -542,7 +546,8 @@ export default function Bodegas({ token, usuario, ir }) {
           {respuestaAgenteDetalle && (
             <>
               <p className="rotulo">CuentaVoz responde</p>
-              <p className="burbuja" style={{ marginBottom: 14 }}>{respuestaAgenteDetalle.respuesta_hablada}</p>
+              <p className="burbuja" style={{ marginBottom: 14 }}
+                 aria-live="polite" aria-atomic="true">{respuestaAgenteDetalle.respuesta_hablada}</p>
             </>
           )}
 

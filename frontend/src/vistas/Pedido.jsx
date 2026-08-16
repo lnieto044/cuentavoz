@@ -496,7 +496,8 @@ export default function Pedido({ token, usuario, ir }) {
                     alTexto: dictar,
                     alEstado: setEstado,
                     alError: setErr,
-                  })}>
+                  })}
+                  aria-label="Hable para decir el plato y las porciones">
             <Icono nombre="microfono" tam={52} />
           </button>
           <b>{estado === "escuchando" ? "Escuchando…" : "Mantenga presionado y hable"}</b>
@@ -540,7 +541,7 @@ export default function Pedido({ token, usuario, ir }) {
 
       <div className="card">
         <p className="rotulo">CuentaVoz responde</p>
-        <div className="burbuja">{respuesta}</div>
+        <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
         {opciones && (
           <div className="opciones" style={{ marginTop: 14 }}>
             {opciones.map((o, i) => (

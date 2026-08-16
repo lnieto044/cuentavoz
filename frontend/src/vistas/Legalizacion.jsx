@@ -226,12 +226,13 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <p className="rotulo" style={{ margin: 0 }}>CuentaVoz responde</p>
             <button className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
-                    style={{ width: 40, height: 40, fontSize: "1.1rem", flex: "none" }}
-                    onClick={alMicrofono} title="responda «sí» para confirmar, o dicte un ajuste">
+                    style={{ width: 46, height: 46, fontSize: "1.2rem", flex: "none" }}
+                    onClick={alMicrofono} title="responda «sí» para confirmar, o dicte un ajuste"
+                    aria-label="Responder por voz: diga sí para confirmar, o dicte un ajuste">
               <Icono nombre="microfono" tam={20} />
             </button>
           </div>
-          <div className="burbuja">{respuesta}</div>
+          <div className="burbuja" aria-live="polite" aria-atomic="true">{respuesta}</div>
           <p className="pista" style={{ marginTop: 8 }}>
             o diga «sí» para confirmar, o dicte un ajuste como «el pollo fueron doce kilos»
           </p>
@@ -249,11 +250,19 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
           </details>
           {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
           <div className="grilla-botones">
-            <button className="btn verde" onClick={confirmar}>Confirmar legalización</button>
-            <button className="btn oro" onClick={() => setVerMerma(true)} disabled={!merma.length}>
+            <button className="btn verde" onClick={confirmar}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="aprobar" tam={16} />
+              Confirmar legalización
+            </button>
+            <button className="btn oro" onClick={() => setVerMerma(true)} disabled={!merma.length}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="advertencia" tam={16} />
               Explicar la merma
             </button>
-            <button className="btn borde" onClick={() => setPedirAjuste(true)}>
+            <button className="btn borde" onClick={() => setPedirAjuste(true)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="microfono" tam={16} />
               Ajustar por voz
             </button>
           </div>

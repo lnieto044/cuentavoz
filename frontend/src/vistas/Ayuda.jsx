@@ -193,17 +193,19 @@ export default function Ayuda({ token, usuario, ir }) {
           <input value={busca} onChange={(e) => alEscribir(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && confirmarBusqueda(busca)}
                  placeholder="pregúntele al agente, o escriba para filtrar las preguntas frecuentes…"
+                 aria-label="Pregúntele al agente, o escriba para filtrar las preguntas frecuentes"
                  style={{ flex: 1, padding: "12px 14px",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <button className={`mic-btn ${escuchando ? "escuchando" : ""}`}
                   style={{ width: 46, height: 46, fontSize: "1.2rem" }}
-                  onClick={buscarPorVoz} title="o pregunte por voz"><Icono nombre="microfono" tam={22} /></button>
+                  onClick={buscarPorVoz} title="o pregunte por voz"
+                  aria-label="Pregúntele al agente por voz"><Icono nombre="microfono" tam={22} /></button>
         </div>
         <p className="pista" style={{ marginTop: 8 }}>o pregunte por voz</p>
         {respuestaAgente && (
           <>
             <p className="rotulo" style={{ marginTop: 10 }}>CuentaVoz responde</p>
-            <p className="burbuja">{respuestaAgente.respuesta_hablada}</p>
+            <p className="burbuja" aria-live="polite" aria-atomic="true">{respuestaAgente.respuesta_hablada}</p>
           </>
         )}
         {errorBusca && <p className="error" style={{ marginTop: 8 }}>{errorBusca}</p>}
