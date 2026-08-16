@@ -1073,41 +1073,57 @@ def _responder_reportes_por_voz(texto: str, u: Usuario) -> dict | None:
     return None
 
 
-_VER_ARCHIVO_REPORTE = re.compile(
-    r"\b(mu[eé]stra\w*|ense[ñn]a\w*|[aá]bre\w*)\b.*\barchivo\b", re.IGNORECASE)
+_VER_ARCHIVO_VERBO = re.compile(
+    r"\b(mu[eé]stra\w*|ense[ñn]a\w*|[aá]bre\w*)\b", re.IGNORECASE)
+_VER_ARCHIVO_PALABRA = re.compile(r"\barchivo\b", re.IGNORECASE)
 
 
 def _previsualizar_reporte_por_voz(texto: str, u: Usuario) -> dict | None:
-    """"Muéstrame el archivo de diferencias" / "ábreme el último archivo" -
+    """"Muéstrame el detalle de bodega" / "ábreme el archivo de diferencias" -
     lo mismo que darle clic a una tarjeta de "Archivos generados", sin
-    tocar la pantalla. Exige la palabra "archivo" para no competir con
-    «muéstrame el consolidado», que ya significa cambiar de pestaña
-    (_navegar_pestana_por_voz).
+    tocar la pantalla.
+
+    Diferencias, tablero, detalle de bodega y trazabilidad NO son el
+    nombre de ninguna pestaña de esta pantalla, así que decir su nombre
+    con un verbo de "mostrar" no compite con nada más - se abren directo,
+    sin exigir la palabra "archivo". Consolidado y análisis SÍ son
+    pestañas reales («muéstrame el consolidado» ya significa cambiar de
+    pestaña, ver _navegar_pestana_por_voz), así que para esos dos la
+    palabra "archivo" sigue siendo obligatoria para desambiguar - sin
+    ella, decir solo el nombre de la pestaña dejaría de poder cambiarla.
+    Antes la palabra "archivo" era obligatoria para los seis tipos por
+    igual, así que pedir "muéstrame el detalle de bodega" (la frase más
+    natural, sin decir "archivo") no abría nada y caía al agente
+    general, que solo podía describir el archivo en palabras y mandar a
+    dar clic a mano - no a abrirlo de verdad.
 
     Cubre los cinco tipos que puede mostrar la lista (antes solo distinguía
     diferencias y consolidado; el resto - tablero, detalle de bodega,
     análisis, trazabilidad - siempre caía al último archivo generado, que
     con frecuencia NO era el que se pedía)."""
-    if u.perfil != "auditor" or not _VER_ARCHIVO_REPORTE.search(texto):
+    if u.perfil != "auditor" or not _VER_ARCHIVO_VERBO.search(texto):
         return None
     recientes = reportes_recientes(u=u)
     if not recientes:
         return {"respuesta_hablada": "Todavía no se ha generado ningún archivo.",
                 "accion": None, "destino": None, "pestana": "consolidado"}
+    tiene_archivo = bool(_VER_ARCHIVO_PALABRA.search(texto))
     if _REP_DIFERENCIAS.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Diferencias por bodega"), None)
     elif _REP_TABLERO.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Estado del tablero"), None)
     elif _REP_DETALLE_BODEGA.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Detalle de bodega"), None)
-    elif _REP_ANALISIS.search(texto):
-        elegido = next((x for x in recientes if x["titulo"] == "Análisis de consumo"), None)
     elif _REP_TRAZA_ARCHIVO.search(texto):
         elegido = next((x for x in recientes if x["titulo"] == "Registro de trazabilidad"), None)
-    elif _REP_CONSOLIDADO.search(texto):
+    elif _REP_ANALISIS.search(texto) and tiene_archivo:
+        elegido = next((x for x in recientes if x["titulo"] == "Análisis de consumo"), None)
+    elif _REP_CONSOLIDADO.search(texto) and tiene_archivo:
         elegido = next((x for x in recientes if x["titulo"] == "Consolidado para My Inventory"), None)
-    else:
+    elif tiene_archivo:
         elegido = recientes[0]
+    else:
+        return None
     if not elegido:
         return {"respuesta_hablada": "No encontré ese archivo entre los generados recientemente.",
                 "accion": None, "destino": None, "pestana": "consolidado"}

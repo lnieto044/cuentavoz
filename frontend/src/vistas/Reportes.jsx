@@ -39,8 +39,8 @@ const ICONO_TITULO = {
 // por lo que muestra el análisis de consumo.
 const _EJEMPLOS_REPORTES = [
   "genera el consolidado", "exporta las diferencias", "exporta el análisis de consumo",
-  "muéstrame el archivo de diferencias", "muéstrame el archivo del estado del tablero",
-  "muéstrame el archivo de trazabilidad", "muéstrame el archivo del consolidado",
+  "muéstrame las diferencias", "muéstrame el estado del tablero", "muéstrame la trazabilidad",
+  "muéstrame el detalle de bodega", "muéstrame el archivo del consolidado",
   "consolidado de la toma", "análisis de consumo",
   "¿cuántas filas tiene el último consolidado?", "¿cuántas bodegas tienen descuadre?",
   "¿qué archivos se han generado?", "¿cuánto se pidió en el período?",
