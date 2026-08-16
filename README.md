@@ -475,10 +475,3 @@ Se puede entrar con el usuario o con el código de empleado, indistintamente.
 - 👩‍💻 **Luz Stephanie Puentes Morantes** — Validación funcional y apoyo al desarrollo
 
 ---
-
-<div align="center">
-Proyecto desarrollado para la **Hackatón Colsubsidio × 30X**.
-© 2026 — **Equipo StockXperts**
-</div>
-
-   loal<br/>(reglas + fuzzy match)"]
