@@ -90,6 +90,10 @@ momento.
 <td width="50%"><img src="docs/capturas/tablet/ayuda.png" alt="Ayuda" /><br/><sub>Ayuda: preguntas frecuentes y comandos de voz</sub></td>
 <td width="50%"><img src="docs/capturas/tablet/mi-perfil.png" alt="Mi perfil" /><br/><sub>Mi perfil: datos personales y seguridad de la cuenta</sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/capturas/tablet/mensajes.png" alt="Mensajes" /><br/><sub>Mensajes: soporte en vivo entre auxiliares y administrador</sub></td>
+<td width="50%"></td>
+</tr>
 </table>
 
 ## 🏗️ Arquitectura
