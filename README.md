@@ -49,6 +49,17 @@ integrando pedidos, conteos, legalización, auditoría, recetas y reportes en
 una sola plataforma, con datos reales de Colsubsidio desde el primer
 momento.
 
+### 🎬 Así se ve en acción
+
+<div align="center">
+
+<img width="500" src="docs/capturas/pedidos-flujo.gif" alt="Flujo real: elegir un plato, confirmar porciones y ver el pedido calculado" />
+
+<sub>Real contra producción: se elige un plato, se confirma la cantidad y CuentaVoz calcula
+solo lo que falta pedir — sin datos inventados.</sub>
+
+</div>
+
 ## ✨ Características principales
 
 | | |
@@ -80,15 +91,12 @@ momento.
 </div>
 
 <details>
-<summary><b>Ver las 14 capturas completas</b> (Ingreso, Pedidos, Conteo, Legalización, Auditoría, Reportes, Ajustes, Ayuda, Mi perfil, Mensajes, Cerrar sesión...)</summary>
+<summary><b>Ver las otras 11 capturas</b> (Ingreso, Pedidos, Conteo, Legalización, Auditoría, Reportes, Ajustes, Ayuda, Mi perfil, Mensajes, Cerrar sesión) — Inicio, Bodegas y Panel ya se ven arriba, sin repetir</summary>
 
 <div align="center">
 
 **Ingreso** — detección automática de perfil
 <img width="700" src="docs/capturas/tablet/ingreso.png" alt="Ingreso" />
-
-**Inicio** — lo que hay para hoy, según el perfil
-<img width="700" src="docs/capturas/tablet/inicio.png" alt="Inicio" />
 
 **Pedidos por voz** — receta + stock = pedido calculado
 <img width="700" src="docs/capturas/tablet/pedidos.png" alt="Pedidos por voz" />
@@ -99,17 +107,11 @@ momento.
 **Legalización** — pedidos y líneas de servicio
 <img width="700" src="docs/capturas/tablet/legalizacion.png" alt="Legalización" />
 
-**Bodegas** — estado en vivo, filtros y doble firma
-<img width="700" src="docs/capturas/tablet/bodegas.png" alt="Bodegas" />
-
 **Auditoría** — recuento ciego, aprobaciones y cierre
 <img width="700" src="docs/capturas/tablet/auditoria.png" alt="Auditoría" />
 
 **Reportes** — trazabilidad exportable
 <img width="700" src="docs/capturas/tablet/reportes.png" alt="Reportes" />
-
-**Panel gerencial** — exactitud, diferencias y stock
-<img width="700" src="docs/capturas/tablet/panel.png" alt="Panel gerencial" />
 
 **Ajustes** — catálogo, recetas y configuración
 <img width="700" src="docs/capturas/tablet/ajustes.png" alt="Ajustes" />
@@ -129,6 +131,25 @@ momento.
 </div>
 
 </details>
+
+### 📱 En celular
+
+<sub>El mismo diseño responsivo, en el punto de quiebre de teléfono
+(≤600px): el menú lateral pasa a una barra horizontal deslizable arriba,
+en vez de la columna de íconos de la tablet.</sub>
+
+<div align="center">
+
+**Inicio**
+<img width="360" src="docs/capturas/movil/inicio.png" alt="Inicio en celular" />
+&nbsp;&nbsp;
+**Pedidos**
+<img width="360" src="docs/capturas/movil/pedidos.png" alt="Pedidos en celular" />
+&nbsp;&nbsp;
+**Bodegas**
+<img width="360" src="docs/capturas/movil/bodegas.png" alt="Bodegas en celular" />
+
+</div>
 
 ## 🏗️ Arquitectura
 
