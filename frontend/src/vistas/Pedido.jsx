@@ -531,7 +531,7 @@ export default function Pedido({ token, usuario, ir }) {
               <button key={r.id}
                       className={`chip ${plato.toUpperCase() === r.nombre.toUpperCase() ? "azul" : ""}`}
                       onClick={() => elegirPlato(r.nombre)}>
-                {r.nombre}
+                {r.nombre.toUpperCase()}
               </button>
             ))}
           </div>
@@ -556,17 +556,31 @@ export default function Pedido({ token, usuario, ir }) {
         {archivo && (
           <div className="grilla-botones" style={{ marginTop: 10 }}>
             <button className="btn verde"
-                    onClick={() => descargarReporte(archivo, token).catch((e) => setErr(e.message))}>
+                    onClick={() => descargarReporte(archivo, token).catch((e) => setErr(e.message))}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="descargar" tam={16} />
               Descargar archivo generado
             </button>
           </div>
         )}
         {err && <p className="error" style={{ marginTop: 10 }}>{err}</p>}
         <div className="grilla-botones">
-          <button className="btn" onClick={() => calcular()} disabled={offline}>Calcular el pedido</button>
-          <button className="btn borde" onClick={corregirCantidad}>Corregir cantidad</button>
+          <button className="btn" onClick={() => calcular()} disabled={offline}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Icono nombre="pedidos" tam={16} />
+            Calcular el pedido
+          </button>
+          <button className="btn borde" onClick={corregirCantidad}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Icono nombre="refrescar" tam={16} />
+            Corregir cantidad
+          </button>
           {!receta && (
-            <button className="btn oro" onClick={() => verReceta()}>Ver la receta</button>
+            <button className="btn oro" onClick={() => verReceta()}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="reportes" tam={16} />
+              Ver la receta
+            </button>
           )}
         </div>
       </div>
@@ -635,16 +649,24 @@ export default function Pedido({ token, usuario, ir }) {
               : "Esta receta la mantiene el administrador; si algo está desactualizado, avísele desde Reportes."}
           </p>
           <div className="grilla-botones">
-            <button className="btn" onClick={() => { setReceta(null); calcular(); }}>
+            <button className="btn" onClick={() => { setReceta(null); calcular(); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="pedidos" tam={16} />
               Usar para un pedido
             </button>
             {esAuditor && (
               <button className="btn borde"
-                      onClick={() => ir && ir("ajustes", { tabInicial: "recetas", recetaId: receta.id })}>
+                      onClick={() => ir && ir("ajustes", { tabInicial: "recetas", recetaId: receta.id })}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Icono nombre="ajustes" tam={16} />
                 Editar receta
               </button>
             )}
-            <button className="btn gris" onClick={() => setReceta(null)}>Cerrar</button>
+            <button className="btn gris" onClick={() => setReceta(null)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Icono nombre="salir" tam={16} />
+              Cerrar
+            </button>
           </div>
         </div>
       )}
@@ -710,7 +732,9 @@ export default function Pedido({ token, usuario, ir }) {
               </p>
             ) : !enviado && (
               <div className="grilla-botones">
-                <button className="btn verde" onClick={enviar} disabled={offline}>
+                <button className="btn verde" onClick={enviar} disabled={offline}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <Icono nombre="bodegas" tam={16} />
                   Enviar pedido al almacén
                 </button>
               </div>
