@@ -193,8 +193,11 @@ function TabAlertas({ a }) {
   useEffect(() => {
     if (!a || yaSaludo.current) return;
     yaSaludo.current = true;
-    const texto = `Bodegas y alertas: ${a.negativos_iniciales} negativos corregidos a `
-                + `${a.negativos_actuales}, tiempo promedio de conteo ${a.tiempo_promedio_min} minutos.`;
+    const texto = a.negativos_iniciales !== a.negativos_actuales
+      ? `Bodegas y alertas: saldos negativos, ${a.negativos_iniciales} al inicio del período, `
+        + `${a.negativos_actuales} ahora. Tiempo promedio de conteo ${a.tiempo_promedio_min} minutos.`
+      : `Bodegas y alertas: ${a.negativos_actuales} saldos negativos en el sistema, se corrigen `
+        + `en My Inventory. Tiempo promedio de conteo ${a.tiempo_promedio_min} minutos.`;
     setSaludo(texto);
     hablar(texto);
   }, [a]);

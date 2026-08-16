@@ -391,8 +391,11 @@ _PANEL_PREGUNTAS = [
     (re.compile(r"\btendencia\s+de\s+exactitud\b|\bexactitud\s+por\s+toma\b", re.IGNORECASE),
      lambda d: f"Exactitud por toma de inventario: {d['texto_hist']}."),
     (re.compile(r"\bnegativos?\b.*\bcorregid\w*|\bcu[aá]nt\w*\s+negativos\b", re.IGNORECASE),
-     lambda d: f"Negativos detectados en el sistema: {d['a']['negativos_iniciales']}, "
-               f"corregidos a {d['a']['negativos_actuales']} durante la toma."),
+     lambda d: (f"Saldos negativos en el sistema: {d['a']['negativos_actuales']} artículos. "
+                "La corrección se hace en My Inventory, no en CuentaVoz."
+                if d['a']['negativos_iniciales'] == d['a']['negativos_actuales'] else
+                f"Saldos negativos: {d['a']['negativos_iniciales']} al inicio de este período, "
+                f"{d['a']['negativos_actuales']} ahora.")),
     (re.compile(r"\btiempo\s+promedio\s+de\s+conteo\b", re.IGNORECASE),
      lambda d: f"El tiempo promedio de conteo por bodega es de "
                f"{d['a']['tiempo_promedio_min']} minutos."),
@@ -652,9 +655,10 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             f"{r['bodegas_total']}. Gráfica «Diferencia absoluta por bodega»: {d['texto_dif']}. "
             f"Gráfica «Stock por unidad de medida»: {d['texto_stock']}. Gráfica «Exactitud por "
             f"toma de inventario»: {d['texto_hist']}. "
-            f"Pestaña Bodegas y alertas - tarjetas: negativos detectados en el sistema "
-            f"{a['negativos_iniciales']} corregidos a {a['negativos_actuales']} durante la "
-            f"toma, tiempo promedio de conteo por bodega {a['tiempo_promedio_min']} minutos, "
+            f"Pestaña Bodegas y alertas - tarjetas: saldos negativos en el sistema "
+            f"{a['negativos_actuales']} artículos (la corrección se hace en My Inventory, no "
+            "en CuentaVoz - dentro de una sola toma este número normalmente no se mueve), "
+            f"tiempo promedio de conteo por bodega {a['tiempo_promedio_min']} minutos, "
             f"alias aprendidos por el agente {a['alias_aprendidos']}. Tarjeta «Estado de las "
             f"bodegas»: {d['texto_estado']}. Tarjeta «Alertas por tipo»: {d['texto_alertas_tipo']}. "
             f"Tabla «Descuadres recurrentes»: {d['texto_descuadres']}.")
