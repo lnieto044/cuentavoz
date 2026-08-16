@@ -134,7 +134,7 @@ en ese equipo.
 ## 📊 Datos reales
 
 El prototipo carga el extracto entregado por Colsubsidio:
-**53 bodegas · 1.041 artículos · 1.405 registros de stock · 79 saldos
+**54 bodegas · 1.041 artículos · 1.405 registros de stock · 79 saldos
 negativos detectados** (el mini reto).
 
 ---
