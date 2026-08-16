@@ -484,12 +484,4 @@ Proyecto desarrollado para la **Hackatón Colsubsidio × 30X**.
 
 </div>
 
-    FE -- "HTTPS / JWT" --> API["FastAPI<br/>Web Service en Render"]
-
-    FE -. WebAuthn .-> BIO["Windows Hello / Touch ID<br/>del dispositivo"]
-
-    API --> DB[("PostgreSQL<br/>(SQLite en local)")]
-
-    API --> GEMINI["Google Gemini<br/>agente de voz"]
-
-    API -. "respaldo sin llave" .-> INTERPRETE["Intérprete local<br/>(reglas + fuzzy match)"]
+   local<br/>(reglas + fuzzy match)"]
