@@ -92,7 +92,7 @@ momento.
 </tr>
 <tr>
 <td width="50%"><sub><b>Mensajes</b> — soporte en vivo entre auxiliares y administrador</sub><br/><img src="docs/capturas/tablet/mensajes.png" alt="Mensajes" /></td>
-<td width="50%"></td>
+<td width="50%"><sub><b>Cerrar sesión</b> — confirma antes de salir si hay trabajo sin guardar</sub><br/><img src="docs/capturas/tablet/cerrar-sesion.png" alt="Cerrar sesión" /></td>
 </tr>
 </table>
 
