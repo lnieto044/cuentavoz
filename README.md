@@ -486,7 +486,7 @@ técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 | 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
 | ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
 | 🧭 **Arquitectura** | Mapa del código, por qué cada librería, modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)** |
-| 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V3.1.pdf)** |
+| 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V4.pdf)** |
 | 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
 | 🎥 **Video** | **https://www.youtube.com/watch?v=4tSRTV5POd4** |
 
