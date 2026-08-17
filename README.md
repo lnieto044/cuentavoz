@@ -1,12 +1,14 @@
 <div align="center">
 
-<img width="72" alt="CuentaVoz" src="frontend/public/logo.png" />
+<img src="frontend/public/logo.png" width="72" alt="CuentaVoz" />
 
 # CuentaVoz
 
-### Plataforma inteligente para la captura de inventarios por voz
+### 🎙️ Plataforma inteligente para la captura de inventarios por voz
 
 **Desarrollado por el equipo StockXperts** 🚀
+
+<br>
 
 [![React](https://img.shields.io/badge/React-18-149ECA?style=for-the-badge&logo=react&logoColor=white)](frontend)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python-0B9260?style=for-the-badge&logo=fastapi&logoColor=white)](backend)
@@ -15,141 +17,333 @@
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-ingreso_con_huella-D4A017?style=for-the-badge)](backend/servicios/huella.py)
 [![Render](https://img.shields.io/badge/Render-despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
 
-<br/>
+<br>
 
-<img width="900" alt="Panel principal de CuentaVoz" src="docs/capturas/panel-principal.png" />
+<img src="docs/capturas/panel-principal.png" width="100%" alt="Panel principal de CuentaVoz" />
 
-<sub>*Reto de Hotelería · Hackathon Colsubsidio × 30X · julio de 2026*</sub>
+<br>
+
+**Reto de Hotelería · Hackathon Colsubsidio × 30X · julio de 2026**
 
 </div>
-
-<br/>
-
-## Índice
-
-[Descripción](#-descripción) · [Características](#-características-principales) · [Capturas](#️-capturas) ·
-[Arquitectura](#-arquitectura) · [Momentos que cubre](#-los-tres-momentos-manuales-que-cubre) ·
-[Accesibilidad](#-accesibilidad) · [Ingreso seguro](#-ingreso-seguro) · [Datos reales](#-datos-reales) ·
-[Tecnologías](#-tecnologías) · [Seguridad](#-seguridad) · [Ejecutar / Desplegar](#️-ejecutar-y-desplegar) ·
-[Equipo](#-equipo--stockxperts)
 
 ---
 
-## 📌 Descripción
+# 📑 Índice
 
-CuentaVoz es un asistente conversacional por voz para la captura de
-información en las cocinas y bodegas de Colsubsidio. Hoy esa información
-entra al sistema pasando por papel — alguien escribe, otro digita — y ahí
-nacen los errores: un «9» que se vuelve «90», una unidad mal leída, un
-producto confundido con otro parecido.
+- [📌 Descripción](#-descripción)
+- [✨ Características principales](#-características-principales)
+- [🖼️ Capturas](#️-capturas)
+- [🏗️ Arquitectura](#️-arquitectura)
+- [🔄 Momentos que cubre](#-los-tres-momentos-manuales-que-cubre)
+- [🛡️ Validaciones inteligentes](#️-validaciones-inteligentes)
+- [♿ Accesibilidad](#-accesibilidad)
+- [🔐 Ingreso seguro](#-ingreso-seguro)
+- [📊 Datos reales](#-datos-reales)
+- [🚀 Tecnologías](#-tecnologías)
+- [🔒 Seguridad](#-seguridad)
+- [▶️ Ejecutar y desplegar](#️-ejecutar-y-desplegar)
+- [🔑 Acceso de prueba](#-acceso-de-prueba)
+- [👥 Equipo](#-equipo--stockxperts)
 
-CuentaVoz escucha, entiende cómo habla la bodega, concilia contra el
-catálogo oficial, valida al instante y registra directo en digital —
-integrando pedidos, conteos, legalización, auditoría, recetas y reportes en
-una sola plataforma, con datos reales de Colsubsidio desde el primer
-momento.
+---
 
-### 🎬 Así se ve en acción
+# 📌 Descripción
+
+**CuentaVoz** es un asistente conversacional por voz diseñado para facilitar la captura de información en cocinas y bodegas de Colsubsidio.
+
+Actualmente, gran parte de esta información puede pasar por procesos manuales:
+
+**Papel → Digitación → Validación → Registro**
+
+Este flujo puede generar errores como:
+
+- Un `9` registrado como `90`.
+- Una unidad incorrecta.
+- Un producto confundido con otro similar.
+- Diferencias entre el inventario físico y el registrado.
+
+CuentaVoz transforma este proceso utilizando:
+
+**🎙️ Voz + 🧠 Inteligencia Artificial + ✅ Validaciones automáticas**
+
+La plataforma:
+
+- 🎙️ Escucha al usuario.
+- 🧠 Interpreta el lenguaje utilizado en bodega.
+- 📚 Concilia la información contra el catálogo oficial.
+- ✅ Valida cantidades y unidades.
+- 📦 Calcula necesidades de pedido.
+- 🧾 Registra la información digitalmente.
+- 📊 Genera trazabilidad y reportes.
+
+Todo dentro de una misma plataforma.
+
+---
+
+# 🎬 Así se ve en acción
 
 <div align="center">
 
-<img width="500" src="docs/capturas/pedidos-flujo.gif" alt="Flujo real: elegir un plato, confirmar porciones y ver el pedido calculado" />
+<img src="docs/capturas/pedidos-flujo.gif" width="100%" alt="Flujo de pedidos de CuentaVoz" />
 
-<sub>Real contra producción: se elige un plato, se confirma la cantidad y CuentaVoz calcula
-solo lo que falta pedir — sin datos inventados.</sub>
+<br>
+
+<sub>
+
+<strong>Flujo real:</strong> se selecciona un plato, se confirma la cantidad y CuentaVoz calcula únicamente lo que hace falta solicitar.
+
+</sub>
 
 </div>
 
-## ✨ Características principales
+---
 
-| | |
-|---|---|
-| 🎙️ **Pedidos por voz** | «hoy preparamos cincuenta ajiacos» → explota la receta, descuenta el stock y calcula solo lo que falta pedir |
-| 🧮 **Conteo conversacional** | dicta las cantidades, el agente concilia contra el catálogo oficial y valida en el momento |
-| 👩‍🍳 **Recetas administrables** | ingredientes, rendimiento y preparación paso a paso, editables desde Ajustes |
-| ✅ **Aprobación de pedidos** | el auditor revisa y aprueba antes de que el pedido salga al almacén |
-| 🔐 **Ingreso seguro** | usuario o código de empleado, perfil detectado solo, y huella del dispositivo (WebAuthn) |
-| 📊 **Panel gerencial** | exactitud por bodega, diferencias, stock por unidad, listo para Power BI |
-| 📁 **Reportes y trazabilidad** | consolidados exportables y bitácora inmutable de cada acción |
-| ☁️ **Listo para producción** | Render (Static Site + Web Service + PostgreSQL), documentado paso a paso |
+# ✨ Características principales
 
-## 🖼️ Capturas
+## 🎙️ Pedidos por voz
 
-<sub>Todas las vistas funcionando en **modo tablet** (el diseño responsivo real de la aplicación, no un mockup de escritorio).</sub>
+> “Hoy preparamos cincuenta ajiacos”
+
+CuentaVoz interpreta la solicitud, consulta la receta, descuenta el inventario disponible y calcula únicamente los ingredientes que hacen falta pedir.
+
+---
+
+## 🧮 Conteo conversacional
+
+El usuario puede dictar las cantidades y el agente realiza la conciliación contra el catálogo oficial antes de registrar la información.
+
+---
+
+## 👩‍🍳 Recetas administrables
+
+Permite administrar:
+
+- Ingredientes.
+- Rendimientos.
+- Preparación.
+- Información asociada a cada receta.
+
+La configuración puede gestionarse desde **Ajustes**.
+
+---
+
+## ✅ Aprobación de pedidos
+
+Los pedidos pueden ser revisados y aprobados por el auditor antes de continuar hacia el almacén.
+
+---
+
+## 🔐 Ingreso seguro
+
+La plataforma permite:
+
+- Usuario o código de empleado.
+- PIN.
+- Detección automática del perfil.
+- Autenticación mediante WebAuthn.
+- Windows Hello.
+- Touch ID.
+- Huella compatible del dispositivo.
+
+---
+
+## 📊 Panel gerencial
+
+Permite visualizar información relacionada con:
+
+- Exactitud por bodega.
+- Diferencias.
+- Stock por unidad.
+- Información preparada para análisis en Power BI.
+
+---
+
+## 📁 Reportes y trazabilidad
+
+Generación de consolidados exportables y registro de las acciones realizadas dentro de la plataforma.
+
+---
+
+## ☁️ Preparado para producción
+
+Arquitectura preparada para despliegue mediante:
+
+**Render + Static Site + Web Service + PostgreSQL**
+
+---
+
+# 🖼️ Capturas
+
+La interfaz de CuentaVoz utiliza un diseño responsivo que se adapta a:
+
+- 💻 Computadores.
+- 📱 Celulares.
+- 📲 Tablets.
+
+---
+
+# 💻 Vista tablet
 
 <div align="center">
 
-**Inicio** — lo que hay para hoy, según el perfil
-<img width="700" src="docs/capturas/tablet/inicio.png" alt="Inicio" />
+## 🏠 Inicio
 
-**Bodegas** — estado en vivo, filtros y doble firma
-<img width="700" src="docs/capturas/tablet/bodegas.png" alt="Bodegas" />
+<img src="docs/capturas/tablet/inicio.png" width="100%" alt="Inicio de CuentaVoz en tablet" />
 
-**Panel gerencial** — exactitud, diferencias y stock
-<img width="700" src="docs/capturas/tablet/panel.png" alt="Panel gerencial" />
+<br>
+
+## 🏢 Bodegas
+
+<img src="docs/capturas/tablet/bodegas.png" width="100%" alt="Bodegas de CuentaVoz en tablet" />
+
+<br>
+
+## 📊 Panel gerencial
+
+<img src="docs/capturas/tablet/panel.png" width="100%" alt="Panel gerencial de CuentaVoz en tablet" />
 
 </div>
+
+---
 
 <details>
-<summary><b>Ver las otras 11 capturas</b> (Ingreso, Pedidos, Conteo, Legalización, Auditoría, Reportes, Ajustes, Ayuda, Mi perfil, Mensajes, Cerrar sesión) — Inicio, Bodegas y Panel ya se ven arriba, sin repetir</summary>
 
-<div align="center">
+<summary><strong>📸 Ver las otras 11 capturas de tablet</strong></summary>
 
-**Ingreso** — detección automática de perfil
-<img width="700" src="docs/capturas/tablet/ingreso.png" alt="Ingreso" />
+<br>
 
-**Pedidos por voz** — receta + stock = pedido calculado
-<img width="700" src="docs/capturas/tablet/pedidos.png" alt="Pedidos por voz" />
+### 🔑 Ingreso
 
-**Conteo** — tablero de bodegas listas para contar
-<img width="700" src="docs/capturas/tablet/conteo.png" alt="Conteo" />
+Detección automática del perfil.
 
-**Legalización** — pedidos y líneas de servicio
-<img width="700" src="docs/capturas/tablet/legalizacion.png" alt="Legalización" />
+<img src="docs/capturas/tablet/ingreso.png" width="100%" alt="Ingreso de CuentaVoz" />
 
-**Auditoría** — recuento ciego, aprobaciones y cierre
-<img width="700" src="docs/capturas/tablet/auditoria.png" alt="Auditoría" />
+---
 
-**Reportes** — trazabilidad exportable
-<img width="700" src="docs/capturas/tablet/reportes.png" alt="Reportes" />
+### 🎙️ Pedidos por voz
 
-**Ajustes** — catálogo, recetas y configuración
-<img width="700" src="docs/capturas/tablet/ajustes.png" alt="Ajustes" />
+Receta + stock = pedido calculado.
 
-**Ayuda** — preguntas frecuentes y comandos de voz
-<img width="700" src="docs/capturas/tablet/ayuda.png" alt="Ayuda" />
+<img src="docs/capturas/tablet/pedidos.png" width="100%" alt="Pedidos por voz" />
 
-**Mi perfil** — datos personales y seguridad de la cuenta
-<img width="700" src="docs/capturas/tablet/mi-perfil.png" alt="Mi perfil" />
+---
 
-**Mensajes** — soporte en vivo entre auxiliares y administrador
-<img width="700" src="docs/capturas/tablet/mensajes.png" alt="Mensajes" />
+### 📦 Conteo
 
-**Cerrar sesión** — confirma antes de salir si hay trabajo sin guardar
-<img width="700" src="docs/capturas/tablet/cerrar-sesion.png" alt="Cerrar sesión" />
+Tablero de bodegas listas para contar.
 
-</div>
+<img src="docs/capturas/tablet/conteo.png" width="100%" alt="Conteo de inventario" />
+
+---
+
+### 🧾 Legalización
+
+Pedidos y líneas de servicio.
+
+<img src="docs/capturas/tablet/legalizacion.png" width="100%" alt="Legalización" />
+
+---
+
+### 🛡️ Auditoría
+
+Recuento ciego, aprobaciones y cierre.
+
+<img src="docs/capturas/tablet/auditoria.png" width="100%" alt="Auditoría" />
+
+---
+
+### 📊 Reportes
+
+Trazabilidad exportable.
+
+<img src="docs/capturas/tablet/reportes.png" width="100%" alt="Reportes" />
+
+---
+
+### ⚙️ Ajustes
+
+Catálogo, recetas y configuración.
+
+<img src="docs/capturas/tablet/ajustes.png" width="100%" alt="Ajustes" />
+
+---
+
+### ❓ Ayuda
+
+Preguntas frecuentes y comandos de voz.
+
+<img src="docs/capturas/tablet/ayuda.png" width="100%" alt="Ayuda" />
+
+---
+
+### 👤 Mi perfil
+
+Datos personales y seguridad de la cuenta.
+
+<img src="docs/capturas/tablet/mi-perfil.png" width="100%" alt="Mi perfil" />
+
+---
+
+### 💬 Mensajes
+
+Soporte en vivo entre auxiliares y administrador.
+
+<img src="docs/capturas/tablet/mensajes.png" width="100%" alt="Mensajes" />
+
+---
+
+### 🚪 Cerrar sesión
+
+Confirmación antes de salir si existe trabajo sin guardar.
+
+<img src="docs/capturas/tablet/cerrar-sesion.png" width="100%" alt="Cerrar sesión" />
 
 </details>
 
-### 📱 En celular
+---
 
-<sub>El mismo diseño responsivo, en el punto de quiebre de teléfono
-(≤600px): el menú lateral pasa a una barra horizontal deslizable arriba,
-en vez de la columna de íconos de la tablet.</sub>
+# 📱 Experiencia en celular
+
+CuentaVoz incorpora un diseño responsivo para dispositivos móviles.
+
+En resoluciones de **600 px o menos**, el menú lateral pasa a una barra horizontal deslizable ubicada en la parte superior.
+
+Esto permite aprovechar mejor el espacio disponible en teléfonos.
+
+---
+
+## 🏠 Inicio
 
 <div align="center">
 
-**Inicio**
-<img width="360" src="docs/capturas/movil/inicio.png" alt="Inicio en celular" />
-&nbsp;&nbsp;
-**Pedidos**
-<img width="360" src="docs/capturas/movil/pedidos.png" alt="Pedidos en celular" />
-&nbsp;&nbsp;
-**Bodegas**
-<img width="360" src="docs/capturas/movil/bodegas.png" alt="Bodegas en celular" />
+<img src="docs/capturas/movil/inicio.png" width="360" alt="Inicio de CuentaVoz en celular" />
 
 </div>
+
+---
+
+## 🎙️ Pedidos
+
+<div align="center">
+
+<img src="docs/capturas/movil/pedidos.png" width="360" alt="Pedidos de CuentaVoz en celular" />
+
+</div>
+
+---
+
+## 🏢 Bodegas
+
+<div align="center">
+
+<img src="docs/capturas/movil/bodegas.png" width="360" alt="Bodegas de CuentaVoz en celular" />
+
+</div>
+
+> 📱 **Diseño responsive real:** la interfaz adapta navegación, contenidos y controles al tamaño de pantalla.
+
+---
 
 ## 🏗️ Arquitectura
 
@@ -281,11 +475,3 @@ Se puede entrar con el usuario o con el código de empleado, indistintamente.
 - 👩‍💻 **Luz Stephanie Puentes Morantes** — Validación funcional y apoyo al desarrollo
 
 ---
-
-<div align="center">
-
-Proyecto desarrollado para la **Hackatón Colsubsidio × 30X**.
-
-© 2026 — **Equipo StockXperts**
-
-</div>
