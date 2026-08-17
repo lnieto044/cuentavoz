@@ -67,12 +67,21 @@ Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
 | `auditoria-alerta-detalle.png` | **Auditoría** → *Bandeja de alertas* → botón **Ver** de una alerta | `Auditoria.jsx`, `<Dialogo>` `verDetalle` (dentro de `TabAlertas`) |
 | `auditoria-teclado.png` | **Auditoría** → recuento ciego activo → botón **Teclado** | `Auditoria.jsx`, `<Dialogo>` `mostrarDictado` |
 | `conteo-crear-producto.png` | **Conteo** → se dicta un artículo que no existe en el catálogo (ej. «hay noventa alicornios voladores») | `Conteo.jsx` → `FormularioCrearProducto` |
+| `conteo-bodega-no-encontrada.png` | **Conteo** → se busca una bodega por nombre exacto que no existe en el catálogo | `Conteo.jsx`, estado `bodegaNoEncontrada` |
+| `conteo-bodega-desambiguacion.png` | **Conteo** → se busca una bodega por un nombre ambiguo (ej. «kiosco» → 6 bodegas parecidas) | `Conteo.jsx`, estado `opcionesBodega` |
+| `conteo-sin-conexion.png` | **Conteo** → bodega abierta → se pierde la conexión de red (formulario manual + cola de sincronización) | `Conteo.jsx` → `FormularioOffline` |
+| `pedido-receta.png` | **Pedidos** → se elige un plato → botón **Ver la receta** (catálogo de Colsubsidio + preparación paso a paso) | `Pedido.jsx`, estado `receta` |
+| `pedido-calculado.png` | **Pedidos** → botón **Calcular el pedido** (KPIs + tabla de insumos necesario/hay/falta, con el aviso de "Revise antes de enviar") | `Pedido.jsx`, estado `lineas`/`avisos` |
 
 **No incluidas, y por qué:**
 - **Desambiguación de producto en Pedidos** — el mismo patrón visual que
   `conteo-desambiguacion.png`, pero `Pedido.jsx` no tiene un modo "escribir
   en vez de hablar" para el nombre del insumo (solo para porciones), así
   que no hay forma de provocarla sin reconocimiento de voz real.
+- **Recibo de pedido enviado** (`Pedido.jsx`, estado `recibo`, tras el botón
+  **Enviar pedido al almacén**) — solo se puede llegar ahí completando un
+  envío real, que crearía un pedido de verdad pendiente de aprobación en
+  el servicio de hoy. No se forzó sin confirmar primero con el equipo.
 
 ## Pendiente: alerta de cantidad fuera de lo esperado
 
