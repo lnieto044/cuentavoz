@@ -634,7 +634,7 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 f"fija); permitir crear productos pendientes activado (regla fija). "
                 f"Sección Conexión y sincronización: modo sin conexión "
                 f"{'activado' if a['offline'] else 'desactivado'}; refresco del tablero "
-                f"en tiempo real; refresco de Power BI cada {a['refresco_pbi']}. "
+                f"en tiempo real. "
                 f"Sección Administración: usuarios activos {a['usuarios_activos']}; "
                 f"aprobaciones pendientes {a['aprobaciones_pendientes']}. Sección Acerca "
                 f"de CuentaVoz: versión {a['version']}, modelo del agente {a['modelo']}. "
@@ -4577,7 +4577,6 @@ def ver_ajustes(u: Usuario = Depends(usuario_actual)):
     return {"umbral": round(umbral_actual() * 100),
             "bloquear_negativos": True, "confirmar_alertas": True,
             "offline": (offline.valor == "1") if offline else True,
-            "refresco_pbi": "15 minutos",
             "version": "1.0.0", "modelo": os.getenv("MODELO", "gemini-flash-latest"),
             "idioma_voz": os.getenv("IDIOMA_VOZ", "es-CO"),
             "base_datos": "SQLite",

@@ -54,7 +54,6 @@ export default function Panel({ token, ir, tabInicial, navSeq }) {
   useEffect(() => { if (tabInicial) setTab(tabInicial); }, [tabInicial, navSeq]);
   const [resumen, setResumen] = useState(null);
   const [alertas, setAlertas] = useState(null);
-  const urlPBI = import.meta.env.VITE_POWERBI_URL;
 
   useEffect(() => {
     pedir("/api/panel/resumen", {}, token).then(setResumen).catch(() => {});
@@ -70,16 +69,15 @@ export default function Panel({ token, ir, tabInicial, navSeq }) {
                 onClick={() => setTab("resumen")}>Resumen ejecutivo</button>
         <button className={`chip ${tab === "alertas" ? "azul" : ""}`}
                 onClick={() => setTab("alertas")}>Bodegas y alertas</button>
-        {urlPBI && <span className="chip oro" style={{ marginLeft: "auto" }}>Power BI</span>}
       </div>
 
-      {tab === "resumen" && <TabResumen r={resumen} urlPBI={urlPBI} />}
+      {tab === "resumen" && <TabResumen r={resumen} />}
       {tab === "alertas" && <TabAlertas a={alertas} />}
     </Marco>
   );
 }
 
-function TabResumen({ r, urlPBI }) {
+function TabResumen({ r }) {
   const [saludo, setSaludo] = useState("");
   const yaSaludo = useRef(false);
 
@@ -173,15 +171,6 @@ function TabResumen({ r, urlPBI }) {
           Un punto por cada bodega cerrada con doble firma, en orden cronológico.
         </p>
       </div>
-
-      {urlPBI && (
-        <div className="card">
-          <h3>Informe de Power BI</h3>
-          <iframe title="Panel gerencial CuentaVoz" src={urlPBI}
-                  style={{ width: "100%", height: 460, border: 0, borderRadius: 12 }}
-                  allowFullScreen />
-        </div>
-      )}
     </>
   );
 }

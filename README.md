@@ -155,7 +155,6 @@ Permite visualizar información relacionada con:
 - Exactitud por bodega.
 - Diferencias.
 - Stock por unidad.
-- Información preparada para análisis en Power BI.
 
 ---
 

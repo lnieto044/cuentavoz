@@ -145,7 +145,7 @@ docker compose exec api python ../data/cargar_excel.py
 ```
 
 Igual: API en `:8000`, aplicación en `:5173`, PostgreSQL en `:5432`
-(para que Power BI pueda conectarse).
+(accesible desde el equipo con cualquier cliente de base de datos).
 
 ---
 
@@ -202,4 +202,4 @@ trazabilidad, límite de intentos de ingreso y tablero en vivo por WebSocket.
 
 **Falta, si le queda tiempo:** cargar el archivo oficial de recetas de
 Colsubsidio (hoy hay dos de ejemplo armadas con artículos reales del
-catálogo), y publicar el informe de Power BI para insertarlo en el menú Panel.
+catálogo).
