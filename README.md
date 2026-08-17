@@ -181,6 +181,24 @@ La interfaz de CuentaVoz utiliza un diseño responsivo que se adapta a:
 - 📱 Celulares.
 - 📲 Tablets.
 
+## 🎥 Recorrido animado por las 14 pantallas principales
+
+<sub>Cada GIF recorre el menú completo (Ingreso → Inicio → Pedidos → Conteo →
+Legalización → Bodegas → Auditoría → Reportes → Panel → Ajustes → Ayuda →
+Mensajes → Mi perfil → Cerrar sesión) real contra producción, en el ancho
+correspondiente a cada dispositivo.</sub>
+
+<table>
+<tr>
+<td width="34%" align="center"><b>💻 PC</b><br/><img src="docs/capturas/recorrido-pc.gif" width="100%" alt="Recorrido completo en PC" /></td>
+<td width="33%" align="center"><b>📲 Tablet</b><br/><img src="docs/capturas/recorrido-tablet.gif" width="100%" alt="Recorrido completo en tablet" /></td>
+<td width="33%" align="center"><b>📱 Celular</b><br/><img src="docs/capturas/recorrido-movil.gif" width="100%" alt="Recorrido completo en celular" /></td>
+</tr>
+</table>
+
+<details>
+<summary><b>📸 Ver cada pantalla como foto fija</b> (para revisar el detalle de una vista puntual, en vez del recorrido animado)</summary>
+
 ---
 
 # 💻 Vista tablet
@@ -342,6 +360,8 @@ Esto permite aprovechar mejor el espacio disponible en teléfonos.
 </div>
 
 > 📱 **Diseño responsive real:** la interfaz adapta navegación, contenidos y controles al tamaño de pantalla.
+
+</details>
 
 ---
 
