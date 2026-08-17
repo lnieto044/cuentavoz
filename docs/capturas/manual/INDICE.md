@@ -5,7 +5,7 @@ contra producción (`https://cuentavoz.onrender.com`), con datos reales de
 la demo — ninguna es un mockup ni tiene datos inventados. Cada imagen está
 recortada a su alto real de contenido (sin recortes a mitad de pantalla).
 
-Son 53 capturas en total (14 vistas de menú + 39 sub-pantallas, pestañas
+Son 59 capturas en total (14 vistas de menú + 45 sub-pantallas, pestañas
 y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 
 - **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
@@ -73,11 +73,16 @@ y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 | `conteo-sin-conexion.png` | **Conteo** → bodega abierta → se pierde la conexión de red (formulario manual + cola de sincronización) | `Conteo.jsx` → `FormularioOffline` |
 | `pedido-receta.png` | **Pedidos** → se elige un plato → botón **Ver la receta** (catálogo de Colsubsidio + preparación paso a paso) | `Pedido.jsx`, estado `receta` |
 | `pedido-calculado.png` | **Pedidos** → botón **Calcular el pedido** (KPIs + tabla de insumos necesario/hay/falta, con el aviso de "Revise antes de enviar") | `Pedido.jsx`, estado `lineas`/`avisos` |
-
 | `pedido-recibo.png` | **Pedidos** → botón **Enviar pedido al almacén** (recibo con número real `PED-20260817-064325`) | `Pedido.jsx`, estado `recibo` |
 | `conteo-alerta-unidad.png` | **Conteo** → se dicta una cantidad en una unidad distinta a la del artículo (ej. litros para algo que se maneja en kilos) | `Conteo.jsx`, banner genérico (`alerta === "unidad"`, también cubre `"negativo"` e inexistente) |
 | `bodegas-sugerencia-nombre.png` | **Bodegas** → se busca en el buscador de artículos el nombre de una bodega en vez de un ingrediente | `Bodegas.jsx`, banner `consulta.sugerencia_bodega` |
 | `pedido-sin-conexion.png` | **Pedidos** → se pierde la conexión de red (no se puede calcular sin stock en vivo) | `Pedido.jsx`, banner `offline` |
+| `reportes-vista-estado-tablero.png` | **Reportes** → clic en la tarjeta *Estado del tablero* (columnas: bodega, estado) | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
+| `reportes-vista-detalle-bodega.png` | **Reportes** → clic en la tarjeta *Detalle de bodega* (columnas: artículo, unidad, bodega, contado, SD, diferencia) | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
+| `reportes-vista-analisis-archivo.png` | **Reportes** → clic en la tarjeta *Análisis de consumo* (columnas: nombre, sobra, veces, % sobrepedido) | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
+| `reportes-vista-trazabilidad.png` | **Reportes** → clic en la tarjeta *Registro de trazabilidad* (columnas: fecha, persona, acción, detalle — 390 filas reales) | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
+| `reportes-vista-diferencias.png` | **Reportes** → clic en la tarjeta *Diferencias por bodega* | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
+| `reportes-vista-consolidado.png` | **Reportes** → clic en la tarjeta *Consolidado para My Inventory* | `Reportes.jsx`, `TabConsolidado` → `previsualizar()` |
 
 **No incluidas, y por qué:**
 - **Banner "solo para administradores" en Auditoría** (`Auditoria.jsx`,
