@@ -176,9 +176,10 @@ Arquitectura preparada para despliegue mediante:
 
 La interfaz de CuentaVoz utiliza un diseño responsivo que se adapta a:
 
-- 💻 Computadores.
-- 📱 Celulares.
-- 📲 Tablets.
+
+-  📲 Tablets.
+-  📱 Celulares.
+-  💻 Computadores.
 
 ## 🎥 Recorrido animado por las 14 pantallas principales
 
@@ -188,15 +189,6 @@ Mensajes → Mi perfil → Cerrar sesión) real contra producción, en el ancho
 correspondiente a cada dispositivo.</sub>
 
 <details open>
-<summary><b>💻 Ver el recorrido en PC</b></summary>
-
-<div align="center">
-<img src="docs/capturas/recorrido-pc.gif" width="800" alt="Recorrido completo en PC" />
-</div>
-
-</details>
-
-<details>
 <summary><b>📲 Ver el recorrido en tablet</b></summary>
 
 <div align="center">
@@ -210,6 +202,15 @@ correspondiente a cada dispositivo.</sub>
 
 <div align="center">
 <img src="docs/capturas/recorrido-movil.gif" width="340" alt="Recorrido completo en celular" />
+</div>
+
+</details>
+
+<details>
+<summary><b>💻 Ver el recorrido en PC</b></summary>
+
+<div align="center">
+<img src="docs/capturas/recorrido-pc.gif" width="800" alt="Recorrido completo en PC" />
 </div>
 
 </details>
