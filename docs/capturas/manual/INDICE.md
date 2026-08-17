@@ -5,7 +5,8 @@ contra producción (`https://cuentavoz.onrender.com`), con datos reales de
 la demo — ninguna es un mockup ni tiene datos inventados. Cada imagen está
 recortada a su alto real de contenido (sin recortes a mitad de pantalla).
 
-Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
+Son 53 capturas en total (14 vistas de menú + 39 sub-pantallas, pestañas
+y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 
 - **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
   cada ítem de la barra lateral, más Ingreso). Ya referenciadas también
@@ -73,15 +74,20 @@ Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
 | `pedido-receta.png` | **Pedidos** → se elige un plato → botón **Ver la receta** (catálogo de Colsubsidio + preparación paso a paso) | `Pedido.jsx`, estado `receta` |
 | `pedido-calculado.png` | **Pedidos** → botón **Calcular el pedido** (KPIs + tabla de insumos necesario/hay/falta, con el aviso de "Revise antes de enviar") | `Pedido.jsx`, estado `lineas`/`avisos` |
 
+| `pedido-recibo.png` | **Pedidos** → botón **Enviar pedido al almacén** (recibo con número real `PED-20260817-064325`) | `Pedido.jsx`, estado `recibo` |
+| `conteo-alerta-unidad.png` | **Conteo** → se dicta una cantidad en una unidad distinta a la del artículo (ej. litros para algo que se maneja en kilos) | `Conteo.jsx`, banner genérico (`alerta === "unidad"`, también cubre `"negativo"` e inexistente) |
+| `bodegas-sugerencia-nombre.png` | **Bodegas** → se busca en el buscador de artículos el nombre de una bodega en vez de un ingrediente | `Bodegas.jsx`, banner `consulta.sugerencia_bodega` |
+| `pedido-sin-conexion.png` | **Pedidos** → se pierde la conexión de red (no se puede calcular sin stock en vivo) | `Pedido.jsx`, banner `offline` |
+
 **No incluidas, y por qué:**
+- **Banner "solo para administradores" en Auditoría** (`Auditoria.jsx`,
+  `!esAuditor`) — el ítem de menú está oculto para perfil auxiliar
+  (`MENU` lo filtra client-side), así que no hay ruta de navegación normal
+  para llegar a verlo.
 - **Desambiguación de producto en Pedidos** — el mismo patrón visual que
   `conteo-desambiguacion.png`, pero `Pedido.jsx` no tiene un modo "escribir
   en vez de hablar" para el nombre del insumo (solo para porciones), así
   que no hay forma de provocarla sin reconocimiento de voz real.
-- **Recibo de pedido enviado** (`Pedido.jsx`, estado `recibo`, tras el botón
-  **Enviar pedido al almacén**) — solo se puede llegar ahí completando un
-  envío real, que crearía un pedido de verdad pendiente de aprobación en
-  el servicio de hoy. No se forzó sin confirmar primero con el equipo.
 
 ## Pendiente: alerta de cantidad fuera de lo esperado
 
