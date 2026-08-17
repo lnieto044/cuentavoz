@@ -10,9 +10,9 @@ Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
 - **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
   cada ítem de la barra lateral, más Ingreso). Ya referenciadas también
   desde el README.
-- **`docs/capturas/manual/`** (esta carpeta) — las 15 sub-pantallas,
-  pestañas secundarias y modales que no aparecen en `tablet/` porque no
-  son la vista por defecto de ningún ítem del menú.
+- **`docs/capturas/manual/`** (esta carpeta) — las sub-pantallas, pestañas
+  secundarias y modales que no aparecen en `tablet/` porque no son la
+  vista por defecto de ningún ítem del menú.
 
 ## 1) Vistas de nivel de menú — `docs/capturas/tablet/`
 
@@ -54,6 +54,25 @@ Las 29 vistas se reparten en dos carpetas para no duplicar fotos iguales:
 | `legalizacion-merma.png` | **Legalización** → servicio con merma → botón **Explicar la merma** | `Legalizacion.jsx`, `<Dialogo>` `verMerma` |
 | `conteo-teclado.png` | **Conteo** → bodega abierta → botón **Teclado** ("Escribir en vez de hablar") | `Conteo.jsx`, `<Dialogo>` `mostrarTeclado` |
 | `conteo-desambiguacion.png` | **Conteo** → se dicta/escribe un artículo con nombre ambiguo (ej. «hay noventa cazuelas» → CAZUELA 16 ONZ / TAPA CAZUELA 16 ONZ) | `Conteo.jsx`, tarjetas `.opciones` |
+| `panel-bodegas-alertas.png` | **Panel** → pestaña *Bodegas y alertas* | `Panel.jsx` |
+| `bodegas-consulta.png` | **Bodegas** → se busca un artículo por nombre (ej. «arroz») | `Bodegas.jsx`, estado `consulta` |
+| `bodegas-movimientos.png` | **Bodegas** → consulta de artículo → botón **Ver movimientos** | `Bodegas.jsx`, `<Dialogo>` `movimientos` |
+| `bodegas-en-recetas.png` | **Bodegas** → consulta de artículo → botón **Comparar con la receta** | `Bodegas.jsx`, `<Dialogo>` `enRecetas` |
+| `pedido-porciones.png` | **Pedidos** → se elige un plato de "Platos con receta registrada" → confirmar porciones | `Pedido.jsx`, `<Dialogo>` `Porciones`/`Corregir cantidad` |
+| `mi-perfil-cerrar-todos.png` | **Mi perfil** → botón **Cerrar sesión en todos los dispositivos** (recortada solo al modal — el fondo mostraba el correo personal real de la cuenta) | `MiPerfil.jsx`, `<Dialogo>` `confirmarCierre` |
+| `ayuda-reportar-problema.png` | **Ayuda** → botón **Reportar un problema** | `Ayuda.jsx`, `<Dialogo>` `pedirDetalle` |
+| `ayuda-escribir-admin.png` | **Ayuda** → botón **Escribirle al administrador** (solo visible para perfil auxiliar — capturada como `luis`, no como `diana`) | `Ayuda.jsx`, `<Dialogo>` `escribiendoAdmin` |
+| `mensajes-responder.png` | **Mensajes** → botón **Responder** de un mensaje | `Mensajes.jsx`, `<Dialogo>` `respondiendoId` |
+| `legalizacion-ajustar-voz.png` | **Legalización** → botón **Ajustar por voz** | `Legalizacion.jsx`, `<Dialogo>` `pedirAjuste` |
+| `auditoria-alerta-detalle.png` | **Auditoría** → *Bandeja de alertas* → botón **Ver** de una alerta | `Auditoria.jsx`, `<Dialogo>` `verDetalle` (dentro de `TabAlertas`) |
+| `auditoria-teclado.png` | **Auditoría** → recuento ciego activo → botón **Teclado** | `Auditoria.jsx`, `<Dialogo>` `mostrarDictado` |
+| `conteo-crear-producto.png` | **Conteo** → se dicta un artículo que no existe en el catálogo (ej. «hay noventa alicornios voladores») | `Conteo.jsx` → `FormularioCrearProducto` |
+
+**No incluidas, y por qué:**
+- **Desambiguación de producto en Pedidos** — el mismo patrón visual que
+  `conteo-desambiguacion.png`, pero `Pedido.jsx` no tiene un modo "escribir
+  en vez de hablar" para el nombre del insumo (solo para porciones), así
+  que no hay forma de provocarla sin reconocimiento de voz real.
 
 ## Pendiente: alerta de cantidad fuera de lo esperado
 
