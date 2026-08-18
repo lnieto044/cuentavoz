@@ -3,7 +3,7 @@ sobre la misma base que usa el resto de la aplicación — una sola fuente."""
 from datetime import datetime
 from bd import Sesion
 from modelos import (Bodega, Articulo, StockSistema, SesionConteo, Conteo,
-                     Alerta, AliasArticulo, HistorialCierre, ConfigClave)
+                     Alerta, AliasArticulo, HistorialCierre, ConfigClave, Aprobacion)
 
 
 def _config(clave: str, defecto: str) -> str:
@@ -66,6 +66,16 @@ def descuadres_recurrentes(limite: int = 5) -> list[dict]:
     """Un artículo con diferencia en más de una toma: ahí está la causa raíz."""
     with Sesion() as s:
         arts = {a.codigo: a.nombre_oficial for a in s.query(Articulo).all()}
+        # un articulo "PEND-..." ya aprobado o rechazado conserva ese mismo
+        # codigo para siempre (nunca se reemplaza por uno oficial al
+        # aprobarlo) - el prefijo solo no basta para saber si de verdad
+        # sigue pendiente; sin este chequeo, uno ya aprobado hace rato
+        # seguia sugiriendo "Crear en catálogo oficial" como si nunca se
+        # hubiera resuelto.
+        pendientes_de_verdad = {a.articulo_codigo for a in
+                                s.query(Aprobacion).filter_by(
+                                    tipo="producto", estado="pendiente").all()
+                                if a.articulo_codigo}
         por_articulo = {}
         conteos = (s.query(Conteo).join(SesionConteo)
                    .filter(Conteo.estado == "confirmado").all())
@@ -93,7 +103,7 @@ def descuadres_recurrentes(limite: int = 5) -> list[dict]:
             "diferencia": round(d["dif"], 1),
             "tomas": len(d["tomas"]),
             "accion": "Revisar salidas sin entrada" if d["negativo"]
-                      else "Crear en catálogo oficial" if cod.startswith("PEND")
+                      else "Crear en catálogo oficial" if cod in pendientes_de_verdad
                       else "Ajustar el saldo del sistema",
         })
     salida.sort(key=lambda x: -abs(x["diferencia"]))
