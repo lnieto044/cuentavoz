@@ -34,6 +34,7 @@ export default function MiPerfil({ token, ir }) {
   const [err, setErr] = useState("");
   const [fotoUrl, setFotoUrl] = useState(null);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
+  const [confirmarEliminarHuella, setConfirmarEliminarHuella] = useState(false);
   const [hayLector, setHayLector] = useState(false);
   const [voces, setVoces] = useState([]);
 
@@ -126,9 +127,13 @@ export default function MiPerfil({ token, ir }) {
   async function eliminarHuella() {
     setErr(""); setMsg("");
     try {
+      // el backend borra TODAS las credenciales del usuario, no solo la de
+      // este equipo (no hay forma hoy de distinguir cual credencial es
+      // "este dispositivo") - el texto y el mensaje reflejan eso, en vez
+      // de prometer un alcance mas angosto del que de verdad tiene.
       await pedir("/api/usuarios/yo/huella", { method: "DELETE" }, token);
       setDatos({ ...datos, huella_registrada: false });
-      setMsg("Huella eliminada de este dispositivo.");
+      setMsg("Huella eliminada de todos los dispositivos donde la había registrado.");
     } catch (e) { setErr(e.message); }
   }
   async function cerrarTodas() {
@@ -251,8 +256,8 @@ export default function MiPerfil({ token, ir }) {
 
           <div className="grilla-botones" style={{ marginTop: 10 }}>
             {datos.huella_registrada ? (
-              <button className="btn gris" onClick={eliminarHuella}>
-                ✓ Huella registrada — quitar de este dispositivo
+              <button className="btn gris" onClick={() => setConfirmarEliminarHuella(true)}>
+                ✓ Huella registrada — quitar de todos los dispositivos
               </button>
             ) : (
               <button className="btn borde" onClick={registrarHuella} disabled={!hayLector}>
@@ -336,6 +341,14 @@ export default function MiPerfil({ token, ir }) {
                  textoAceptar="Cerrar todas" peligro
                  onAceptar={() => { setConfirmarCierre(false); cerrarTodas(); }}
                  onCancelar={() => setConfirmarCierre(false)} />
+      )}
+
+      {confirmarEliminarHuella && (
+        <Dialogo titulo="Quitar la huella de todos los dispositivos"
+                 mensaje="Esto elimina TODAS las huellas que haya registrado, no solo la de este equipo (hoy no hay forma de distinguirlas). Para volver a ingresar con huella en cualquier dispositivo, tendrá que registrarla de nuevo. ¿Continuar?"
+                 textoAceptar="Quitar todas" peligro
+                 onAceptar={() => { setConfirmarEliminarHuella(false); eliminarHuella(); }}
+                 onCancelar={() => setConfirmarEliminarHuella(false)} />
       )}
     </Marco>
   );
