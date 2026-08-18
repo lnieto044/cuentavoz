@@ -5,7 +5,7 @@ contra producción (`https://cuentavoz.onrender.com`), con datos reales de
 la demo — ninguna es un mockup ni tiene datos inventados. Cada imagen está
 recortada a su alto real de contenido (sin recortes a mitad de pantalla).
 
-Son 59 capturas en total (14 vistas de menú + 45 sub-pantallas, pestañas
+Son 61 capturas en total (14 vistas de menú + 47 sub-pantallas, pestañas
 y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 
 - **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
@@ -64,6 +64,8 @@ y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 | `ayuda-reportar-problema.png` | **Ayuda** → botón **Reportar un problema** | `Ayuda.jsx`, `<Dialogo>` `pedirDetalle` |
 | `ayuda-escribir-admin.png` | **Ayuda** → botón **Escribirle al administrador** (solo visible para perfil auxiliar — capturada como `luis`, no como `diana`) | `Ayuda.jsx`, `<Dialogo>` `escribiendoAdmin` |
 | `mensajes-responder.png` | **Mensajes** → botón **Responder** de un mensaje | `Mensajes.jsx`, `<Dialogo>` `respondiendoId` |
+| `mensajes-enviado-por-auxiliar.png` | **Mensajes** → bandeja de un auxiliar tras enviarle un mensaje real al administrador (envío real de principio a fin) | `Mensajes.jsx`, vista `MIS MENSAJES` |
+| `correo-recibido-mensaje-admin.png` | El correo real que le llega al administrador cuando un auxiliar usa **Escribirle al administrador** (contenido verbatim del mensaje efectivamente recibido, vía Brevo/EmailJS) | `backend/main.py` → `_enviar_correo_real`, `frontend/src/correoAdmin.js` |
 | `legalizacion-ajustar-voz.png` | **Legalización** → botón **Ajustar por voz** | `Legalizacion.jsx`, `<Dialogo>` `pedirAjuste` |
 | `auditoria-alerta-detalle.png` | **Auditoría** → *Bandeja de alertas* → botón **Ver** de una alerta | `Auditoria.jsx`, `<Dialogo>` `verDetalle` (dentro de `TabAlertas`) |
 | `auditoria-teclado.png` | **Auditoría** → recuento ciego activo → botón **Teclado** | `Auditoria.jsx`, `<Dialogo>` `mostrarDictado` |
