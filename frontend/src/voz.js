@@ -173,19 +173,40 @@ async function hablarConNeuronal(texto, miGeneracion) {
   URL.revokeObjectURL(url);
 }
 
-// Tope de seguridad: ninguna frase de esta app tarda tanto en decirse.
-// Sin esto, si el navegador alguna vez no dispara "ended"/"onend" (se ha
-// visto en algunos Chrome tras minimizar la pestaña, y en entornos sin
-// salida de audio real), hablar() quedaría esperando para siempre y el
+// Tope de seguridad: si el navegador alguna vez no dispara "ended"/"onend"
+// (se ha visto en algunos Chrome tras minimizar la pestaña, y en entornos
+// sin salida de audio real), hablar() quedaría esperando para siempre y el
 // micrófono que depende de "await hablar()" nunca llegaría a abrirse.
-const TOPE_HABLAR_MS = 12000;
+//
+// Un numero fijo no alcanza: "Hay varias: <hasta 6 bodegas>. ¿Cuál de
+// todas?" (Conteo.jsx, cuando el nombre dictado es ambiguo) puede pasar
+// facil los 200 caracteres con nombres reales del catalogo - a un ritmo
+// de lectura normal eso son 15-20 segundos, mas que un limite fijo de 12s
+// pensado para frases cortas. Con el limite fijo, esa frase se cortaba a
+// medias: la promesa de hablar() se resolvia con el audio TODAVIA
+// sonando, y el microfono que se abre justo despues terminaba
+// "escuchando" la cola de la propia voz del agente como si fuera la
+// respuesta de la persona. El tope ahora escala con el largo del texto
+// (y con que tan lenta este la voz elegida en Mi perfil), con un piso
+// para frases cortas y un techo para no esperar para siempre si el audio
+// de verdad se atasco.
+const TOPE_HABLAR_MS_PISO = 12000;
+const TOPE_HABLAR_MS_TECHO = 40000;
+
+function _topeHablar(texto) {
+  // ~12 caracteres por segundo es una lectura pausada y generosa (cubre
+  // voces mas lentas que el promedio); /tasaActual porque una voz "lenta"
+  // (0.82x) de verdad tarda mas en decir lo mismo que una "rapida" (1.3x).
+  const estimado = (texto.length / 12) * 1000 / tasaActual;
+  return Math.min(TOPE_HABLAR_MS_TECHO, Math.max(TOPE_HABLAR_MS_PISO, estimado));
+}
 
 /** Habla el texto y devuelve una promesa que se resuelve cuando termina
-    de decirlo (o, como mucho, a los TOPE_HABLAR_MS). Casi todo el código
-    la llama "al aire" (sin await) y eso sigue funcionando igual; quien
-    necesite escuchar() justo después de preguntar algo sí debe
-    esperarla, o el micrófono arranca mientras todavía se está hablando y
-    se pierde parte de la respuesta. */
+    de decirlo (o, como mucho, al tope de seguridad calculado para ese
+    texto). Casi todo el código la llama "al aire" (sin await) y eso sigue
+    funcionando igual; quien necesite escuchar() justo después de
+    preguntar algo sí debe esperarla, o el micrófono arranca mientras
+    todavía se está hablando y se pierde parte de la respuesta. */
 export function hablar(texto, { forzar = false } = {}) {
   if (!texto) return Promise.resolve();
   if (!forzar && !confirmacionHablada) return Promise.resolve();
@@ -195,7 +216,7 @@ export function hablar(texto, { forzar = false } = {}) {
     .catch(() => { if (miGeneracion === generacion) return hablarConNavegador(texto); });
   return Promise.race([
     intento,
-    new Promise((resolve) => setTimeout(resolve, TOPE_HABLAR_MS)),
+    new Promise((resolve) => setTimeout(resolve, _topeHablar(texto))),
   ]);
 }
 

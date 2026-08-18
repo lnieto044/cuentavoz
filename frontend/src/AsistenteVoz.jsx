@@ -97,7 +97,15 @@ export default function AsistenteVoz({ token, vista, ir, placeholder, alActualiz
         window.dispatchEvent(new CustomEvent(`cuentavoz:accion:${r.accion}`, { detail: r }));
       }
     } catch (e) {
+      // todo lo que el agente muestra en pantalla tambien lo dice en voz -
+      // este catch se quedaba solo en rojo, distinto de como ya se
+      // corrigio el mismo patron en Conteo, Pedido, Legalizacion,
+      // Auditoria, Ajustes, Ayuda y Mensajes. Como este es el componente
+      // compartido de Inicio, Mi perfil, Ajustes, Auditoria, Panel y
+      // Reportes, era el hueco mas grande: cubria seis pantallas de una
+      // sola vez.
       setError(e.message);
+      hablar(e.message);
     }
     setPensando(false);
   }

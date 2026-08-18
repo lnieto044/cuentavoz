@@ -20,7 +20,11 @@ export default function BarraLateral({ activo, usuario, token, onNavegar }) {
           if (prev) URL.revokeObjectURL(prev);
           return b ? URL.createObjectURL(b) : null;
         }))
-        .catch(() => setFotoUrl(null));
+        // mismo camino que el then() de arriba (revoca la URL anterior
+        // antes de reemplazarla) - un fallo de red aqui no debe quedarse
+        // con el blob viejo vivo para siempre solo porque este intento
+        // en particular no llego a nada.
+        .catch(() => setFotoUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; }));
     }
     cargar();
     window.addEventListener("cuentavoz:foto-actualizada", cargar);
