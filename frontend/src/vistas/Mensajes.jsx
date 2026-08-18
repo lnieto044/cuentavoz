@@ -51,7 +51,7 @@ export default function Mensajes({ token, usuario }) {
       setMsg(listo);
       hablar(listo);
       cargar();
-    } catch (e) { setMsg(e.message); }
+    } catch (e) { setMsg(e.message); hablar(e.message); }
     setEnviandoRespuesta(false);
   }
 
@@ -69,7 +69,14 @@ export default function Mensajes({ token, usuario }) {
     const encontrado = listaPendientes.find(
       (m) => m.de && t.includes(quitarTildes(m.de.toLowerCase())));
     if (!encontrado) return { mensaje: null, texto: null };
-    const patron = new RegExp(`^.*?\\b${encontrado.de}\\b\\s*(que|:)?\\s*`, "i");
+    // el nombre de quien escribió no tiene restricción de caracteres al
+    // crear el usuario en Ajustes - sin escapar los que son especiales en
+    // una expresión regular (paréntesis, corchetes...), un nombre con uno
+    // sin su pareja ("Juan (temporal") tumbaba esto con una excepción sin
+    // capturar y la respuesta por voz se quedaba sin funcionar, sin
+    // ningún aviso de qué pasó.
+    const nombreEscapado = encontrado.de.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const patron = new RegExp(`^.*?\\b${nombreEscapado}\\b\\s*(que|:)?\\s*`, "i");
     const textoFinal = texto.replace(patron, "").trim() || texto.trim();
     return { mensaje: encontrado, texto: textoFinal };
   }

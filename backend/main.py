@@ -4463,6 +4463,13 @@ def responder_mensaje_soporte(mensaje_id: int, body: dict, u: Usuario = Depends(
         m = s.get(MensajeSoporte, mensaje_id)
         if not m or m.destinatario_id != u.id:
             raise HTTPException(404, "Ese mensaje no existe o no es suyo para responder.")
+        if m.respuesta is not None:
+            # sin este chequeo, dos respuestas al mismo mensaje (un doble
+            # clic, un reintento de red, dos pestañas abiertas) pisaban la
+            # respuesta anterior en silencio - la persona que ya la había
+            # leído (o recibido por correo) se quedaba sin saber que
+            # cambió, y se mandaba un segundo correo real de mas.
+            raise HTTPException(409, "Ese mensaje ya fue respondido.")
         m.respuesta = respuesta
         m.respondido = ahora()
         s.commit()
