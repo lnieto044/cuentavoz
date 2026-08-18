@@ -1685,7 +1685,13 @@ def _resolver_ambiguedad_pendiente(texto: str, u: Usuario) -> dict | None:
 
 def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
     """"Elimina la receta <nombre>" - determinístico, busca por nombre
-    completo entre las recetas existentes, igual que aprobaciones."""
+    completo entre las recetas existentes, igual que aprobaciones. NUNCA
+    borra en el mismo turno que se pide: pregunta primero y solo borra si
+    el siguiente turno confirma (ver _resolver_confirmacion_eliminar_receta)
+    - es una acción irreversible (se lleva también los ingredientes) y un
+    "elimina la receta X" mal escuchado, o una intención mal adivinada por
+    Gemini, no debe bastar para borrarla sin confirmación explícita, igual
+    que ya exige el botón equivalente en pantalla (window.confirm)."""
     if u.perfil != "auditor":
         return None
     m = _ELIMINAR_RECETA.search(texto.strip())
@@ -1696,10 +1702,45 @@ def _eliminar_receta_por_voz(texto: str, u: Usuario) -> dict | None:
         if not r:
             return None
         rid, nombre = r.id, r.nombre
-        s.query(RecetaIngrediente).filter_by(receta_id=rid).delete()
+    _PENDIENTE_AMBIGUEDAD[u.id] = {"tipo": "eliminar_receta", "receta_id": rid,
+                                   "nombre": nombre, "ts": ahora()}
+    return {"respuesta_hablada": f"¿Confirma que elimina la receta {nombre}? "
+                                 "Esta acción no se puede deshacer.",
+            "accion": None, "destino": None, "pestana": None}
+
+
+def _resolver_confirmacion_eliminar_receta(texto: str, u: Usuario) -> dict | None:
+    """El sí/no al "¿confirma que elimina la receta X?" de arriba. Se
+    revisa ANTES que cualquier otra orden de esta pantalla: un "sí" o un
+    "no" sueltos no deben caer en ningún otro reconocedor mientras esta
+    confirmación sigue pendiente."""
+    pendiente = _PENDIENTE_AMBIGUEDAD.get(u.id)
+    if not pendiente or pendiente.get("tipo") != "eliminar_receta":
+        return None
+    if (ahora() - pendiente["ts"]).total_seconds() > _VENCIMIENTO_AMBIGUEDAD:
+        del _PENDIENTE_AMBIGUEDAD[u.id]
+        return None
+    t = texto.lower()
+    palabras = t.replace(",", " ").replace(".", " ").split()
+    dice_si = (any(p in ("si", "sí", "claro", "listo", "dale", "correcto", "confirmo") for p in palabras)
+               or "confirmo" in t or "así es" in t or "asi es" in t)
+    dice_no = "no" in palabras or "mejor no" in t or "cancela" in t
+    if not (dice_si or dice_no):
+        return None
+    del _PENDIENTE_AMBIGUEDAD[u.id]
+    if dice_no:
+        return {"respuesta_hablada": f"Entendido, no elimino la receta {pendiente['nombre']}.",
+                "accion": None, "destino": None, "pestana": None}
+    with Sesion() as s:
+        r = s.get(Receta, pendiente["receta_id"])
+        if r is None:
+            return {"respuesta_hablada": "Esa receta ya no existe.",
+                    "accion": None, "destino": None, "pestana": None}
+        nombre = r.nombre
+        s.query(RecetaIngrediente).filter_by(receta_id=r.id).delete()
         s.delete(r)
         s.commit()
-    registrar(u, "RECETA", f"Receta eliminada: {nombre} por voz", "ok")
+    registrar(u, "RECETA", f"Receta eliminada: {nombre} por voz (confirmada)", "ok")
     return {"respuesta_hablada": f"Listo, eliminé la receta {nombre}.",
             "accion": "actualizar", "destino": None, "pestana": None}
 
@@ -2141,6 +2182,14 @@ def _resolver_asistente(vista: str, texto: str, u: Usuario) -> dict:
                     "accion": "navegar", "destino": "conteo", "pestana": None,
                     "bodega": bodega.nombre_oficial}
     if vista == "ajustes":
+        # el sí/no a "¿confirma que elimina la receta X?" tiene prioridad
+        # sobre cualquier otra cosa: mientras esa confirmación siga
+        # pendiente, un "sí" o un "no" sueltos son la respuesta a ESO, no
+        # una orden nueva - revisarlo antes evita que caiga en otro
+        # reconocedor de la cadena de abajo.
+        confirmacion = _resolver_confirmacion_eliminar_receta(texto, u)
+        if confirmacion:
+            return confirmacion
         # identidad (no solo presencia) de lo que había pendiente ANTES
         # de este turno - crear_receta/agregar_ingrediente pueden dejar
         # una ambigüedad NUEVA en el mismo turno (cambio ya sale
@@ -3514,11 +3563,22 @@ def obtener_receta(receta_id: int, u: Usuario = Depends(usuario_actual)):
 def _validar_ingredientes(s, ingredientes):
     if not ingredientes:
         raise HTTPException(400, "La receta necesita al menos un ingrediente.")
+    vistos = set()
     for ing in ingredientes:
-        if s.get(Articulo, ing.articulo_codigo) is None:
+        art = s.get(Articulo, ing.articulo_codigo)
+        if art is None:
             raise HTTPException(400, f"El artículo {ing.articulo_codigo} no existe en el catálogo.")
         if ing.cantidad_por_porcion <= 0:
             raise HTTPException(400, "La cantidad por porción debe ser mayor que cero.")
+        # el mismo articulo en dos lineas de la receta no se suma solo: el
+        # editor no impide elegirlo dos veces por error, y calcular_pedido
+        # terminaba mostrando dos filas separadas del mismo insumo (con el
+        # mismo codigo, lo que ademas rompe la key de React en la tabla) en
+        # vez de una sola cantidad combinada.
+        if ing.articulo_codigo in vistos:
+            raise HTTPException(400, f"«{art.nombre_oficial}» está repetido en la receta: "
+                                     "combine las cantidades en una sola línea.")
+        vistos.add(ing.articulo_codigo)
 
 
 @app.post("/api/recetas")

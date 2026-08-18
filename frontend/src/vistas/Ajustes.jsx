@@ -935,7 +935,7 @@ function TabTraza({ token }) {
       const texto = `Encontré ${filas.length} acciones${partes.length ? " " + partes.join(" ") : ""} ${etiquetaRango}.`;
       setMsg(texto);
       hablar(texto);
-    } catch (e) { setMsg(e.message); }
+    } catch (e) { setMsg(e.message); hablar(e.message); }
   }
 
   // El cuadro "Pregúntele al agente" (arriba de las pestañas) es el
