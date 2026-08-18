@@ -89,7 +89,12 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
       setListo(true);
       hablar("Legalización confirmada. El sobrante volvió a la bodega y la merma quedó registrada.");
     } catch (e) {
+      // todo lo que el agente muestra tambien lo dice en voz - aqui la
+      // persona acaba de decir "sí" o tocar el botón esperando una
+      // confirmación hablada, y un fallo que solo se ve en rojo se pierde
+      // si no está mirando la pantalla.
       setErr(e.message);
+      hablar(e.message);
     }
   }
 
@@ -110,6 +115,7 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
       hablar(msg);
     } catch (e) {
       setErr(e.message);
+      hablar(e.message);
     }
   }
 

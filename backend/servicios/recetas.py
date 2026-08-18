@@ -86,14 +86,31 @@ def detalle_receta(preparacion: str) -> dict:
             "faltantes_catalogo": faltantes}
 
 
+def _filas_a_legalizar(s, servicio_id: int):
+    """Las lineas "abierto" de un servicio pueden venir de mas de un
+    pedido (dos platos distintos pedidos el mismo dia, ninguno legalizado
+    todavia) - mezclarlas todas en una sola comparacion duplicaba
+    articulos compartidos entre platos (ej. papa criolla en ajiaco Y en
+    sancocho) bajo el nombre de uno solo, sin avisar que en realidad eran
+    dos pedidos distintos. Se legaliza un pedido a la vez, empezando por
+    el mas reciente; el resto espera su turno para la proxima vez que se
+    entre a Legalizacion."""
+    filas = s.query(LineaServicio).filter_by(
+        servicio_id=servicio_id, estado="abierto").all()
+    numeros = [f.numero_pedido for f in filas if f.numero_pedido]
+    if numeros:
+        mas_reciente = max(numeros)
+        filas = [f for f in filas if f.numero_pedido == mas_reciente]
+    return filas
+
+
 def comparar_legalizacion(servicio_id: int) -> dict:
     """Lo pedido contra lo usado, con la lectura en palabras. Solo lo que
     sigue abierto: si ya se legalizo antes (el servicio de ejemplo, u otro
     pedido con el mismo numero de servicio) no debe mezclarse aqui ni
     volver a legalizarse por accidente."""
     with Sesion() as s:
-        filas = s.query(LineaServicio).filter_by(
-            servicio_id=servicio_id, estado="abierto").all()
+        filas = _filas_a_legalizar(s, servicio_id)
         lineas = []
         for l in filas:
             dif = round((l.usado or 0) - (l.pedido or 0), 3)

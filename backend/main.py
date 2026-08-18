@@ -34,7 +34,7 @@ from seguridad import (hash_clave, verificar_clave, crear_token,
                        usuario_actual, requiere_perfil, registrar)
 from agente.orquestador import procesar_turno, ESTADOS, avance
 from servicios.recetas import (calcular_pedido, comparar_legalizacion,
-                               analisis_consumo, detalle_receta)
+                               analisis_consumo, detalle_receta, _filas_a_legalizar)
 from servicios.validacion import umbral_actual, validar_conteo
 from servicios import analitica, huella
 from servicios.interprete import _numero as _numero_de_texto
@@ -3375,7 +3375,11 @@ def api_confirmar(body: dict, u: Usuario = Depends(usuario_actual)):
     # exigir un "/legalizacion/ajustar" por cada insumo antes de cerrar.
     usos = {item.get("codigo"): item.get("usado") for item in body.get("usos", [])}
     with Sesion() as s:
-        for l in s.query(LineaServicio).filter_by(servicio_id=sid, estado="abierto").all():
+        # solo el pedido que de verdad se le mostro a la persona (el mas
+        # reciente) - si hubiera otro pedido distinto todavia abierto para
+        # este servicio, sigue esperando su propio turno, no se legaliza
+        # de arrastre solo porque comparte servicio_id.
+        for l in _filas_a_legalizar(s, sid):
             if l.articulo_codigo in usos and usos[l.articulo_codigo] is not None:
                 l.usado = usos[l.articulo_codigo]
             dif = (l.usado or 0) - (l.pedido or 0)
@@ -3407,7 +3411,10 @@ def api_ajustar_legalizacion(body: dict, u: Usuario = Depends(usuario_actual)):
         raise HTTPException(400, "No entendí la cantidad. ¿Me la repite?")
     palabras = [p for p in articulo_texto.split() if len(p) >= 3]
     with Sesion() as s:
-        filas = s.query(LineaServicio).filter_by(servicio_id=sid, estado="abierto").all()
+        # mismo alcance que comparar_legalizacion/confirmar: solo el
+        # pedido mas reciente, no cualquier otro que siga abierto para
+        # este servicio.
+        filas = _filas_a_legalizar(s, sid)
         objetivo = next((f for f in filas
                          if any(p in f.nombre.upper() for p in palabras)), None)
         if objetivo is None:
