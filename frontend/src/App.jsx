@@ -61,7 +61,12 @@ export default function App() {
   // aunque ya se hubiera identificado antes en este mismo equipo.
   const [sesion, setSesion] = useState(() => leerSesion());
   const [vista, setVista] = useState("inicio");
-  const [ctx, setCtx] = useState({ sesionId: 1 });
+  // Antes de abrir una bodega no hay todavia un id real de sesion de
+  // conteo (ver Conteo.jsx) - un marcador de posicion fijo (antes: 1 para
+  // todo el mundo) hacia que dos personas sin ninguna bodega abierta
+  // todavia pudieran mezclar su conversacion pendiente. Uno por usuario,
+  // igual que ya hace Pedido.jsx con el suyo.
+  const [ctx, setCtx] = useState(() => ({ sesionId: -2000 - (sesion?.usuario?.id || 0) }));
   const [salir, setSalir] = useState(false);
   const [avisoSesion, setAvisoSesion] = useState("");
 
@@ -95,6 +100,15 @@ export default function App() {
     navSeq.current += 1;
     setCtx((c) => ({ ...c, ...contexto, navSeq: navSeq.current }));
     setVista(destino);
+  }
+
+  /** Conteo.jsx la llama apenas abre (o retoma) una bodega, con el id real
+      que le devuelve el backend - así CerrarSesion (que vive fuera de
+      Conteo, en la barra lateral) pregunta por el avance de la sesión que
+      de verdad está abierta, no por el marcador de posición de antes de
+      abrir nada. */
+  function alAbrirBodega(sesionId) {
+    setCtx((c) => ({ ...c, sesionId }));
   }
 
   if (!sesion)
@@ -147,6 +161,7 @@ export default function App() {
           usuario={sesion.usuario}
           {...ctx}
           ir={ir}
+          alAbrirBodega={alAbrirBodega}
         />
       </div>
 

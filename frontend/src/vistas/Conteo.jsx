@@ -49,7 +49,7 @@ const ETIQUETA_BODEGA = {
   en_auditoria: ["EN AUDITORÍA", "oro"], cerrada: ["CERRADA", "verde"],
 };
 
-export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerida }) {
+export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, alAbrirBodega }) {
   const [bodega, setBodega] = useState(null);
   const [asignadas, setAsignadas] = useState(null);
   const [todas, setTodas] = useState(null);
@@ -181,6 +181,13 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
     try {
       const r = await abrirBodega(nombre, token);
       setBodega(r);
+      // De aquí en adelante la conversación (dictar, confirmar, corregir,
+      // el avance) debe usar el id real de esta sesión de conteo, no el
+      // marcador de posición con el que se llegó a esta pantalla - sin
+      // esto, dos personas abriendo bodegas distintas casi al tiempo
+      // terminaban compartiendo la misma conversación y el conteo de una
+      // se guardaba contra la bodega de la otra.
+      alAbrirBodega?.(r.sesion_id);
       const saludo = `Listo, ${r.bodega.toLowerCase()} abierta con ${r.referencias} referencias. Dícteme el primer producto.`;
       setRespuesta(saludo);
       hablar(saludo);
@@ -281,6 +288,10 @@ export default function Conteo({ token, sesionId = 1, ir, usuario, bodegaSugerid
       if (t.guardado || t.corregido || t.bodega) refrescar();
       if (t.bodega) {
         setBodega({ bodega: t.bodega.nombre, referencias: t.bodega.referencias, bodega_id: t.bodega.id });
+        // igual que al abrir por el botón: de aquí en adelante hay que
+        // hablar con el id real de esta sesión de conteo, no con el
+        // marcador de posición con el que se pidió abrir por voz.
+        if (t.sesion_id) alAbrirBodega?.(t.sesion_id);
       }
       if (t.intencion === "crear") {
         setCrear({ nombre: t.articulo_texto || texto, unidad_medida: "Unidad",

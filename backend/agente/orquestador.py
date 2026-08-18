@@ -516,15 +516,25 @@ def _completar_apertura(s, b, est, usuario):
         s.commit()
         s.refresh(ses)
     refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
-    est["bodega_id"] = b.id
-    est["bodega_nombre"] = b.nombre_oficial
-    est["sesion_bd"] = ses.id
     nombre = b.nombre_oficial
+    # La conversacion de aqui en adelante (dictar cantidades, confirmar,
+    # corregir, el avance) debe vivir en ESTADOS[ses.id] - el id real de
+    # ESTA sesion de conteo -, no en el sesion_id "de marcador de posicion"
+    # con el que se pidio abrir. Antes esto solo actualizaba el "est" de
+    # ese marcador (compartido por app-lifetime entre TODO el mundo,
+    # /api/agente/turno siempre lo manda como 1): si otra persona abria
+    # otra bodega casi al mismo tiempo, quien escribiera despues "ganaba"
+    # el mismo est compartido y el conteo de la primera persona terminaba
+    # guardandose contra la bodega de la segunda (o contra una sesion de
+    # conteo vieja de otro dia, sin relacion con ninguna de las dos).
+    ESTADOS.setdefault(ses.id, {}).update(
+        {"bodega_id": b.id, "bodega_nombre": nombre, "sesion_bd": ses.id})
     if usuario:
         registrar(usuario, "APERTURA", f"{nombre} abierta - sesion bloqueada")
     return {"respuesta_hablada": (f"Listo, {nombre.lower()} abierta con "
                                   f"{refs} referencias. Dícteme el primer producto."),
-            "bodega": {"id": b.id, "nombre": nombre, "referencias": refs}}
+            "bodega": {"id": b.id, "nombre": nombre, "referencias": refs},
+            "sesion_id": ses.id}
 
 
 def _confirmar_abrir_bodega(est, usuario):
