@@ -213,7 +213,12 @@ export default function Pedido({ token, usuario, ir }) {
     try {
       const r = await pedir(`/api/pedidos/receta?plato=${encodeURIComponent(pl)}`, {}, token);
       if (!r.lineas) {
-        setErr(`No encontré una receta para «${pl}». Pruebe con ajiaco o sancocho.`);
+        // todo lo que el agente muestra en pantalla también lo dice en voz -
+        // esto se quedaba solo en rojo, así que alguien sin mirar la
+        // pantalla no se enteraba de que la receta no se encontró.
+        const msg = `No encontré una receta para «${pl}». Pruebe con ajiaco o sancocho.`;
+        setErr(msg);
+        hablar(msg);
         return;
       }
       setReceta(r);
@@ -222,6 +227,7 @@ export default function Pedido({ token, usuario, ir }) {
       }
     } catch (e) {
       setErr(e.message);
+      hablar(e.message);
     }
   }
 
@@ -414,6 +420,7 @@ export default function Pedido({ token, usuario, ir }) {
       verReceta(pl);
     } catch (e) {
       setErr(e.message);
+      hablar(e.message);
     }
   }
 
@@ -439,6 +446,7 @@ export default function Pedido({ token, usuario, ir }) {
       setRecibo(r);
     } catch (e) {
       setErr(e.message);
+      hablar(e.message);
     }
   }
 

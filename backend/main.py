@@ -16,6 +16,7 @@ load_dotenv()
 
 from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
                      HTTPException, UploadFile, File, Request)
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
@@ -268,13 +269,19 @@ class TurnoIn(BaseModel):
 
 @app.post("/api/agente/turno")
 async def turno(t: TurnoIn, u: Usuario = Depends(usuario_actual)):
-    r = procesar_turno(t.texto, t.sesion_id, u,
-                       opciones_respaldo=t.opciones_pendientes,
-                       opciones_para_respaldo=t.opciones_para,
-                       bodega_id_respaldo=t.bodega_id_respaldo,
-                       bodega_nombre_respaldo=t.bodega_nombre_respaldo,
-                       preparacion_respaldo=t.preparacion_respaldo,
-                       porciones_respaldo=t.porciones_respaldo)
+    # procesar_turno() es sincrono y llama a Gemini (pensar()), que puede
+    # tardar varios segundos - llamarlo directo aqui (una ruta async def)
+    # bloqueaba TODO el event loop mientras tanto: cualquier otra peticion,
+    # de cualquier otra persona, a cualquier endpoint (hasta /api/salud) se
+    # quedaba esperando. run_in_threadpool lo saca del hilo principal para
+    # que el resto de la aplicacion siga respondiendo mientras Gemini piensa.
+    r = await run_in_threadpool(procesar_turno, t.texto, t.sesion_id, u,
+                                opciones_respaldo=t.opciones_pendientes,
+                                opciones_para_respaldo=t.opciones_para,
+                                bodega_id_respaldo=t.bodega_id_respaldo,
+                                bodega_nombre_respaldo=t.bodega_nombre_respaldo,
+                                preparacion_respaldo=t.preparacion_respaldo,
+                                porciones_respaldo=t.porciones_respaldo)
     if r.get("bodega"):
         await difundir_estado()
     return r
@@ -2294,7 +2301,11 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
     if p.cantidad_inicial < 0:
         raise HTTPException(400, "La cantidad inicial no puede ser negativa.")
     nombre = _limpiar_nombre_dictado(p.nombre).upper()
-    codigo = f"PEND-{ahora().strftime('%H%M%S%f')[:10]}"
+    # el sufijo de hora sin el sufijo aleatorio solo tenia ~100 microsegundos
+    # de resolucion real (se truncaba a 10 caracteres): dos personas creando
+    # un producto casi al mismo tiempo podian generar el mismo codigo y
+    # tumbar la peticion con un IntegrityError sin capturar.
+    codigo = f"PEND-{ahora().strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(3).upper()}"
     es_auditor = u.perfil == "auditor"
     with Sesion() as s:
         s.add(Articulo(codigo=codigo, nombre_oficial=nombre,
@@ -2796,6 +2807,21 @@ def detalle_bodega(bodega_id: int, u: Usuario = Depends(usuario_actual)):
         # no mencionan la bodega, solo el articulo).
         hitos_t = list(s.query(Traza).filter(
             Traza.detalle.contains(b.nombre_oficial)).all())
+        # el nombre de una bodega puede ser substring del de otra (ej.
+        # "ZOOLOGICO" de "ZOOLOGICO SUMINISTROS" y "ZOOLOGICO PISCILAGO";
+        # tambien "MOVIL FONDA", "MOVIL MIRADOR", "PANADERIA" con su propia
+        # "... SUMINISTROS") - confirmado en produccion: abrir "ZOOLOGICO
+        # SUMINISTROS" hacia aparecer ese evento en la linea de tiempo de
+        # "ZOOLOGICO" a secas, una bodega distinta que ni se habia tocado.
+        # Cuando el texto contiene el nombre de mas de una bodega real, se
+        # prefiere siempre el mas largo (el mas especifico) como dueño real
+        # del evento.
+        if hitos_t:
+            _todos_nombres = [x.nombre_oficial for x in s.query(Bodega).all()]
+            def _es_de_esta_bodega(detalle):
+                candidatos = [n for n in _todos_nombres if n in detalle]
+                return not candidatos or max(candidatos, key=len) == b.nombre_oficial
+            hitos_t = [t for t in hitos_t if _es_de_esta_bodega(t.detalle)]
         vistos = {t.id for t in hitos_t}
         for ses in sesiones:
             if not ses.usuario_id:

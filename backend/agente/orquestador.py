@@ -82,6 +82,24 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
     turno.setdefault("respuesta_hablada", "")
     intencion = (turno.get("intencion") or "").lower()
 
+    # Gemini a veces entiende un plato SIN receta registrada como si fuera
+    # un ingrediente a consultar/contar (confirmado: "arroz con pollo para
+    # 2 porciones" -> intencion "consultar", articulo_texto "arroz con
+    # pollo", unidad "Portion") - probablemente porque no reconoce el plato
+    # como una receta valida y cae al patron mas general. "Portion" nunca
+    # es la unidad real de un ingrediente de bodega, asi que es la señal
+    # confiable de que en realidad se pidieron porciones de un plato. Sin
+    # esto, la persona recibia una desambiguacion de ingredientes sin
+    # ninguna relacion con lo que pidio (ej. "tengo arroz o arroz doña
+    # pepa. ¿cual de los dos?") en vez del mensaje claro de "no encontre
+    # esa receta" que ya existe para un plato desconocido.
+    if (modo_pedido and intencion in ("contar", "consultar")
+            and not turno.get("preparacion") and turno.get("unidad") == "Portion"):
+        turno["preparacion"] = turno.get("articulo_texto") or texto
+        turno["porciones"] = turno.get("cantidad") or turno.get("porciones")
+        turno["intencion"] = "pedir"
+        intencion = "pedir"
+
     # "cero porciones" (o un numero negativo) no es un pedido valido - sin
     # esto, Gemini a veces lo aceptaba igual ("anotado cero porciones de
     # ajiaco") y el frontend, al tratar 0 como "sin dato" (0 es falsy en
@@ -213,6 +231,14 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
         elegido = _elegir(texto, est["opciones"])
         if elegido:
             para = est.pop("opciones_para", "contar")
+            # lo que se guarda como alias tiene que ser la frase original
+            # que fue ambigua ("tres tablas para picar blancas"), no el
+            # codigo o la palabra con que se eligio la opcion ("97500779",
+            # "la primera") - sin esto, aprender_alias() aprendia un alias
+            # inutil (el codigo mapeado a si mismo) y la proxima vez que
+            # alguien dijera la misma frase ambigua, CuentaVoz volvia a
+            # preguntar "¿cual de los dos?" en vez de recordar la eleccion.
+            texto_original = est.pop("opciones_texto_original", texto)
             est["opciones"] = None
             if para == "consultar":
                 turno["respuesta_hablada"] = resumen_stock(elegido)
@@ -221,7 +247,7 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
                                                 "unidad": elegido["unidad"]}
                 est["oferta_reporte"] = True
                 return turno
-            return _dejar_pendiente(est, elegido, est.get("cantidad", 1), texto, turno)
+            return _dejar_pendiente(est, elegido, est.get("cantidad", 1), texto_original, turno)
 
     # ── 3) abrir bodega ──
     if intencion == "navegar":
@@ -242,7 +268,8 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
             turno["respuesta_hablada"] = ("Primero abra una bodega: diga "
                                           "«iniciar conteo en» y el nombre.")
             return turno
-        cand = buscar_articulo(turno.get("articulo_texto") or texto, bodega_id)
+        texto_articulo = turno.get("articulo_texto") or texto
+        cand = buscar_articulo(texto_articulo, bodega_id)
         if not cand:
             turno["respuesta_hablada"] = ("No encontre ese articulo en el catalogo. "
                                           "¿Lo creamos? Quedara pendiente de aprobacion.")
@@ -256,6 +283,10 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
         if resultado == "ambiguo":
             est["opciones"] = dato
             est["opciones_para"] = "contar"
+            # se guarda para que, cuando la persona elija una opcion, el
+            # alias se aprenda contra esta frase (la que de verdad fue
+            # ambigua) y no contra el codigo o la palabra de la eleccion.
+            est["opciones_texto_original"] = texto_articulo
             turno["opciones"] = dato
             turno["opciones_para"] = "contar"
             turno["respuesta_hablada"] = _leer_opciones(dato)
