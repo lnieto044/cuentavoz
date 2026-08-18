@@ -275,7 +275,15 @@ def procesar_turno(texto: str, sesion_id: int, usuario=None,
                                           "¿Lo creamos? Quedara pendiente de aprobacion.")
             turno["intencion"] = "crear"
             return turno
-        est["cantidad"] = turno.get("cantidad") or 1
+        # "or 1" convertia "hay cero cazuelas" (un faltante real, cantidad 0
+        # perfectamente valida) en "1" silenciosamente, porque 0 es falsy en
+        # Python - exactamente el mismo patron ya corregido para "porciones"
+        # en el modulo de Pedidos (ver linea ~109), pero que aqui, para el
+        # conteo fisico de verdad, quedaba sin corregir. Con esto, alguien
+        # reportando un faltante total quedaba con "1" guardado en el
+        # sistema, ocultando el faltante real.
+        cantidad_dicha = turno.get("cantidad")
+        est["cantidad"] = cantidad_dicha if cantidad_dicha is not None else 1
         est["unidad_dicha"] = turno.get("unidad")
         resultado, dato = _resolver_candidato(cand)
         if resultado == "directo":

@@ -36,7 +36,13 @@ def _numero(texto: str):
     del nombre del producto («cazuela 16 onzas», «tabla 50x38»)."""
     t = texto.lower()
     m = re.search(r"-?\d+(?:[.,]\d+)?", t)
-    if m:
+    # un digito pegado a un guion que sigue con otro caracter (ACIDO
+    # POLIGLICOLICO "3-0", REVOLUTION "2.6-5 KG", articulos reales del
+    # catalogo) es una talla o un codigo del propio articulo, no la
+    # cantidad dictada - sin este chequeo, "hay veinte del acido
+    # poliglicolico 3-0" leia el "3" del nombre del producto en vez del
+    # "veinte" que de verdad se dicto, silenciosamente y sin ningun error.
+    if m and t[m.end():m.end() + 1] != "-":
         val = float(m.group(0).replace(",", "."))
         return -val if "menos" in t[:m.start()] else val
 

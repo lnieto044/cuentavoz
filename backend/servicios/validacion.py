@@ -50,5 +50,17 @@ def validar_conteo(codigo: str, cantidad: float, unidad: str, bodega_id) -> dict
             return {"ok": False, "tipo": "desviacion", "esperado": esperado,
                     "mensaje": f"El sistema espera alrededor de {esperado:g}. "
                                f"¿Confirma {cantidad:g}?"}
+    # el sistema SI tiene una expectativa aqui (una fila real de
+    # StockSistema, no la ausencia de dato que ya cubre "esperado is
+    # None" arriba) y esa expectativa es CERO - "esperado > 0" arriba
+    # evita dividir por cero para calcular el porcentaje de desviacion,
+    # pero de paso dejaba sin ninguna alerta el caso de contar algo
+    # donde el sistema no esperaba nada: encontrar existencia donde
+    # deberia haber cero es tan anomalo como el 9 contra 90 de arriba,
+    # solo que no tiene un "%" que calcular.
+    elif esperado == 0 and cantidad > 0:
+        return {"ok": False, "tipo": "desviacion", "esperado": esperado,
+                "mensaje": f"El sistema no tiene existencia registrada aqui para este articulo. "
+                           f"¿Confirma {cantidad:g}?"}
 
     return {"ok": True, "esperado": esperado}
