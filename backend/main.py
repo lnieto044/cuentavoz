@@ -4519,6 +4519,7 @@ def ver_perfil(u: Usuario = Depends(usuario_actual)):
 @app.get("/api/usuarios/yo/resumen")
 def resumen_inicio(u: Usuario = Depends(usuario_actual)):
     hoy = ahora().date()
+    inicio_mes = hoy.replace(day=1)
     with Sesion() as s:
         n_bodegas = s.query(AsignacionBodega).filter_by(usuario_id=u.id).count()
         sesiones_usr = [x.id for x in s.query(SesionConteo).filter_by(usuario_id=u.id).all()]
@@ -4529,9 +4530,20 @@ def resumen_inicio(u: Usuario = Depends(usuario_actual)):
                                   Conteo.estado == "confirmado").all())
                           if c.creado.date() == hoy)
         alertas_abiertas = s.query(Alerta).filter_by(resuelta=0).count()
-        historial = s.query(HistorialCierre).all()
-        exact_mes = (round(sum(h.exactitud for h in historial) / len(historial), 1)
-                     if historial else 100.0)
+        # "Su exactitud del mes" tenia que decir de verdad SU exactitud (las
+        # bodegas donde esta persona contó o auditó) y de verdad DEL MES
+        # actual - antes promediaba el historial de cierres de TODAS las
+        # bodegas de TODA la operación, sin filtrar ni por persona ni por
+        # fecha, asi que un auxiliar nuevo sin ningun cierre propio veia el
+        # mismo numero que la administradora con mas experiencia.
+        bodegas_suyas = {ses.bodega_id for ses in s.query(SesionConteo)
+                         .filter(SesionConteo.usuario_id == u.id).all()}
+        historial_mes = (s.query(HistorialCierre)
+                         .filter(HistorialCierre.bodega_id.in_(bodegas_suyas),
+                                 HistorialCierre.fecha >= inicio_mes).all()
+                         if bodegas_suyas else [])
+        exact_mes = (round(sum(h.exactitud for h in historial_mes) / len(historial_mes), 1)
+                     if historial_mes else 100.0)
     return {"bodegas_asignadas": n_bodegas, "referencias_hoy": ref_hoy,
             "alertas_por_revisar": alertas_abiertas, "exactitud_mes": exact_mes}
 

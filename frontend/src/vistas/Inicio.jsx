@@ -8,10 +8,16 @@ import AsistenteVoz from "../AsistenteVoz";
 // deben leerse en hora de Bogotá aunque el dispositivo esté mal
 // configurado o alguien entre desde otro huso horario.
 const HUSO = "America/Bogota";
-const FECHA = new Date().toLocaleDateString("es-CO", {
-  weekday: "long", day: "numeric", month: "long", year: "numeric",
-  timeZone: HUSO,
-});
+// Función, no constante: si se calculara una sola vez al cargar el módulo
+// (como antes), un turno que deja la pestaña abierta de un día para otro
+// -habitual en una tablet de bodega siempre encendida- seguía mostrando la
+// fecha de ayer en el encabezado hasta recargar la página a la fuerza.
+function fechaHoy() {
+  return new Date().toLocaleDateString("es-CO", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    timeZone: HUSO,
+  });
+}
 
 /** "Buenos días" antes de mediodía, "Buenas tardes" hasta las 7pm, y
     "Buenas noches" después - siempre en hora de Bogotá. Sin esto el
@@ -26,10 +32,19 @@ function saludoSegunHora() {
   return "Buenas noches";
 }
 
+// Debe cubrir las mismas acciones que registra backend/seguridad.py:registrar()
+// (la misma lista que el filtro de Ajustes › Trazabilidad) - si aquí falta
+// alguna, esa fila cae al gris por defecto aunque tenga su propio color en
+// todas las demás pantallas, y hasta ahora faltaba más de la mitad,
+// incluida CONTEO: la acción más frecuente del día a día.
 const COLOR_ACCION = {
-  FIRMA: "verde", CIERRE: "verde", APROBACION: "verde", REPORTE: "azul",
-  ALERTA: "oro", CORRECCION: "oro", REAPERTURA: "oro",
-  CREACION: "azul", AUDITORIA: "oro",
+  FIRMA: "verde", CIERRE: "verde", APROBACION: "verde", CREACION: "verde",
+  CONTEO: "verde",
+  REPORTE: "azul", INGRESO: "azul", APERTURA: "azul", PEDIDO: "azul",
+  RECETA: "azul", LEGALIZACION: "azul", ASIGNACION: "azul", USUARIO: "azul",
+  AJUSTE: "azul", PERFIL: "azul", SOPORTE: "azul",
+  ALERTA: "oro", CORRECCION: "oro", REAPERTURA: "oro", AUDITORIA: "oro",
+  SEGURIDAD: "oro",
 };
 const DOT = { verde: "var(--verde)", azul: "var(--azul)",
               oro: "var(--amarillo)", gris: "var(--grafito)" };
@@ -71,7 +86,7 @@ export default function Inicio({ token, usuario, ir }) {
   ];
 
   return (
-    <Marco titulo={`Inicio  ·  ${FECHA}`}
+    <Marco titulo={`Inicio  ·  ${fechaHoy()}`}
            chip={{ texto: "TOMA EN CURSO", tipo: "verde" }}>
       <h2 style={{ fontSize: "1.15rem", color: "var(--azul)", marginBottom: 14 }}>
         {saludoSegunHora()}, <span style={{ textTransform: "capitalize" }}>{usuario?.nombre}</span>.
