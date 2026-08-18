@@ -214,7 +214,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
       setOpciones(t.opciones || null);
       setOpcionesPara(t.opciones_para || null);
       hablar(t.respuesta_hablada);
-    } catch (e) { setMsg(e.message); }
+    } catch (e) { setMsg(e.message); hablar(e.message); }
   }
 
   async function verComparar() {

@@ -4222,8 +4222,14 @@ def aprobar(aprobacion_id: int, u: Usuario = Depends(requiere_perfil("auditor"))
             existe = s.query(StockSistema).filter_by(
                 articulo_codigo=a.articulo_codigo, bodega_id=a.bodega_id).first()
             if not existe:
-                s.add(StockSistema(articulo_codigo=a.articulo_codigo,
-                                   bodega_id=a.bodega_id, cantidad_sd=0))
+                # el saldo del sistema arrancaba siempre en 0, sin importar
+                # cuanto se haya contado de verdad al crearlo (ej. "noventa
+                # alicornios") - el articulo quedaba marcado con una
+                # "diferencia" de +90 para siempre en el detalle de la
+                # bodega, como si nunca se hubiera revisado, aunque el
+                # administrador lo acababa de aprobar con ese conteo.
+                s.add(StockSistema(articulo_codigo=a.articulo_codigo, bodega_id=a.bodega_id,
+                                   cantidad_sd=a.cantidad_inicial or 0))
             if a.conteo_id:
                 c = s.get(Conteo, a.conteo_id)
                 if c:
