@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { alSesionInvalida, borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
 import { configurarVoz, detenerVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
@@ -63,6 +63,19 @@ export default function App() {
   const [vista, setVista] = useState("inicio");
   const [ctx, setCtx] = useState({ sesionId: 1 });
   const [salir, setSalir] = useState(false);
+  const [avisoSesion, setAvisoSesion] = useState("");
+
+  // Se suscribe una sola vez: cuando pedir() encuentra un 401 (sesión
+  // cerrada desde otro dispositivo, PIN cambiado, cuenta desactivada...)
+  // vuelve aquí mismo a la pantalla de login en vez de dejar el menú y las
+  // vistas mostrando datos de una sesión que el servidor ya no reconoce.
+  useEffect(() => {
+    alSesionInvalida(() => {
+      setSesion(null);
+      setVista("inicio");
+      setAvisoSesion("Su sesión terminó (se cerró desde otro dispositivo o venció). Ingrese de nuevo.");
+    });
+  }, []);
   // Contador que sube en cada ir(): las pantallas con pestañas usan
   // [tabInicial, navSeq] como dependencia de su useEffect en vez de solo
   // [tabInicial] - sin navSeq, pedir por voz la MISMA pestaña dos veces
@@ -87,9 +100,11 @@ export default function App() {
   if (!sesion)
     return (
       <Ingreso
+        avisoInicial={avisoSesion}
         alEntrar={(s) => {
           guardarSesion(s);
           setSesion(s);
+          setAvisoSesion("");
           setVista("inicio");
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
             configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,

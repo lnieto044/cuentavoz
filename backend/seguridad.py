@@ -87,7 +87,8 @@ def verificar_token(token: str):
         return None
     with Sesion() as s:
         u = s.get(Usuario, int(datos["sub"]))
-    if u is None or (datos.get("ver", 0) or 0) != (u.version_token or 0):
+    if (u is None or not u.activo
+            or (datos.get("ver", 0) or 0) != (u.version_token or 0)):
         return None
     return u
 

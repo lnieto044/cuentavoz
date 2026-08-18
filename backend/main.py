@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
@@ -45,7 +45,17 @@ app = FastAPI(title="CuentaVoz", version="1.0.0",
 
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(RateLimitExceeded)
+def _manejador_limite_excedido(request: Request, exc: RateLimitExceeded):
+    # El manejador por defecto de slowapi responde {"error": "..."} en vez
+    # de {"detail": "..."}, que es la clave que pedir() (api.js) y toda la
+    # app ya saben leer para mostrar el mensaje real - sin esto, cualquier
+    # pantalla que tropieza con un limite (ingreso, huella, busqueda de
+    # perfil...) mostraba "Error 429" en vez de avisar que hay que esperar.
+    return JSONResponse({"detail": "Demasiados intentos. Espere un momento y vuelva a intentarlo."},
+                        status_code=429)
 
 _origenes = {o.strip() for o in os.getenv("ORIGEN_PERMITIDO", "").split(",") if o.strip()}
 # 5173 es "npm run dev"; 4173 es "npm run preview" (el build de produccion,

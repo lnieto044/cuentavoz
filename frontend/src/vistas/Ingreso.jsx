@@ -8,10 +8,10 @@ const ETIQUETAS_PERFIL = {
   auditor: "Administrador de bodega",
 };
 
-export default function Ingreso({ alEntrar }) {
+export default function Ingreso({ alEntrar, avisoInicial }) {
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState(avisoInicial || "");
   const [cargando, setCargando] = useState(false);
   const [perfil, setPerfil] = useState(null);
   const [tieneHuella, setTieneHuella] = useState(false);

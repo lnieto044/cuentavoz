@@ -31,6 +31,19 @@ export function borrarSesion() {
   localStorage.removeItem(CLAVE_SESION);
   borrarToken();
 }
+
+// App.jsx se suscribe una sola vez al montar para poder volver a la
+// pantalla de login apenas el backend dice que el token ya no sirve
+// (sesión cerrada desde otro dispositivo, PIN cambiado, cuenta
+// desactivada...). Sin esto, pedir() ya borraba la sesión guardada pero la
+// pestaña seguía mostrando el menú y las vistas como si siguiera con
+// sesión, y cada pantalla fallaba en silencio o mostraba el error crudo
+// del servidor como si fuera un dato más (p. ej. "0 bodegas" en vez de
+// avisar que hay que volver a ingresar).
+let _alSesionInvalida = null;
+export function alSesionInvalida(fn) {
+  _alSesionInvalida = fn;
+}
 /** Cambiar el PIN o "cerrar todas las sesiones" emite un token nuevo sin
     volver a pasar por /api/ingresar: hay que refrescar también la sesión
     cacheada, no solo el token suelto, o la próxima vez que la app arranque
@@ -89,7 +102,7 @@ export async function pedir(ruta, opciones = {}, token) {
     // usando la sesión cacheada sirve de nada; se limpia para que la
     // próxima carga pida iniciar sesión de nuevo en vez de quedar
     // atascada reusando un token que el backend rechaza siempre.
-    if (res.status === 401) borrarSesion();
+    if (res.status === 401) { borrarSesion(); _alSesionInvalida?.(); }
     let detalle = `Error ${res.status}`;
     try {
       const j = await res.json();
@@ -109,7 +122,19 @@ export async function ingresar(usuario, clave) {
     if (esFalloRed(error)) throw errorDeRed();
     throw error;
   }
-  if (!res.ok) throw new Error("Usuario o clave incorrectos.");
+  if (!res.ok) {
+    // El backend distingue clave incorrecta (401), usuario inactivo (403) y
+    // demasiados intentos (429) - con un mensaje fijo aquí, alguien con la
+    // cuenta desactivada veía "usuario o clave incorrectos" y probaba PIN
+    // tras PIN sin saber que el problema real es que hay que hablar con un
+    // administrador, en vez del detalle real que el servidor sí manda.
+    let detalle = "Usuario o clave incorrectos.";
+    try {
+      const j = await res.json();
+      detalle = j.detail || j.detalle || detalle;
+    } catch (_) {}
+    throw new Error(detalle);
+  }
   return res.json();
 }
 
