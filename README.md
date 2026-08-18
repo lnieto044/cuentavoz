@@ -479,16 +479,19 @@ técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 
 ---
 
-## ▶️ Ejecutar y desplegar
+## 📚 Recursos del proyecto
 
-| | |
-|---|---|
-| 💻 **Local** | Requisitos, pasos verificados de punta a punta → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)** |
-| ☁️ **Render** | Static Site + Web Service + PostgreSQL, paso a paso → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
-| 🧭 **Arquitectura** | Mapa del código, por qué cada librería, modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)** |
-| 🤖 **El agente** | Manual técnico de construcción → **[Guía técnica del agente](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V4.pdf)** |
-| 🌐 **Demo** | **https://cuentavoz.onrender.com**  |
-| 🎥 **Video** | **https://www.youtube.com/watch?v=4tSRTV5POd4** |
+| Recurso                      | Descripción                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 💻 **Guía de ejecución**     | Requisitos y puesta en marcha local → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)**                           |
+| ☁️ **Guía de despliegue**    | Despliegue en Render con Static Site, Web Service y PostgreSQL → **[DESPLIEGUE.md](DESPLIEGUE.md)**      |
+| 🧭 **Arquitectura**          | Estructura del código, dependencias y modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)**           |
+| 🤖 **Guía técnica**          | Construcción y funcionamiento del agente → **[PDF](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V4.pdf)** |
+| 📖 **Manual de usuario**     | Uso del agente y funcionalidades principales → **[PDF](docs/capturas/Manual_Usuario_CuentaVoz_V1.pdf)**  |
+| 🎞️ **Presentación**         | Presentación general del proyecto → **[PPTX](docs/capturas/CuentaVoz_Colsubsidio_V1.pptx)**              |
+| 🌐 **Demo en línea**         | Aplicación desplegada → **https://cuentavoz.onrender.com**                                               |
+| 🎥 **Video de demostración** | Recorrido y funcionamiento del proyecto → **https://www.youtube.com/watch?v=4tSRTV5POd4**                |
+
 
 ### 🔑 Acceso de prueba
 
