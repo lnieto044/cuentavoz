@@ -3126,16 +3126,27 @@ def _parsear_archivo_reporte(t):
     elif d.startswith("Estado de bodegas"):
         titulo, subtitulo = "Estado del tablero", "Exportado"
     elif d.startswith("Detalle de bodega"):
-        titulo, subtitulo = "Detalle de bodega", "Exportado"
+        # el nombre de la bodega (no solo "Detalle de bodega" a secas) va
+        # en la clave de deduplicacion mas abajo: sin esto, exportar el
+        # detalle de una bodega distinta hacia desaparecer de "recientes"
+        # el de la anterior, como si nunca se hubiera generado.
+        titulo = "Detalle de bodega"
+        nombre_bodega = d.split("Detalle de bodega ", 1)[1].split(" exportado:")[0].strip()
+        subtitulo = nombre_bodega.title() if nombre_bodega else "Exportado"
     elif d.startswith("Analisis de consumo"):
         titulo, subtitulo = "Análisis de consumo", "Exportado"
     elif d.startswith("Registro de trazabilidad"):
         titulo, subtitulo = "Registro de trazabilidad", "Exportado"
     else:
         titulo, subtitulo = "Reporte", "Exportado"
+    # clave de deduplicacion: para casi todos los tipos es el titulo (solo
+    # importa el mas reciente); "Detalle de bodega" es la excepcion, porque
+    # el mismo titulo generico cubre un archivo distinto por cada bodega.
+    clave = f"{titulo}::{subtitulo}" if titulo == "Detalle de bodega" else titulo
     return {"titulo": titulo, "subtitulo": subtitulo, "archivo": archivo, "filas": filas,
             "formato": archivo.rsplit(".", 1)[-1].upper() if "." in archivo else "?",
-            "hora": t.creado.strftime("%H:%M"), "persona": (t.persona or "").title()}
+            "hora": t.creado.strftime("%H:%M"), "persona": (t.persona or "").title(),
+            "clave": clave}
 
 
 @app.get("/api/reportes/recientes")
@@ -3154,9 +3165,9 @@ def reportes_recientes(u: Usuario = Depends(requiere_perfil("auditor"))):
     salida = []
     for t in trazas:
         x = _parsear_archivo_reporte(t)
-        if not x or x["titulo"] in vistos:
+        if not x or x["clave"] in vistos:
             continue
-        vistos.add(x["titulo"])
+        vistos.add(x["clave"])
         salida.append(x)
     return salida[:10]
 
@@ -3165,7 +3176,13 @@ def reportes_recientes(u: Usuario = Depends(requiere_perfil("auditor"))):
 def exportar_detalle_bodega(bodega_id: int, formato: str = "xlsx",
                             u: Usuario = Depends(requiere_perfil("auditor"))):
     ruta = reportes.detalle_bodega(bodega_id, formato)
-    registrar(u, "REPORTE", f"Detalle de bodega {bodega_id} exportado: {ruta}")
+    with Sesion() as s:
+        b = s.get(Bodega, bodega_id)
+        nombre_bodega = b.nombre_oficial if b else str(bodega_id)
+    # el nombre (no solo el id) queda en el propio mensaje para que
+    # _parsear_archivo_reporte pueda mostrar de cual bodega es la tarjeta,
+    # y distinguir el archivo de esta bodega del de otra en "recientes".
+    registrar(u, "REPORTE", f"Detalle de bodega {nombre_bodega} exportado: {ruta}")
     return {"archivo": ruta}
 
 
