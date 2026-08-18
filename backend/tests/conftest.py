@@ -31,6 +31,10 @@ def app_modulos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[obj
     monkeypatch.setenv("DB_URL", f"sqlite:///{ruta_db.as_posix()}")
     monkeypatch.setenv("SECRETO_JWT", "secreto-solo-para-pruebas-de-regresion")
     monkeypatch.setenv("MINUTOS_TOKEN", "60")
+    # datos_regresion (mas abajo) espera encontrar a "luis" ya creado por
+    # arranque() - explicito aqui, no implicito via un .env de desarrollo
+    # que quien corra esto en otra maquina o en CI no tiene por que tener.
+    monkeypatch.setenv("SEMBRAR_DEMO", "1")
     _descargar_modulos_backend()
 
     modulo = importlib.import_module("main")

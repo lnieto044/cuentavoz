@@ -31,6 +31,15 @@ services:
         generateValue: true
       - key: MINUTOS_TOKEN
         value: "480"
+      # Crea luis/diana/stephanie/valentina (clave StockXperts, publicada
+      # en el README) si la base de usuarios esta vacia - activo a
+      # proposito para que cualquiera entre facil en la demo del
+      # hackathon. Despues del hackathon, si este mismo servicio pasa a
+      # usarse con datos reales, quite esta linea (o pongala en "0") para
+      # que esas cuentas de prueba no queden accesibles con una clave
+      # publica.
+      - key: SEMBRAR_DEMO
+        value: "1"
       - key: IDIOMA_VOZ
         value: es-CO
       - key: UMBRAL_ANOMALIA

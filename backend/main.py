@@ -84,11 +84,24 @@ async def cabeceras(request: Request, llamar):
     return resp
 
 
+# Las 4 cuentas de demostracion (luis/diana/stephanie/valentina, clave
+# "StockXperts" - la misma que aparece en el README) solo se siembran si
+# esta variable esta activa. Por defecto NO lo esta: sin esto, cualquier
+# despliegue con la base de usuarios vacia -incluido un Render de
+# produccion real, con datos reales, antes de que alguien cree las
+# cuentas de verdad- quedaba con una cuenta de perfil auditor (diana, con
+# permisos de administrador) accesible con una clave publicada. Para el
+# hackathon esto se activa a proposito en render.yaml; para un uso real
+# despues, basta con no ponerla (o quitarla) para que esas cuentas nunca
+# aparezcan solas.
+SEMBRAR_DEMO = os.getenv("SEMBRAR_DEMO", "").strip() == "1"
+
+
 @app.on_event("startup")
 def arranque():
     iniciar_bd()
     with Sesion() as s:
-        if s.query(Usuario).count() == 0:
+        if SEMBRAR_DEMO and s.query(Usuario).count() == 0:
             s.add_all([
                 Usuario(nombre="luis", perfil="auxiliar",
                         clave_hash=hash_clave("StockXperts"),
@@ -103,10 +116,17 @@ def arranque():
             ])
             s.commit()
             print("[arranque] usuarios de prueba creados (clave StockXperts)")
+        elif s.query(Usuario).count() == 0:
+            print("[arranque] base de usuarios vacia y SEMBRAR_DEMO no esta activo: "
+                  "no se crearon cuentas de prueba. Cree la primera cuenta "
+                  "directamente en la base, o active SEMBRAR_DEMO=1 para la demo.")
 
-        # bodegas asignadas por persona: solo la primera vez, y solo si ya
-        # hay bodegas cargadas (cargar_excel.py corre antes que la API)
-        if s.query(AsignacionBodega).count() == 0 and s.query(Bodega).count() > 0:
+        # bodegas asignadas por persona: solo la primera vez, solo si ya hay
+        # bodegas cargadas (cargar_excel.py corre antes que la API), y solo
+        # si las cuentas de prueba de arriba existen de verdad - sin
+        # SEMBRAR_DEMO no hay "luis"/"stephanie"/"valentina" a quien
+        # asignarles nada.
+        if SEMBRAR_DEMO and s.query(AsignacionBodega).count() == 0 and s.query(Bodega).count() > 0:
             # del Excel real de Colsubsidio, solo un subconjunto de bodegas
             # trae existencia de sistema (SD) cargada - las demas son
             # ubicaciones del catalogo sin stock_sistema asociado. Priorizar
