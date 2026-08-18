@@ -64,8 +64,10 @@ export default function Ayuda({ token, usuario, ir }) {
       await pedir("/api/soporte/reportar", {
         method: "POST", body: JSON.stringify({ detalle }),
       }, token);
-      setMsg("Reportado a la mesa de ayuda. Quedó en el registro de trazabilidad.");
-    } catch (e) { setMsg(e.message); }
+      const listo = "Reportado a la mesa de ayuda. Quedó en el registro de trazabilidad.";
+      setMsg(listo);
+      hablar(listo);
+    } catch (e) { setMsg(e.message); hablar(e.message); }
     setReportando(false);
   }
 
@@ -105,14 +107,24 @@ export default function Ayuda({ token, usuario, ir }) {
       }
       setMsg(listo);
       hablar(listo);
-    } catch (e) { setMsg(e.message); }
+    } catch (e) { setMsg(e.message); hablar(e.message); }
     setEnviandoAdmin(false);
   }
 
-  function _hayCoincidenciaLocal(texto) {
+  // Devuelve lo que hay que DECIR cuando lo preguntado ya está resuelto
+  // localmente (sin pasar por el agente general), o null si no coincide
+  // con nada. Antes solo se sabía SI coincidía (booleano) y la pantalla
+  // se limitaba a filtrar la lista visualmente, sin decir nada - quien
+  // pregunta por voz sin mirar la pantalla se quedaba sin ninguna
+  // respuesta hablada, justo lo contrario de lo que promete "pregúntele
+  // al agente" en esta misma pantalla.
+  function _respuestaLocal(texto) {
     const t = texto.trim().toLowerCase();
-    return FAQ.some(([p, r]) => p.toLowerCase().includes(t) || r.toLowerCase().includes(t))
-        || COMANDOS.some(([c, d]) => c.toLowerCase().includes(t) || d.toLowerCase().includes(t));
+    const faq = FAQ.find(([p, r]) => p.toLowerCase().includes(t) || r.toLowerCase().includes(t));
+    if (faq) return faq[1];
+    const comando = COMANDOS.find(([c, d]) => c.toLowerCase().includes(t) || d.toLowerCase().includes(t));
+    if (comando) return `${comando[0]} sirve para ${comando[1]}.`;
+    return null;
   }
 
   function alEscribir(texto) {
@@ -149,7 +161,12 @@ export default function Ayuda({ token, usuario, ir }) {
     const accion = _accionLocalDeAyuda(texto);
     if (accion === "escribir" && admin) { setEscribiendoAdmin(true); return; }
     if (accion === "reportar") { setPedirDetalle(true); return; }
-    if (_hayCoincidenciaLocal(texto)) { setRespuestaAgente(null); return; }
+    const respuestaLocal = _respuestaLocal(texto);
+    if (respuestaLocal) {
+      setRespuestaAgente(null);
+      hablar(respuestaLocal);
+      return;
+    }
     setErrorBusca("");
     const r = await preguntarAsistente(texto, "ayuda", token);
     if (miId !== idEscucha.current) return;
