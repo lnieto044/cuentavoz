@@ -197,7 +197,14 @@ export async function descargarReporte(archivo, token) {
     if (esFalloRed(error)) throw errorDeRed();
     throw error;
   }
-  if (!res.ok) throw new Error("No se pudo descargar el archivo.");
+  if (!res.ok) {
+    // mismo trato que pedir(): un 401 aqui tambien significa que la sesion
+    // ya no sirve - sin esto, descargar un reporte con la sesion vencida
+    // solo mostraba "no se pudo descargar" sin volver nunca al login, a
+    // diferencia de cualquier otra llamada de la app.
+    if (res.status === 401) { borrarSesion(); _alSesionInvalida?.(); }
+    throw new Error("No se pudo descargar el archivo.");
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

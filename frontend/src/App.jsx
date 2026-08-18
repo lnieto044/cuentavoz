@@ -171,6 +171,16 @@ export default function App() {
           sesionId={ctx.sesionId}
           onCancelar={() => setSalir(false)}
           onSalir={() => {
+            // Invalida el token en el servidor (mismo mecanismo que "cerrar
+            // todas las sesiones" en Mi perfil) antes de limpiar localmente
+            // - sin esto, "Cerrar sesión" solo borraba el token de ESTE
+            // navegador; el JWT seguía siendo válido en el servidor hasta
+            // vencer solo (hasta 8 horas). En una tablet compartida entre
+            // varios auxiliares, quien lo hubiera copiado antes de que la
+            // persona cerrara sesión podía seguir usándolo. No bloquea la
+            // salida si la petición falla (sin red) - la persona debe poder
+            // salir localmente de todas formas.
+            pedir("/api/usuarios/yo/cerrar-todas", { method: "POST" }, sesion.token).catch(() => {});
             borrarSesion();
             setSesion(null);
             setSalir(false);

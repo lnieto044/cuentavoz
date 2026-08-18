@@ -7,7 +7,14 @@ from horario import ahora
 class Usuario(Base):
     __tablename__ = "usuario"
     id = Column(Integer, primary_key=True)
-    nombre = Column(String, nullable=False)
+    # unique=True: antes solo se evitaba un nombre duplicado revisando "ya
+    # existe" justo antes de crear (main.py:crear_usuario, orquestador.py:
+    # _crear_usuario_por_voz) - dos creaciones casi simultaneas del mismo
+    # nombre podian pasar esa revision las dos y quedar dos cuentas con el
+    # mismo nombre, rompiendo el ingreso (que busca por nombre y solo
+    # devuelve la primera que encuentra) de forma impredecible para
+    # cualquiera de las dos personas.
+    nombre = Column(String, nullable=False, unique=True)
     perfil = Column(String, nullable=False)          # auxiliar | auditor
     clave_hash = Column(String, nullable=False)
     correo = Column(String, default="")

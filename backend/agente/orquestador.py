@@ -517,16 +517,23 @@ def _completar_apertura(s, b, est, usuario):
         s.refresh(ses)
     refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
     nombre = b.nombre_oficial
-    # La conversacion de aqui en adelante (dictar cantidades, confirmar,
-    # corregir, el avance) debe vivir en ESTADOS[ses.id] - el id real de
-    # ESTA sesion de conteo -, no en el sesion_id "de marcador de posicion"
-    # con el que se pidio abrir. Antes esto solo actualizaba el "est" de
-    # ese marcador (compartido por app-lifetime entre TODO el mundo,
-    # /api/agente/turno siempre lo manda como 1): si otra persona abria
-    # otra bodega casi al mismo tiempo, quien escribiera despues "ganaba"
-    # el mismo est compartido y el conteo de la primera persona terminaba
-    # guardandose contra la bodega de la segunda (o contra una sesion de
-    # conteo vieja de otro dia, sin relacion con ninguna de las dos).
+    # Se escribe en DOS lugares a proposito:
+    # 1) "est" (el sesion_id con el que se pidio abrir) - para que la MISMA
+    #    conversacion pueda seguir contando sin cambiar de id (ej. abrir y
+    #    dictar todo por voz de un tiron, o cualquier llamador que no
+    #    adopte el id nuevo).
+    # 2) ESTADOS[ses.id] - el id real de ESTA sesion de conteo en la base -
+    #    para que quien SI adopte el sesion_id real que se devuelve abajo
+    #    (Conteo.jsx, tras abrir por boton o por voz) seguidamente encuentre
+    #    su propio contexto ahi, no el de otra persona. Antes solo se
+    #    escribia en "est": si el llamador seguia usando un sesion_id
+    #    compartido con otras personas (como hacia el frontend, ver
+    #    App.jsx), quien escribiera despues "ganaba" ese mismo est y el
+    #    conteo de la primera persona terminaba guardandose contra la
+    #    bodega de la segunda.
+    est["bodega_id"] = b.id
+    est["bodega_nombre"] = nombre
+    est["sesion_bd"] = ses.id
     ESTADOS.setdefault(ses.id, {}).update(
         {"bodega_id": b.id, "bodega_nombre": nombre, "sesion_bd": ses.id})
     if usuario:
