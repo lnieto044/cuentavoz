@@ -4,6 +4,7 @@ import os
 import re
 import secrets
 import socket
+import threading
 import unicodedata
 import urllib.error
 import urllib.request
@@ -18,7 +19,7 @@ from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -3181,7 +3182,7 @@ def vista_previa_reporte(archivo: str, u: Usuario = Depends(requiere_perfil("aud
 # ─────────────────────── los tres momentos ───────────────────────
 class PedidoIn(BaseModel):
     plato: str
-    porciones: int
+    porciones: int = Field(gt=0)
     bodega_id: int = 1
 
 
@@ -3190,46 +3191,75 @@ def api_calcular(p: PedidoIn, u: Usuario = Depends(usuario_actual)):
     return calcular_pedido(p.plato, p.porciones, p.bodega_id)
 
 
+class EnviarPedidoIn(BaseModel):
+    plato: str
+    porciones: int = Field(gt=0)
+    bodega_id: int
+    servicio_id: int = 1
+
+
+# protege el bloque de verificar-duplicado + insertar: sin esto, dos
+# peticiones concurrentes (un reintento de red, un doble toque en la
+# tableta) podian pasar juntas la verificacion de "ya_existe" antes de que
+# cualquiera terminara de guardar, y las dos quedaban registradas como
+# pedidos reales en vez de que la segunda se detectara como duplicada.
+# Alcanza con un lock en memoria porque el servicio corre en un solo
+# proceso (uvicorn sin --workers, ver render.yaml); con varios procesos
+# haría falta una constraint a nivel de base de datos.
+_lock_enviar_pedido = threading.Lock()
+
+
 @app.post("/api/pedidos/enviar")
-def api_enviar(body: dict, u: Usuario = Depends(usuario_actual)):
-    sid = body.get("servicio_id", 1)
-    plato = body.get("plato", "")
-    porciones = body.get("porciones", 0)
-    bodega_id = body.get("bodega_id")
-    with Sesion() as s:
-        # si el mismo pedido (servicio + plato + porciones) ya quedo abierto
-        # O esperando aprobacion, no lo duplica: cubre un doble clic, un
-        # doble disparo por voz, o un reintento tras una desconexion que si
-        # alcanzo a llegar la primera vez.
-        ya_existe = (s.query(LineaServicio)
-                    .filter_by(servicio_id=sid, plato=plato, porciones=porciones)
-                    .filter(LineaServicio.estado.in_(["abierto", "pendiente_aprobacion"]))
-                    .first())
-        if ya_existe:
-            return {"ok": True, "duplicado": True}
-        # un auxiliar pide, pero es el administrador quien de verdad autoriza
-        # que salga del almacen - igual que ya pasa con productos y bodegas
-        # creados en plena toma. El administrador autoriza su propio pedido
-        # de una vez: no tiene sentido pedirse permiso a si mismo.
-        estado_inicial = "abierto" if u.perfil == "auditor" else "pendiente_aprobacion"
-        numero = f"PED-{ahora().strftime('%Y%m%d-%H%M%S')}"
-        n = 0
-        items = []
-        for l in body.get("lineas", []):
-            if (l.get("falta") or 0) > 0:
-                s.add(LineaServicio(servicio_id=sid,
+def api_enviar(datos: EnviarPedidoIn, u: Usuario = Depends(usuario_actual)):
+    # las lineas ya no se reciben del cliente: se vuelven a calcular aqui
+    # mismo contra la receta y el stock en vivo, igual que hace "Calcular
+    # el pedido". Confiar en las cantidades que mandara el navegador
+    # permitia pedir cualquier cosa (cualquier codigo de articulo, en
+    # cualquier cantidad) para cualquier plato, incluso uno sin receta.
+    calculo = calcular_pedido(datos.plato, datos.porciones, datos.bodega_id)
+    if not calculo["receta_encontrada"]:
+        raise HTTPException(404, f"No encontré una receta para «{datos.plato}».")
+    lineas_a_pedir = [l for l in calculo["lineas"] if l["falta"] > 0]
+    if not lineas_a_pedir:
+        raise HTTPException(400, "No hay nada que pedir: ya tiene todo en la bodega.")
+
+    with _lock_enviar_pedido:
+        with Sesion() as s:
+            # si el mismo pedido (servicio + plato + porciones) ya quedo
+            # abierto o esperando aprobacion, no lo duplica: cubre un doble
+            # clic, un doble disparo por voz, o un reintento tras una
+            # desconexion que si alcanzo a llegar la primera vez.
+            ya_existe = (s.query(LineaServicio)
+                        .filter_by(servicio_id=datos.servicio_id, plato=datos.plato,
+                                   porciones=datos.porciones)
+                        .filter(LineaServicio.estado.in_(["abierto", "pendiente_aprobacion"]))
+                        .first())
+            if ya_existe:
+                return {"ok": True, "duplicado": True}
+            # un auxiliar pide, pero es el administrador quien de verdad autoriza
+            # que salga del almacen - igual que ya pasa con productos y bodegas
+            # creados en plena toma. El administrador autoriza su propio pedido
+            # de una vez: no tiene sentido pedirse permiso a si mismo.
+            estado_inicial = "abierto" if u.perfil == "auditor" else "pendiente_aprobacion"
+            # el sufijo evita que dos pedidos distintos creados en el mismo
+            # segundo (dos auxiliares pidiendo casi a la vez) terminen con
+            # el mismo numero_pedido - eso los mezclaba en una sola tarjeta
+            # de aprobacion en Auditoria, con los items de ambos revueltos.
+            numero = f"PED-{ahora().strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2).upper()}"
+            n = 0
+            items = []
+            for l in lineas_a_pedir:
+                s.add(LineaServicio(servicio_id=datos.servicio_id,
                                     articulo_codigo=l["codigo"],
                                     nombre=l["nombre"], pedido=l["falta"],
-                                    plato=plato, porciones=porciones,
-                                    estado=estado_inicial, bodega_id=bodega_id,
+                                    plato=datos.plato, porciones=datos.porciones,
+                                    estado=estado_inicial, bodega_id=datos.bodega_id,
                                     creado_por_id=u.id, numero_pedido=numero))
                 items.append({"nombre": l["nombre"], "cantidad": l["falta"],
                              "unidad": l.get("unidad", "")})
                 n += 1
-        s.commit()
-        bodega_nombre = None
-        if bodega_id:
-            b = s.get(Bodega, bodega_id)
+            s.commit()
+            b = s.get(Bodega, datos.bodega_id)
             bodega_nombre = b.nombre_oficial if b else None
     if estado_inicial == "pendiente_aprobacion":
         registrar(u, "PEDIDO", f"Pedido {numero} enviado, pendiente de aprobacion ({n} lineas)")
@@ -3239,6 +3269,20 @@ def api_enviar(body: dict, u: Usuario = Depends(usuario_actual)):
             "hora": ahora().strftime("%H:%M"),
             "bodega": bodega_nombre, "persona": u.nombre,
             "items": items, "total_lineas": n}
+
+
+@app.get("/api/pedidos/{numero_pedido}/estado")
+def estado_pedido(numero_pedido: str, u: Usuario = Depends(usuario_actual)):
+    """Para que quien pidió pueda enterarse si un administrador ya lo
+    aprobó o rechazó, aunque haya salido de Pedidos y vuelto - la pantalla
+    no se refresca sola."""
+    with Sesion() as s:
+        fila = s.query(LineaServicio).filter_by(numero_pedido=numero_pedido).first()
+        if fila is None:
+            raise HTTPException(404, "Ese pedido no existe.")
+        if fila.creado_por_id != u.id and u.perfil != "auditor":
+            raise HTTPException(403, "Ese pedido no es suyo.")
+        return {"numero_pedido": numero_pedido, "estado": fila.estado}
 
 
 @app.get("/api/pedidos/pendientes")

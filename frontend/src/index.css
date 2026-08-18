@@ -8,6 +8,8 @@
   --amarillo-tx:#8A6D00;
   --verde:      #1E7A46;
   --verde-bg:   #E8F5EE;
+  --rojo:       #B3261E;   /* mismo color que .error, para estados rechazados */
+  --rojo-bg:    #FBE8E6;
   --grafito:    #575756;   /* Cool Gray 11 C */
   --txt:        #2B2B2A;
   --borde:      #D8E2EC;
@@ -130,6 +132,7 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
 }
 .chip.verde  { background: var(--verde-bg); color: var(--verde); }
 .chip.oro    { background: var(--amarillo-bg); color: var(--amarillo-tx); }
+.chip.rojo   { background: var(--rojo-bg); color: var(--rojo); }
 .chip.gris   { background: #EFEFEF; color: var(--grafito); }
 .chip.azul   { background: var(--azul); color: #fff; }
 .chip.borde  { background: #fff; border: 1.5px solid currentColor; }

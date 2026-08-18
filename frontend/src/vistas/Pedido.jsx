@@ -173,6 +173,34 @@ export default function Pedido({ token, usuario, ir }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // El recibo que se guarda en sessionStorage es una foto del momento en
+  // que se envió: si el administrador lo aprueba o lo rechaza después, esta
+  // pantalla no se entera sola. Sin esto, alguien podía recargar la página
+  // horas después de un rechazo real y seguir viendo "pendiente de
+  // aprobación", con CuentaVoz repitiendo que hay que esperar al
+  // administrador cuando eso ya no es cierto.
+  useEffect(() => {
+    if (!recibo || recibo.estado !== "pendiente_aprobacion") return;
+    pedir(`/api/pedidos/${recibo.numero_pedido}/estado`, {}, token)
+      .then((r) => {
+        if (r.estado === recibo.estado) return;
+        setRecibo((prev) => (prev ? { ...prev, estado: r.estado } : prev));
+        if (r.estado === "rechazado") {
+          const msg = `El administrador rechazó el pedido ${recibo.numero_pedido}. `
+                    + "¿Desea armar otro pedido?";
+          setRespuesta(msg);
+          hablar(msg);
+        } else if (r.estado === "abierto") {
+          const msg = `El pedido ${recibo.numero_pedido} ya fue aprobado y enviado al almacén. `
+                    + "¿Desea armar otro pedido?";
+          setRespuesta(msg);
+          hablar(msg);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function verReceta(platoForzado) {
     setErr("");
     const pl = platoForzado ?? plato;
@@ -393,7 +421,7 @@ export default function Pedido({ token, usuario, ir }) {
     try {
       const r = await pedir("/api/pedidos/enviar", {
         method: "POST",
-        body: JSON.stringify({ lineas, servicio_id: 1, plato, porciones, bodega_id: bodegaId }),
+        body: JSON.stringify({ servicio_id: 1, plato, porciones, bodega_id: bodegaId }),
       }, token);
       if (r.duplicado) {
         const msg = "Este pedido ya se había enviado antes; no lo mandé dos veces. ¿Desea armar otro pedido?";
@@ -434,8 +462,11 @@ export default function Pedido({ token, usuario, ir }) {
       <div className="chips">
         <span className="chip">{DIA[0].toUpperCase() + DIA.slice(1)} · almuerzo</span>
         <span className="chip">Cocina Piscilago</span>
-        <span className={`chip ${!enviado ? "oro" : recibo?.estado === "pendiente_aprobacion" ? "oro" : "verde"}`}>
+        <span className={`chip ${!enviado ? "oro"
+                                : recibo?.estado === "rechazado" ? "rojo"
+                                : recibo?.estado === "pendiente_aprobacion" ? "oro" : "verde"}`}>
           {!enviado ? "Pedido sin enviar"
+            : recibo?.estado === "rechazado" ? "Pedido rechazado"
             : recibo?.estado === "pendiente_aprobacion" ? "Pendiente de aprobación"
             : "Pedido enviado"}
         </span>
@@ -746,9 +777,13 @@ export default function Pedido({ token, usuario, ir }) {
       )}
 
       {recibo && (
-        <div className="card" style={{ border: `1px solid var(--${recibo.estado === "pendiente_aprobacion" ? "amarillo" : "verde"})` }}>
+        <div className="card" style={{ border: `1px solid var(--${
+          recibo.estado === "rechazado" ? "rojo"
+          : recibo.estado === "pendiente_aprobacion" ? "amarillo" : "verde"})` }}>
           <div className="chips">
-            {recibo.estado === "pendiente_aprobacion" ? (
+            {recibo.estado === "rechazado" ? (
+              <span className="chip rojo">❌ RECHAZADO POR EL ADMINISTRADOR</span>
+            ) : recibo.estado === "pendiente_aprobacion" ? (
               <span className="chip oro">⏳ PENDIENTE DE APROBACIÓN</span>
             ) : (
               <span className="chip verde">✅ PEDIDO REGISTRADO</span>
@@ -781,7 +816,9 @@ export default function Pedido({ token, usuario, ir }) {
             </>
           )}
           <p className="pista" style={{ marginTop: 10 }}>
-            {recibo.estado === "pendiente_aprobacion"
+            {recibo.estado === "rechazado"
+              ? "El administrador de bodega rechazó este pedido: no salió nada del almacén. Dígame el plato de nuevo para armar uno nuevo."
+              : recibo.estado === "pendiente_aprobacion"
               ? "El administrador de bodega debe aprobar este pedido en Auditoría antes de que cuente como enviado de verdad al almacén."
               : "Este pedido queda guardado en el sistema y aparecerá tal cual en la legalización del servicio, comparando lo pedido contra lo consumido."}
           </p>

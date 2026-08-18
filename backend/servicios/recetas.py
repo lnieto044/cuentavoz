@@ -18,7 +18,11 @@ def _sin_tildes(t: str) -> str:
 
 def _buscar_receta(s, preparacion: str):
     objetivo = _sin_tildes(preparacion)
-    if not objetivo:
+    # menos de 3 letras no alcanza a identificar un plato - una transcripcion
+    # de voz recortada o con ruido ("a", "de", "o") coincidia igual como
+    # substring de cualquier receta y la calculaba con total confianza, como
+    # si el chef de verdad hubiera dictado ese plato.
+    if len(objetivo) < 3:
         return None
     for r in s.query(Receta).all():
         if objetivo in _sin_tildes(r.nombre):
