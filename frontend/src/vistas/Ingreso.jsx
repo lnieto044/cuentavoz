@@ -22,6 +22,13 @@ const ETIQUETAS_PERFIL = {
     una cuenta "a medias" varado en un 401 sin salida, se autocompleta
     aquí mismo con los datos que Cognito sí tiene (nombre/correo) y se
     reintenta - transparente para quien inicia sesión. */
+// Mismo mensaje exacto que usuario_actual() (seguridad.py) para
+// activo=0 - una cuenta recién autoregistrada (ver /api/registro-
+// completado) queda así hasta que un auditor la apruebe.
+function esCuentaPendiente(e) {
+  return e.message === "Ese usuario esta inactivo.";
+}
+
 async function sesionCompleta(token) {
   try {
     const perfil = await pedir("/api/usuarios/yo", {}, token);
@@ -142,7 +149,9 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       }
       alEntrar(await sesionCompleta(r.token));
     } catch (e2) {
-      if (e2.code === "UserNotConfirmedException") {
+      if (esCuentaPendiente(e2)) {
+        setModo("registro-pendiente");
+      } else if (e2.code === "UserNotConfirmedException") {
         // se registró antes pero nunca terminó de confirmar el código
         // (cerró la pestaña, se le olvidó...) - en vez de dejarlo
         // varado con un error sin salida, se le reenvía un código
@@ -172,7 +181,8 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       const token = await confirmarCodigoMFA(mfaPendiente, codigoMFA.trim());
       alEntrar(await sesionCompleta(token));
     } catch (e2) {
-      setErr(e2.message);
+      if (esCuentaPendiente(e2)) setModo("registro-pendiente");
+      else setErr(e2.message);
     } finally {
       setCargando(false);
     }
@@ -251,7 +261,8 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setSesionPendiente(await sesionCompleta(token));
       setModo("registro-mfa");
     } catch (e2) {
-      setErr(e2.message);
+      if (esCuentaPendiente(e2)) setModo("registro-pendiente");
+      else setErr(e2.message);
     } finally {
       setCargando(false);
     }
@@ -505,6 +516,19 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
                            onActivado={() => alEntrar(sesionPendiente)}
                            onCancelar={() => alEntrar(sesionPendiente)}
                            textoCancelar="Ahora no" />
+          </div>
+        )}
+
+        {modo === "registro-pendiente" && (
+          <div className="form">
+            <h2>Cuenta creada</h2>
+            <p className="pista">
+              Su cuenta quedó registrada y su correo confirmado. Un administrador debe
+              aprobarla antes de que pueda entrar — le avisaremos cuando esté lista.
+            </p>
+            <button type="button" className="btn" onClick={() => cambiarModo("login")}>
+              Entendido
+            </button>
           </div>
         )}
 

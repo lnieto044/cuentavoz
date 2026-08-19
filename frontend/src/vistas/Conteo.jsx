@@ -2,21 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { enviarTurno, abrirBodega, buscarBodega, pedir, descargarReporte, esFalloRed } from "../api";
 import { escuchar, hablar, vozDisponible, esAfirmacion, esNegacion } from "../voz";
 import { interpretarLocal } from "../interpreteLocal";
+import { leerCola, guardarCola } from "../colaOffline";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 import Icono from "../Iconos";
 
 const UNIDADES = ["Unidad", "Kilogram", "Liter", "Portion"];
-const CLAVE_COLA = (sesionId) => `cv_offline_${sesionId}`;
 const CLAVE_CATALOGO = "cv_catalogo_ligero";
-
-function leerCola(sesionId) {
-  try { return JSON.parse(localStorage.getItem(CLAVE_COLA(sesionId)) || "[]"); }
-  catch (_) { return []; }
-}
-function guardarCola(sesionId, cola) {
-  localStorage.setItem(CLAVE_COLA(sesionId), JSON.stringify(cola));
-}
 
 function leerCatalogo() {
   try { return JSON.parse(localStorage.getItem(CLAVE_CATALOGO) || "[]"); }

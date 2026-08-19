@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { alSesionInvalida, borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
 import { obtenerTokenValido, cerrarSesionLocal } from "./cognito";
 import { configurarVoz, detenerVoz } from "./voz";
+import { leerPreferencias, aplicarPreferencias } from "./accesibilidad";
+import TutorialGuiado from "./TutorialGuiado";
+import { debeAbrirTutorial, marcarTutorialVisto, EVENTO_ABRIR_TUTORIAL } from "./tutorial";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
 import Inicio from "./vistas/Inicio";
@@ -70,6 +73,24 @@ export default function App() {
   const [ctx, setCtx] = useState(() => ({ sesionId: -2000 - (sesion?.usuario?.id || 0) }));
   const [salir, setSalir] = useState(false);
   const [avisoSesion, setAvisoSesion] = useState("");
+  const [mostrarTutorial, setMostrarTutorial] = useState(false);
+
+  // "Ver el recorrido guiado" en Ayuda.jsx reabre el tutorial bajo demanda
+  // con un evento (mismo patrón que cuentavoz:foto-actualizada) en vez de
+  // pasar la función por props a través de todas las vistas.
+  useEffect(() => {
+    function abrir() { setMostrarTutorial(true); }
+    window.addEventListener(EVENTO_ABRIR_TUTORIAL, abrir);
+    return () => window.removeEventListener(EVENTO_ABRIR_TUTORIAL, abrir);
+  }, []);
+
+  // Alto contraste / tamaño de letra (Mi perfil > Accesibilidad) son
+  // preferencias de ESTE equipo (localStorage), no de la cuenta - se
+  // aplican una sola vez al montar, antes incluso de que haya sesión, para
+  // que también se vean en la pantalla de login.
+  useEffect(() => {
+    aplicarPreferencias(leerPreferencias());
+  }, []);
 
   // Se suscribe una sola vez: cuando pedir() encuentra un 401 (sesión
   // cerrada desde otro dispositivo, PIN cambiado, cuenta desactivada...)
@@ -155,6 +176,7 @@ export default function App() {
           setSesion(s);
           setAvisoSesion("");
           setVista("inicio");
+          if (debeAbrirTutorial()) setMostrarTutorial(true);
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
             configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,
                            confirmacionHablada: p.confirmacion_hablada })
@@ -171,6 +193,7 @@ export default function App() {
         activo={salir ? "salir" : menuDe(vista)}
         usuario={sesion.usuario}
         token={sesion.token}
+        sesionId={ctx.sesionId}
         onNavegar={(id) => {
           detenerVoz();
           if (id === "salir") {
@@ -222,6 +245,13 @@ export default function App() {
             setSalir(false);
             setVista("inicio");
           }}
+        />
+      )}
+
+      {mostrarTutorial && (
+        <TutorialGuiado
+          perfil={sesion.usuario?.perfil}
+          onCerrar={() => { marcarTutorialVisto(); setMostrarTutorial(false); }}
         />
       )}
     </div>

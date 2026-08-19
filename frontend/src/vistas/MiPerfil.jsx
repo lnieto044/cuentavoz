@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pedir, BASE, leerToken, borrarSesion, esFalloRed } from "../api";
 import { cambiarClave, cerrarSesionLocal, tieneMFAActiva, desactivarMFA } from "../cognito";
 import { configurarVoz, hablar } from "../voz";
+import { leerPreferencias, guardarPreferencias } from "../accesibilidad";
 import ChecklistClave, { claveCumplePolitica } from "../ChecklistClave";
 import ConfigurarMFA from "../ConfigurarMFA";
 import Marco from "../Marco";
@@ -13,6 +14,25 @@ function formatoAcceso(fechaStr) {
   const [fecha, hora] = fechaStr.split(" ");
   const hoy = new Date().toISOString().slice(0, 10);
   return fecha === hoy ? `hoy ${hora}` : `${fecha.slice(5).replace("-", "/")} ${hora}`;
+}
+
+/* ── Interruptor simple, sin librería (mismo patrón que Ajustes.jsx) ── */
+function Interruptor({ activo, onChange, etiqueta }) {
+  return (
+    <button
+      onClick={() => onChange(!activo)}
+      role="switch"
+      aria-checked={activo}
+      aria-label={etiqueta}
+      style={{
+        width: 44, height: 24, borderRadius: 14, padding: 2,
+        background: activo ? "var(--verde)" : "#C3CAD6",
+        display: "flex", justifyContent: activo ? "flex-end" : "flex-start",
+      }}
+    >
+      <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff" }} />
+    </button>
+  );
 }
 
 // Lo que YA se puede cambiar por voz aquí (la voz, la velocidad, la
@@ -41,6 +61,15 @@ export default function MiPerfil({ token, ir }) {
   const [mfaActiva, setMfaActiva] = useState(null);   // null = todavía no se sabe
   const [configurandoMFA, setConfigurandoMFA] = useState(false);
   const [confirmarQuitarMFA, setConfirmarQuitarMFA] = useState(false);
+  // Alto contraste / tamaño de letra - preferencia de este equipo
+  // (localStorage), no de la cuenta, así que se aplica al toque, sin
+  // pasar por "Guardar cambios" del resto de la pantalla.
+  const [accesibilidad, setAccesibilidad] = useState(() => leerPreferencias());
+  function cambiarAccesibilidad(cambios) {
+    const nuevas = { ...accesibilidad, ...cambios };
+    setAccesibilidad(nuevas);
+    guardarPreferencias(nuevas);
+  }
 
   // <img src> no puede mandar el header Authorization, y /foto exige
   // sesion - por eso se trae como blob autenticado (mismo patron que
@@ -112,6 +141,8 @@ export default function MiPerfil({ token, ir }) {
       await cambiarClave(claveActual, claveNueva);
       setClaveActual(""); setClaveNueva(""); setClaveNueva2("");
       setMsg("Clave actualizada.");
+      setDatos((d) => ({ ...d, pin_vence_en_dias: 90 }));
+      pedir("/api/usuarios/yo/marcar-clave-cambiada", { method: "POST" }, token).catch(() => {});
     } catch (e) { setErr(e.message); }
   }
   async function cerrarTodas() {
@@ -226,6 +257,16 @@ export default function MiPerfil({ token, ir }) {
           <p style={{ fontSize: ".87rem", marginBottom: 14 }}>
             Su PIN vence en <b>{datos.pin_vence_en_dias} días</b>
           </p>
+
+          {datos.pin_vence_en_dias <= 14 && (
+            <div className="banner" style={{ marginBottom: 14 }}>
+              <span className="ico">!</span>
+              <span>
+                <b>Su clave vence pronto</b>
+                <span>Le quedan {datos.pin_vence_en_dias} días. Cámbiela abajo cuando quiera.</span>
+              </span>
+            </div>
+          )}
 
           <input type="password" placeholder="Clave actual" value={claveActual}
                  autoComplete="current-password"
@@ -343,6 +384,29 @@ export default function MiPerfil({ token, ir }) {
             Guardar cambios
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <h3>Accesibilidad</h3>
+        <div className="grilla-botones" style={{ alignItems: "center", justifyContent: "flex-start", gap: 10 }}>
+          <Interruptor activo={!!accesibilidad.contraste} etiqueta="Alto contraste"
+                       onChange={(v) => cambiarAccesibilidad({ contraste: v })} />
+          <span className="pista">Alto contraste</span>
+        </div>
+        <label className="pista" htmlFor="campo-tamano-letra" style={{ display: "block", marginTop: 12 }}>
+          Tamaño de letra
+        </label>
+        <select id="campo-tamano-letra" value={accesibilidad.tamano || "normal"}
+                onChange={(e) => cambiarAccesibilidad({ tamano: e.target.value === "normal" ? "" : e.target.value })}
+                style={{ width: "100%", maxWidth: 260, marginTop: 6, padding: "10px 12px",
+                         border: "1px solid var(--borde)", borderRadius: 10 }}>
+          <option value="normal">Normal</option>
+          <option value="grande">Grande</option>
+          <option value="mas-grande">Más grande</option>
+        </select>
+        <p className="pista" style={{ marginTop: 10 }}>
+          Se aplica de una vez en este equipo, sin necesidad de guardar.
+        </p>
       </div>
 
       {confirmarCierre && (

@@ -2,11 +2,29 @@ import { useEffect, useState } from "react";
 import { MENU } from "./App";
 import Icono from "./Iconos";
 import { BASE, leerToken } from "./api";
+import { leerCola, EVENTO_COLA } from "./colaOffline";
 
-export default function BarraLateral({ activo, usuario, token, onNavegar }) {
+export default function BarraLateral({ activo, usuario, token, sesionId, onNavegar }) {
   const esAuditor = usuario?.perfil === "auditor";
   const items = MENU.filter((m) => !m.soloAuditor || esAuditor);
   const [fotoUrl, setFotoUrl] = useState(null);
+  const [colaLen, setColaLen] = useState(0);
+
+  // La cola de conteos guardados sin conexión (ver Conteo.jsx/colaOffline.js)
+  // antes solo se veía dentro de la pantalla de Conteo - si alguien
+  // cambiaba de pantalla con ítems todavía pendientes, no había ningún
+  // rastro de eso en el resto de la app. El evento propio cubre cambios en
+  // esta misma pestaña; "storage" cubre otra pestaña sincronizando la cola.
+  useEffect(() => {
+    function actualizar() { setColaLen(leerCola(sesionId).length); }
+    actualizar();
+    window.addEventListener(EVENTO_COLA, actualizar);
+    window.addEventListener("storage", actualizar);
+    return () => {
+      window.removeEventListener(EVENTO_COLA, actualizar);
+      window.removeEventListener("storage", actualizar);
+    };
+  }, [sesionId]);
 
   // Igual que en Mi perfil: <img src> no puede mandar el header
   // Authorization que /foto exige, asi que se trae como blob autenticado.
@@ -88,6 +106,9 @@ export default function BarraLateral({ activo, usuario, token, onNavegar }) {
             ? "Administrador de bodega"
             : "Auxiliar de inventarios"}
         </small>
+        {colaLen > 0 && (
+          <span className="chip oro" style={{ marginTop: 6 }}>{colaLen} por sincronizar</span>
+        )}
         <img src="/colsubsidio-blanco.png" alt="Colsubsidio" />
       </footer>
     </nav>

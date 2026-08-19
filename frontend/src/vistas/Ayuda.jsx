@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { pedir, preguntarAsistente } from "../api";
+import { EVENTO_ABRIR_TUTORIAL } from "../tutorial";
 import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
@@ -205,6 +206,12 @@ export default function Ayuda({ token, usuario, ir }) {
   return (
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
       <div className="card">
+        <div className="grilla-botones" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
+          <button className="btn borde"
+                  onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_TUTORIAL))}>
+            Ver el recorrido guiado
+          </button>
+        </div>
         <p className="rotulo">Pregúntele al agente</p>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input value={busca} onChange={(e) => alEscribir(e.target.value)}

@@ -12,3 +12,4 @@ python-multipart==0.0.32
 slowapi==0.1.9
 boto3==1.43.74
 tzdata==2026.3
+sentry-sdk[fastapi]==2.19.2

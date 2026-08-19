@@ -25,6 +25,12 @@ class Usuario(Base):
     telefono = Column(String, default="")
     codigo = Column(String, default="")
     activo = Column(Integer, default=1)
+    # NULL en cualquier cuenta creada antes de esta columna (semilla,
+    # creada a mano por un auditor, etc.) - nunca se migran, quedan fuera
+    # del filtro de aprobacion para siempre. Solo el autoregistro
+    # (main.py: registro_completado) pone 0 aqui; un auditor lo cambia a 1
+    # (aprobado) o -1 (rechazado, activo se queda en 0 para siempre).
+    aprobado = Column(Integer, nullable=True)
     pin_actualizado = Column(DateTime, default=ahora)
     ultimo_acceso = Column(DateTime, nullable=True)
     idioma_voz = Column(String, default="es-MX")

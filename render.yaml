@@ -60,6 +60,8 @@ services:
         sync: false      # se pega a mano en el dashboard: la llave es secreta
       - key: ORIGEN_PERMITIDO
         sync: false      # URL del static site una vez exista, ver DESPLIEGUE.md
+      - key: SENTRY_DSN
+        sync: false      # opcional - monitoreo de errores, ver DESPLIEGUE.md
 
   - type: web
     name: cuentavoz
@@ -70,6 +72,8 @@ services:
     envVars:
       - key: VITE_API_URL
         sync: false      # URL del cuentavoz-api una vez exista, ver DESPLIEGUE.md
+      - key: VITE_SENTRY_DSN
+        sync: false      # opcional - version frontend del DSN de arriba
     routes:
       - type: rewrite
         source: /*

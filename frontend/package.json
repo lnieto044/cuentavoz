@@ -10,6 +10,7 @@
     "test": "node --test src/*.test.js"
   },
   "dependencies": {
+    "@sentry/react": "^10.70.0",
     "amazon-cognito-identity-js": "^6.3.12",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",

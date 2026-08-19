@@ -25,11 +25,34 @@
   --serie-4: #6B4FA0;
 }
 
+/* ── Accesibilidad: alto contraste (Mi perfil > Accesibilidad) ──
+   Redefine solo las variables de :root - como casi todo el resto de la
+   hoja ya las usa en vez de colores sueltos, esto alcanza a casi toda la
+   interfaz sin tocar cada componente. */
+[data-contraste="alto"] {
+  --azul:       #004A80;
+  --azul-prof:  #000B1A;
+  --azul-claro: #FFFFFF;
+  --amarillo-tx:#5C4900;
+  --verde:      #0F4D2C;
+  --rojo:       #7A140F;
+  --grafito:    #000000;
+  --txt:        #000000;
+  --borde:      #000000;
+  --fondo:      #FFFFFF;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
+/* rem se calcula contra el tamaño de fuente de la RAÍZ (html), no de body -
+   por eso el tamaño ajustable (Mi perfil > Accesibilidad) se pone aquí. */
+html {
+  font-size: 16px;
+}
+html[data-tamano="grande"] { font-size: 19px; }
+html[data-tamano="mas-grande"] { font-size: 22px; }
 body {
   font-family: var(--fuente);
-  font-size: 16px;
   color: var(--txt);
   background: var(--fondo);
   -webkit-font-smoothing: antialiased;

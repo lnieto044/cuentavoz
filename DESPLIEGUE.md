@@ -110,3 +110,26 @@ artículos, stock) hay que cargarlo a mano contra la base nueva:
   spam, sin importar el destinatario, el remitente debe ser un correo en
   un dominio propio con Easy DKIM configurado en SES.
 - Ver [LEEME_PRIMERO.md](LEEME_PRIMERO.md) para correr todo localmente.
+
+## Monitoreo de errores en producción (Sentry, opcional)
+
+El código ya está listo para mandar los errores no manejados a Sentry -
+apagado por defecto (sin las variables de abajo, no llama a ningún lado,
+la app funciona exactamente igual). Para activarlo:
+
+1. Cree una cuenta gratis en [sentry.io](https://sentry.io) (el plan
+   gratis alcanza de sobra para un proyecto de este tamaño).
+2. **Create Project** → plataforma **Python/FastAPI** → nombre
+   `cuentavoz-api`. Sentry le muestra un DSN (una URL larga que empieza
+   con `https://...@...ingest.sentry.io/...`) - cópielo.
+3. En **cuentavoz-api → Environment** (Render): agregue
+   `SENTRY_DSN=<ese valor>` → **Save, deploy**.
+4. Repita el paso 2 con un segundo proyecto, plataforma **React**, nombre
+   `cuentavoz` - copie su propio DSN.
+5. En **cuentavoz → Environment** (Render, el Static Site): agregue
+   `VITE_SENTRY_DSN=<ese otro valor>` → **Save, rebuild** (obligatorio
+   reconstruir, igual que con `VITE_API_URL`: Vite lo incrusta en el build,
+   no lo lee en tiempo real).
+
+Con eso, cualquier error real que ocurra en producción (backend o
+frontend) aparece en el dashboard de Sentry, con la traza completa.

@@ -14,6 +14,16 @@ from horario import ahora
 from dotenv import load_dotenv
 load_dotenv()
 
+# Apagado por defecto (sin SENTRY_DSN no llama a init ni manda nada a
+# ningun lado) - se deja cableado para que activarlo en produccion sea
+# solo poner la variable de entorno, sin tocar codigo. send_default_pii
+# en False a proposito: Usuario.correo es un correo real de empleado, no
+# hay que dejarlo viajar a un tercero por defecto.
+import sentry_sdk
+_SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if _SENTRY_DSN:
+    sentry_sdk.init(dsn=_SENTRY_DSN, traces_sample_rate=0.0, send_default_pii=False)
+
 from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
                      HTTPException, UploadFile, File, Request)
 from fastapi.concurrency import run_in_threadpool
@@ -70,6 +80,19 @@ def _manejador_limite_excedido(request: Request, exc: RateLimitExceeded):
     # perfil...) mostraba "Error 429" en vez de avisar que hay que esperar.
     return JSONResponse({"detail": "Demasiados intentos. Espere un momento y vuelva a intentarlo."},
                         status_code=429)
+
+
+@app.exception_handler(Exception)
+def _manejador_error_no_capturado(request: Request, exc: Exception):
+    # FastAPI ya responde 500 solo ante una excepcion no manejada, pero sin
+    # la forma {"detail": "..."} que pedir() (api.js) espera - sin esto, un
+    # error real (no uno ya convertido a HTTPException) se veia en pantalla
+    # como un mensaje crudo en vez del aviso en español de siempre.
+    if _SENTRY_DSN:
+        sentry_sdk.capture_exception(exc)
+    print(f"[error no capturado] {request.method} {request.url.path}: {exc}")
+    return JSONResponse({"detail": "Ocurrió un error inesperado. Intente de nuevo."}, status_code=500)
+
 
 _origenes = {o.strip() for o in os.getenv("ORIGEN_PERMITIDO", "").split(",") if o.strip()}
 # 5173 es "npm run dev"; 4173 es "npm run preview" (el build de produccion,
@@ -298,7 +321,14 @@ def registro_completado(request: Request, datos: RegistroCompletadoIn,
     nombre de usuario sale del token ya verificado, nunca del cuerpo de
     la peticion - y el perfil queda SIEMPRE "auxiliar": nadie puede
     autoasignarse el perfil de auditor solo registrandose, ese ascenso
-    lo hace un administrador despues desde Ajustes."""
+    lo hace un administrador despues desde Ajustes.
+
+    La fila queda inactiva (activo=0, aprobado=0) hasta que un auditor la
+    apruebe (ver aprobar_registro/rechazar_registro, mas abajo) - Cognito
+    ya verifico el correo, pero eso no es lo mismo que decidir si esa
+    persona debe tener acceso a los datos de inventario de Colsubsidio.
+    usuario_actual() (seguridad.py) ya rechaza cualquier activo=0, asi que
+    el bloqueo real no necesita logica nueva ahi - solo esta fila."""
     from seguridad import _reclamos_cognito
     reclamos = _reclamos_cognito(token) if token else None
     if reclamos is None:
@@ -313,7 +343,8 @@ def registro_completado(request: Request, datos: RegistroCompletadoIn,
             return {"ok": True, "ya_existia": True}
         nuevo = Usuario(nombre=nombre, perfil="auxiliar",
                         correo=(datos.correo or "").strip(),
-                        codigo=(datos.codigo or "").strip().upper())
+                        codigo=(datos.codigo or "").strip().upper(),
+                        activo=0, aprobado=0)
         s.add(nuevo)
         s.commit()
         s.refresh(nuevo)
@@ -4463,6 +4494,57 @@ def rechazar(aprobacion_id: int, u: Usuario = Depends(requiere_perfil("auditor")
     return {"ok": True}
 
 
+@app.get("/api/usuarios/pendientes-aprobacion")
+def listar_usuarios_pendientes(u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Cuentas que se autoregistraron (ver registro_completado) y siguen
+    esperando que un auditor elija su perfil - aprobado=NULL (cualquier
+    cuenta anterior a este filtro, semilla o creada a mano) nunca aparece
+    aqui, solo aprobado=0."""
+    with Sesion() as s:
+        pendientes = s.query(Usuario).filter_by(aprobado=0).order_by(Usuario.id.desc()).all()
+        return [{"id": p.id, "nombre": p.nombre, "correo": p.correo,
+                 "codigo": p.codigo} for p in pendientes]
+
+
+class AprobarRegistroIn(BaseModel):
+    perfil: str = "auxiliar"
+
+
+@app.post("/api/usuarios/{usuario_id}/aprobar-registro")
+def aprobar_registro(usuario_id: int, datos: AprobarRegistroIn,
+                     u: Usuario = Depends(requiere_perfil("auditor"))):
+    if datos.perfil not in ("auxiliar", "auditor"):
+        raise HTTPException(400, "El perfil debe ser auxiliar o auditor.")
+    with Sesion() as s:
+        p = s.get(Usuario, usuario_id)
+        if p is None or p.aprobado != 0:
+            raise HTTPException(404, "Registro no encontrado o ya resuelto.")
+        p.activo = 1
+        p.aprobado = 1
+        p.perfil = datos.perfil
+        s.commit()
+        nombre = p.nombre
+    registrar(u, "USUARIO", f"{nombre} aprobado como {datos.perfil} tras autoregistro", "ok")
+    return {"ok": True}
+
+
+@app.post("/api/usuarios/{usuario_id}/rechazar-registro")
+def rechazar_registro(usuario_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """No borra la fila ni la identidad de Cognito (mismo principio que el
+    resto de la app: no se borra a nadie) - aprobado=-1 la saca de la
+    lista de pendientes para siempre, y activo se queda en 0, bloqueando
+    el ingreso via usuario_actual() igual que hoy."""
+    with Sesion() as s:
+        p = s.get(Usuario, usuario_id)
+        if p is None or p.aprobado != 0:
+            raise HTTPException(404, "Registro no encontrado o ya resuelto.")
+        p.aprobado = -1
+        s.commit()
+        nombre = p.nombre
+    registrar(u, "USUARIO", f"{nombre} rechazado tras autoregistro", "alerta")
+    return {"ok": True}
+
+
 @app.post("/api/soporte/reportar")
 def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
     detalle = (body.get("detalle") or "").strip() or "Sin detalle."
@@ -4681,6 +4763,20 @@ def guardar_preferencias(body: dict, u: Usuario = Depends(usuario_actual)):
                 setattr(usr, k, body[k])
         if "confirmacion_hablada" in body:
             usr.confirmacion_hablada = 1 if body["confirmacion_hablada"] else 0
+        s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/usuarios/yo/marcar-clave-cambiada")
+def marcar_clave_cambiada(u: Usuario = Depends(usuario_actual)):
+    """Cognito es quien cambia la clave (Mi perfil o "olvide mi clave"),
+    nunca este backend - pero el aviso de "su clave vence en N dias" (ver
+    ver_perfil) se calcula desde pin_actualizado, que sin esta llamada se
+    queda congelado en la fecha de creacion de la cuenta para siempre. El
+    frontend llama esto justo despues de que Cognito confirma el cambio."""
+    with Sesion() as s:
+        usr = s.get(Usuario, u.id)
+        usr.pin_actualizado = ahora()
         s.commit()
     return {"ok": True}
 
