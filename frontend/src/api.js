@@ -44,15 +44,6 @@ let _alSesionInvalida = null;
 export function alSesionInvalida(fn) {
   _alSesionInvalida = fn;
 }
-/** Cambiar el PIN o "cerrar todas las sesiones" emite un token nuevo sin
-    volver a pasar por /api/ingresar: hay que refrescar también la sesión
-    cacheada, no solo el token suelto, o la próxima vez que la app arranque
-    sin red restauraría el token viejo ya invalidado. */
-export function actualizarTokenSesion(nuevoToken) {
-  guardarToken(nuevoToken);
-  const s = leerSesion();
-  if (s) guardarSesion({ ...s, token: nuevoToken });
-}
 
 /** fetch() rechaza con un TypeError cuando la red falla (Wi-Fi caído, DNS,
     CORS bloqueado) - la especificación lo llama "network error". Detectarlo
@@ -104,31 +95,6 @@ export async function pedir(ruta, opciones = {}, token) {
     // atascada reusando un token que el backend rechaza siempre.
     if (res.status === 401) { borrarSesion(); _alSesionInvalida?.(); }
     let detalle = `Error ${res.status}`;
-    try {
-      const j = await res.json();
-      detalle = j.detail || j.detalle || detalle;
-    } catch (_) {}
-    throw new Error(detalle);
-  }
-  return res.json();
-}
-
-export async function ingresar(usuario, clave) {
-  const cuerpo = new URLSearchParams({ username: usuario, password: clave });
-  let res;
-  try {
-    res = await fetch(`${BASE}/api/ingresar`, { method: "POST", body: cuerpo });
-  } catch (error) {
-    if (esFalloRed(error)) throw errorDeRed();
-    throw error;
-  }
-  if (!res.ok) {
-    // El backend distingue clave incorrecta (401), usuario inactivo (403) y
-    // demasiados intentos (429) - con un mensaje fijo aquí, alguien con la
-    // cuenta desactivada veía "usuario o clave incorrectos" y probaba PIN
-    // tras PIN sin saber que el problema real es que hay que hablar con un
-    // administrador, en vez del detalle real que el servidor sí manda.
-    let detalle = "Usuario o clave incorrectos.";
     try {
       const j = await res.json();
       detalle = j.detail || j.detalle || detalle;

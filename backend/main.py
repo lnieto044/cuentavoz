@@ -19,7 +19,6 @@ from fastapi import (FastAPI, WebSocket, WebSocketDisconnect, Depends,
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -29,16 +28,31 @@ from bd import Sesion, iniciar_bd
 from modelos import (Usuario, Bodega, Articulo, StockSistema, SesionConteo,
                      Conteo, Alerta, Traza, LineaServicio, AsignacionBodega,
                      Aprobacion, HistorialCierre, ConfigClave,
-                     Receta, RecetaIngrediente, CredencialWebAuthn, MensajeSoporte)
-from seguridad import (hash_clave, verificar_clave, crear_token,
-                       usuario_actual, requiere_perfil, registrar)
+                     Receta, RecetaIngrediente, MensajeSoporte)
+from seguridad import (usuario_actual, requiere_perfil, registrar, esquema,
+                       COGNITO_REGION, COGNITO_USER_POOL_ID)
 from agente.orquestador import procesar_turno, ESTADOS, avance
 from servicios.recetas import (calcular_pedido, comparar_legalizacion,
                                analisis_consumo, detalle_receta, _filas_a_legalizar)
 from servicios.validacion import umbral_actual, validar_conteo
-from servicios import analitica, huella
+from servicios import analitica
 from servicios.interprete import _numero as _numero_de_texto
 import reportes
+
+
+def _cliente_cognito():
+    """El backend administra Cognito (sembrar las cuentas demo, cerrar
+    todas las sesiones de una persona) con SU PROPIA credencial de AWS -
+    distinta de la que se uso para crear el User Pool: esta solo puede
+    AdminCreateUser/AdminSetUserPassword/AdminGetUser/
+    AdminUserGlobalSignOut sobre este User Pool en particular, nada mas
+    (ver el usuario de IAM "cuentavoz-backend"). Sin AWS_ACCESS_KEY_ID
+    configurada (desarrollo local sin AWS a mano), boto3 revienta al
+    hacer la primera llamada real, no aqui - se deja igual que el patron
+    ya usado para Gemini/Brevo: se degrada en el momento de usarla, no al
+    arrancar."""
+    import boto3
+    return boto3.client("cognito-idp", region_name=COGNITO_REGION)
 
 app = FastAPI(title="CuentaVoz", version="1.0.0",
               description="Asistente por voz para inventarios · Colsubsidio")
@@ -85,7 +99,7 @@ async def cabeceras(request: Request, llamar):
 
 
 # Las 4 cuentas de demostracion (luis/diana/stephanie/valentina, clave
-# "StockXperts" - la misma que aparece en el README) solo se siembran si
+# "StockXperts1" - la misma que aparece en el README) solo se siembran si
 # esta variable esta activa. Por defecto NO lo esta: sin esto, cualquier
 # despliegue con la base de usuarios vacia -incluido un Render de
 # produccion real, con datos reales, antes de que alguien cree las
@@ -95,6 +109,60 @@ async def cabeceras(request: Request, llamar):
 # despues, basta con no ponerla (o quitarla) para que esas cuentas nunca
 # aparezcan solas.
 SEMBRAR_DEMO = os.getenv("SEMBRAR_DEMO", "").strip() == "1"
+# La clave de las cuentas de demostracion vive en Cognito, no en esta base -
+# tiene que cumplir la politica del User Pool (min. 8, mayuscula+minuscula+
+# numero). "StockXperts" sola no trae numero; se le agrego un "1" al
+# migrar a Cognito (ver README.md/LEEME_PRIMERO.md, ya actualizados).
+CLAVE_DEMO = "StockXperts1"
+
+
+def _crear_usuario_cognito(nombre: str, correo: str, clave: str) -> bool:
+    """Crea la cuenta en Cognito con la clave dada, ya confirmada
+    (MessageAction=SUPPRESS: no le manda el correo de bienvenida
+    automatico de Cognito - esta app ya avisa la clave por su cuenta,
+    por voz o en pantalla - y Permanent=True: entra de una con esa clave,
+    sin el paso extra de "cambie su clave temporal" que exige Cognito
+    para claves no permanentes). Usado tanto al sembrar las cuentas de
+    demo como al crear un usuario nuevo por voz o desde Ajustes. Si ya
+    existe, no revienta: se ignora y se avisa por consola."""
+    cliente = _cliente_cognito()
+    try:
+        cliente.admin_create_user(
+            UserPoolId=COGNITO_USER_POOL_ID, Username=nombre,
+            UserAttributes=[{"Name": "email", "Value": correo},
+                            {"Name": "email_verified", "Value": "true"},
+                            {"Name": "name", "Value": nombre}],
+            MessageAction="SUPPRESS",
+        )
+        cliente.admin_set_user_password(
+            UserPoolId=COGNITO_USER_POOL_ID, Username=nombre,
+            Password=clave, Permanent=True,
+        )
+        return True
+    except cliente.exceptions.UsernameExistsException:
+        return False
+    except Exception as e:
+        print(f"[cognito] no se pudo crear la cuenta de {nombre}: {e}")
+        return False
+
+
+def _actualizar_correo_cognito(nombre: str, correo: str) -> bool:
+    """Cognito es quien manda el código al recuperar clave o al confirmar
+    un registro - si el correo cambia aquí (Mi perfil o Ajustes) sin
+    avisarle a Cognito, esos códigos seguirían yendo al correo viejo para
+    siempre, sin que nada en la pantalla lo delatara. email_verified=true
+    porque este cambio lo hace un administrador o la propia persona ya
+    autenticada, no alguien sin verificar tratando de robar la cuenta."""
+    try:
+        _cliente_cognito().admin_update_user_attributes(
+            UserPoolId=COGNITO_USER_POOL_ID, Username=nombre,
+            UserAttributes=[{"Name": "email", "Value": correo},
+                            {"Name": "email_verified", "Value": "true"}],
+        )
+        return True
+    except Exception as e:
+        print(f"[cognito] no se pudo actualizar el correo de {nombre}: {e}")
+        return False
 
 
 @app.on_event("startup")
@@ -104,22 +172,25 @@ def arranque():
         if SEMBRAR_DEMO and s.query(Usuario).count() == 0:
             s.add_all([
                 Usuario(nombre="luis", perfil="auxiliar",
-                        clave_hash=hash_clave("StockXperts"),
                         correo="lnieto@colsubsidio.com", codigo="CS-48127"),
                 Usuario(nombre="diana", perfil="auditor",
-                        clave_hash=hash_clave("StockXperts"),
                         correo="diana@colsubsidio.com", codigo="CS-48200"),
                 Usuario(nombre="stephanie", perfil="auxiliar",
-                        clave_hash=hash_clave("StockXperts"), codigo="CS-48311"),
+                        correo="stephanie@colsubsidio.com", codigo="CS-48311"),
                 Usuario(nombre="valentina", perfil="auxiliar",
-                        clave_hash=hash_clave("StockXperts"), codigo="CS-48342"),
+                        correo="valentina@colsubsidio.com", codigo="CS-48342"),
             ])
             s.commit()
-            print("[arranque] usuarios de prueba creados (clave StockXperts)")
+            for nombre, correo in (("luis", "lnieto@colsubsidio.com"),
+                                   ("diana", "diana@colsubsidio.com"),
+                                   ("stephanie", "stephanie@colsubsidio.com"),
+                                   ("valentina", "valentina@colsubsidio.com")):
+                _crear_usuario_cognito(nombre, correo, CLAVE_DEMO)
+            print(f"[arranque] usuarios de prueba creados (clave {CLAVE_DEMO})")
         elif s.query(Usuario).count() == 0:
             print("[arranque] base de usuarios vacia y SEMBRAR_DEMO no esta activo: "
-                  "no se crearon cuentas de prueba. Cree la primera cuenta "
-                  "directamente en la base, o active SEMBRAR_DEMO=1 para la demo.")
+                  "no se crearon cuentas de prueba. Registrese desde Ingreso, "
+                  "o active SEMBRAR_DEMO=1 para la demo.")
 
         # bodegas asignadas por persona: solo la primera vez, solo si ya hay
         # bodegas cargadas (cargar_excel.py corre antes que la API), y solo
@@ -191,87 +262,66 @@ def _buscar_usuario_por_entrada(s, entrada: str):
     ).first()
 
 
-@app.post("/api/ingresar")
-@limiter.limit("5/minute")
-def ingresar(request: Request, form: OAuth2PasswordRequestForm = Depends()):
-    with Sesion() as s:
-        u = _buscar_usuario_por_entrada(s, form.username)
-        if not u or not verificar_clave(form.password, u.clave_hash):
-            raise HTTPException(401, "Usuario o clave incorrectos.")
-        if not u.activo:
-            raise HTTPException(403, "Ese usuario esta inactivo.")
-        u.ultimo_acceso = ahora()
-        s.commit()
-        s.refresh(u)
-    registrar(u, "INGRESO", f"{u.nombre} inicio sesion")
-    return {"token": crear_token(u), "perfil": u.perfil,
-            "usuario": {"id": u.id, "nombre": u.nombre, "perfil": u.perfil}}
-
-
 @app.get("/api/usuarios/perfil")
 @limiter.limit("20/minute")
 def perfil_por_usuario(request: Request, usuario: str = ""):
     """Para que la pantalla de ingreso muestre «Auxiliar» o «Administrador»
     apenas se escribe el usuario, sin esperar a iniciar sesion. Solo
-    devuelve el perfil y si tiene huella (nada mas sensible: ni nombre, ni
-    correo) y esta limitado por minuto para no servir de lista para
-    adivinar usuarios validos."""
+    devuelve el perfil (nada mas sensible: ni nombre, ni correo) y esta
+    limitado por minuto para no servir de lista para adivinar usuarios
+    validos. El login mismo (usuario+clave) lo resuelve Cognito
+    directamente desde el frontend - este backend nunca ve la clave."""
     if not usuario.strip():
-        return {"perfil": None, "tiene_huella": False}
+        return {"perfil": None}
     with Sesion() as s:
         u = _buscar_usuario_por_entrada(s, usuario)
         if not u or not u.activo:
-            return {"perfil": None, "tiene_huella": False}
-        tiene_huella = s.query(CredencialWebAuthn).filter_by(usuario_id=u.id).first() is not None
-    return {"perfil": u.perfil, "tiene_huella": tiene_huella}
+            return {"perfil": None}
+    return {"perfil": u.perfil}
 
 
-@app.get("/api/auth/huella/opciones")
-@limiter.limit("20/minute")
-def opciones_ingreso_huella(request: Request, usuario: str = ""):
-    """Paso 1 del ingreso con huella: reto para navigator.credentials.get()."""
-    with Sesion() as s:
-        u = _buscar_usuario_por_entrada(s, usuario)
-        if not u or not u.activo:
-            raise HTTPException(404, "No hay una huella registrada para ese usuario.")
-        credenciales = [c.credential_id for c in
-                        s.query(CredencialWebAuthn).filter_by(usuario_id=u.id).all()]
-    if not credenciales:
-        raise HTTPException(404, "No hay una huella registrada para ese usuario.")
-    reto_id, opciones = huella.opciones_ingreso(u.id, credenciales)
-    return {"reto_id": reto_id, "opciones": opciones}
+class RegistroCompletadoIn(BaseModel):
+    nombre_completo: str
+    codigo: str = ""
+    correo: str
 
 
-class VerificarHuellaIn(BaseModel):
-    reto_id: str
-    credencial: dict
-
-
-@app.post("/api/auth/huella/verificar")
+@app.post("/api/registro-completado")
 @limiter.limit("10/minute")
-def verificar_ingreso_huella(request: Request, datos: VerificarHuellaIn):
-    cred_id = datos.credencial.get("id") if isinstance(datos.credencial, dict) else None
+def registro_completado(request: Request, datos: RegistroCompletadoIn,
+                        token: str = Depends(esquema)):
+    """Cognito ya creo Y confirmo la cuenta (el codigo que Cognito manda al
+    correo al registrarse) antes de llegar aqui - el frontend inicia
+    sesion contra Cognito justo despues de confirmar y llama esto con ese
+    token, no con datos sueltos. Aqui solo se crea la fila LOCAL que sabe
+    el perfil y las bodegas asignadas, cosas que Cognito no conoce. El
+    nombre de usuario sale del token ya verificado, nunca del cuerpo de
+    la peticion - y el perfil queda SIEMPRE "auxiliar": nadie puede
+    autoasignarse el perfil de auditor solo registrandose, ese ascenso
+    lo hace un administrador despues desde Ajustes."""
+    from seguridad import _reclamos_cognito
+    reclamos = _reclamos_cognito(token) if token else None
+    if reclamos is None:
+        raise HTTPException(401, "Sesion de Cognito invalida o vencida.")
+    nombre = (reclamos.get("username") or "").strip().lower()
+    if not nombre:
+        raise HTTPException(400, "No se pudo identificar el usuario de Cognito.")
     with Sesion() as s:
-        registro = s.query(CredencialWebAuthn).filter_by(credential_id=cred_id).first()
-        if not registro:
-            raise HTTPException(401, "Credencial de huella no reconocida.")
-        try:
-            usuario_id, nuevo_conteo = huella.verificar_ingreso(
-                datos.reto_id, datos.credencial, registro.public_key, registro.sign_count)
-        except Exception as e:
-            raise HTTPException(401, f"No se pudo verificar la huella: {e}")
-        if usuario_id != registro.usuario_id:
-            raise HTTPException(401, "Credencial de huella no reconocida.")
-        registro.sign_count = nuevo_conteo
-        u = s.get(Usuario, usuario_id)
-        if not u.activo:
-            raise HTTPException(403, "Ese usuario esta inactivo.")
-        u.ultimo_acceso = ahora()
+        if s.query(Usuario).filter_by(nombre=nombre).first():
+            # ya existe (ej. reintento de red tras un primer registro que
+            # si alcanzo a crear la fila) - no es un error, solo confirma.
+            return {"ok": True, "ya_existia": True}
+        nuevo = Usuario(nombre=nombre, perfil="auxiliar",
+                        correo=(datos.correo or "").strip(),
+                        codigo=(datos.codigo or "").strip().upper())
+        s.add(nuevo)
         s.commit()
-        s.refresh(u)
-    registrar(u, "INGRESO", f"{u.nombre} inicio sesion con huella")
-    return {"token": crear_token(u), "perfil": u.perfil,
-            "usuario": {"id": u.id, "nombre": u.nombre, "perfil": u.perfil}}
+        s.refresh(nuevo)
+        if not nuevo.codigo:
+            nuevo.codigo = f"CS-{48000 + nuevo.id}"
+            s.commit()
+    registrar(nuevo, "USUARIO", f"{nombre} se registro por su cuenta", "ok")
+    return {"ok": True, "ya_existia": False}
 
 
 # ─────────────────────── el agente ───────────────────────
@@ -482,7 +532,6 @@ def _datos_perfil_narrados(u: Usuario) -> dict:
             "pin_vence_en_dias": max(90 - dias_pin, 0),
             "n_bodegas": len(nombres_bodegas),
             "texto_bodegas": "; ".join(nombres_bodegas),
-            "huella_registrada": bool(usr.huella_registrada),
             "perfil": usr.perfil,
             "velocidad_voz": usr.velocidad_voz,
             "confirmacion_hablada": bool(usr.confirmacion_hablada),
@@ -500,10 +549,6 @@ _PERFIL_PREGUNTAS = [
     (re.compile(r"bodegas?\s+(tengo|asignad\w*)|cu[aá]nt\w*\s+bodegas", re.IGNORECASE),
      lambda d: (f"Tiene {d['n_bodegas']} bodegas asignadas: {d['texto_bodegas']}."
                 if d["n_bodegas"] else "Todavía no tiene bodegas asignadas.")),
-    (re.compile(r"huella", re.IGNORECASE),
-     lambda d: ("Sí, tiene la huella registrada en este dispositivo." if d["huella_registrada"]
-                else "No tiene la huella registrada todavía; eso solo se hace desde la "
-                     "pantalla, por seguridad.")),
     (re.compile(r"mi\s+perfil\b|qu[eé]\s+perfil|soy\s+(auxiliar|admin\w*)", re.IGNORECASE),
      lambda d: f"Su perfil es {'administrador de bodega' if d['perfil'] == 'auditor' else 'auxiliar de inventarios'}."),
     (re.compile(r"qu[eé]\s+voz\s+(tengo|est[aá]|uso)|voz\s+actual", re.IGNORECASE),
@@ -740,7 +785,7 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 "a «Abrir» en su tarjeta - desde ahí, dictar los productos SÍ es por voz "
                 "con el micrófono normal de esa pantalla (igual que en Conteo). Pero "
                 "«Iniciar recuento ciego», «Ver comparación», «Aceptar todas», «Cerrar con "
-                "doble firma», firmar con PIN o huella, y «Cerrar bodega definitivamente» "
+                "doble firma», firmar con PIN, y «Cerrar bodega definitivamente» "
                 "son A PROPÓSITO solo manuales - nadie cierra una bodega con doble firma "
                 "por accidente con la voz. Si el mensaje llegó hasta usted es porque "
                 "«aprueba/rechaza <nombre>», «aprueba/rechaza el pedido de <...>», "
@@ -761,16 +806,15 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             f"Último acceso: {d['ultimo_acceso_hablado'] or 'sin registro'}. PIN vence en "
             f"{d['pin_vence_en_dias']} días. Bodegas asignadas: {d['n_bodegas']}"
             + (f" ({d['texto_bodegas']})" if d["texto_bodegas"] else "") + ". "
-            f"Huella registrada en este dispositivo: {'sí' if d['huella_registrada'] else 'no'}. "
             f"Voz actual: {d['voz_nombre']} ({d['voz_etiqueta'].lower()}), velocidad "
             f"{d['velocidad_voz']}, confirmación hablada "
             f"{'activada' if d['confirmacion_hablada'] else 'desactivada'}. "
             "SÍ se puede cambiar por voz: la voz neuronal («cambia mi voz a puck/kore/aoede/"
             "charon»), la velocidad («habla más lento/rápido», «velocidad normal») y la "
             "confirmación hablada («activa/desactiva la confirmación hablada»). Cambiar el "
-            "PIN, registrar o quitar la huella, subir una foto, y editar nombre/correo/"
-            "teléfono son A PROPÓSITO solo manuales, por seguridad - nunca diga que ya "
-            "cambió el PIN o la huella por voz, eso sería falso.")
+            "PIN, subir una foto, y editar nombre/correo/teléfono son A PROPÓSITO solo "
+            "manuales, por seguridad - nunca diga que ya cambió el PIN por voz, eso sería "
+            "falso.")
     if vista == "bodegas":
         with Sesion() as s:
             ids_permitidos = _ids_permitidos_para_buscar(s, u)
@@ -902,9 +946,14 @@ def _cambiar_estado_usuario(texto: str, u: Usuario) -> dict | None:
             return {"respuesta_hablada": f"{encontrado.nombre.capitalize()} ya estaba {estado}.",
                     "accion": "actualizar", "destino": None, "pestana": None}
         encontrado.activo = int(nuevo)
-        encontrado.version_token = (encontrado.version_token or 0) + 1
         nombre = encontrado.nombre
         s.commit()
+    if not nuevo:
+        try:
+            _cliente_cognito().admin_user_global_sign_out(
+                UserPoolId=COGNITO_USER_POOL_ID, Username=nombre)
+        except Exception as e:
+            print(f"[cognito] no se pudo cerrar la sesion de {nombre}: {e}")
     estado = "activado" if nuevo else "desactivado"
     registrar(u, "USUARIO", f"{nombre} {estado} por voz", "ok")
     return {"respuesta_hablada": f"Listo, {nombre.capitalize()} quedó {estado}.",
@@ -967,14 +1016,29 @@ def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
         if s.query(Usuario).filter_by(nombre=nombre).first():
             return {"respuesta_hablada": f"Ya existe un usuario llamado {nombre.capitalize()}.",
                     "accion": None, "destino": None, "pestana": None}
-        pin_generado = secrets.token_urlsafe(6)
-        nuevo = Usuario(nombre=nombre, perfil=perfil,
-                        clave_hash=hash_clave(pin_generado), correo="")
+        pin_generado = secrets.token_urlsafe(6) + "1Aa"   # cumple la politica de Cognito
+        # Cognito exige un correo real para crear la cuenta (no lo pide la
+        # frase por voz) - se usa un correo institucional predecible; el
+        # administrador lo puede corregir despues desde Ajustes si no es
+        # el correcto. La cuenta en si SI queda usable de una: el PIN
+        # dictado aqui es real, no un marcador de posicion.
+        correo = f"{nombre.replace(' ', '.')}@colsubsidio.com"
+        nuevo = Usuario(nombre=nombre, perfil=perfil, correo=correo)
         s.add(nuevo)
         s.commit()
         s.refresh(nuevo)
         nuevo.codigo = f"CS-{48000 + nuevo.id}"
         s.commit()
+    if not _crear_usuario_cognito(nombre, correo, pin_generado):
+        # la fila local ya quedo creada (igual que en POST /api/usuarios) -
+        # se avisa por voz en vez de anunciar un PIN que en realidad no
+        # sirve para entrar.
+        registrar(u, "USUARIO", f"Usuario {nombre} creado ({perfil}) por voz, "
+                                f"pero fallo en Cognito", "alerta")
+        return {"respuesta_hablada": f"Creé a {nombre.capitalize()} en el sistema, pero no "
+                                     "pude generar su acceso. Créelo de nuevo desde Gestión "
+                                     "de usuarios.",
+                "accion": "actualizar", "destino": None, "pestana": None}
     registrar(u, "USUARIO", f"Usuario {nombre} creado ({perfil}) por voz", "ok")
     return {"respuesta_hablada": f"Listo, creé a {nombre.capitalize()} como {perfil}. "
                                  f"Su PIN temporal es {pin_generado} - dígaselo para que "
@@ -2634,8 +2698,7 @@ def ver_firmas(bodega_id: int, u: Usuario = Depends(usuario_actual)):
             au = s.get(Usuario, ses.usuario_id)
             return {"sesion_id": ses.id, "persona": au.nombre if au else "?",
                     "firmada": bool(ses.firmada),
-                    "hora": ses.fin.strftime("%H:%M") if ses.fin else None,
-                    "huella": bool(au and au.huella_registrada)}
+                    "hora": ses.fin.strftime("%H:%M") if ses.fin else None}
 
         referencias = s.query(StockSistema).filter_by(bodega_id=bodega_id).count()
         alertas_resueltas = (s.query(Alerta).join(Conteo, Alerta.conteo_id == Conteo.id)
@@ -3780,6 +3843,12 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
     nombre = datos.nombre.strip().lower()
     if datos.perfil not in ("auxiliar", "auditor"):
         raise HTTPException(400, "El perfil debe ser auxiliar o auditor.")
+    # Cognito exige un correo real para crear la cuenta - antes era
+    # opcional porque solo se guardaba en esta base; ahora sin correo no
+    # hay como crear la cuenta de verdad, asi que se exige aqui.
+    correo = (datos.correo or "").strip()
+    if not correo or "@" not in correo:
+        raise HTTPException(400, "El correo es obligatorio y debe ser valido.")
     # sin esto, todo usuario creado desde Ajustes (la pantalla nunca pide
     # un PIN) quedaba con la misma clave de siempre - la misma que
     # aparece publicada en el README para las cuentas de demostracion.
@@ -3787,17 +3856,16 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
     # reciba lo cambie por uno propio desde Mi perfil.
     pin_generado = None
     if datos.pin is None:
-        pin_generado = secrets.token_urlsafe(6)
+        pin_generado = secrets.token_urlsafe(6) + "1Aa"   # cumple la politica de Cognito
         pin_para_guardar = pin_generado
     else:
         pin_para_guardar = datos.pin
-    if len(pin_para_guardar) < 6:
-        raise HTTPException(400, "El PIN debe tener al menos 6 digitos.")
+    if len(pin_para_guardar) < 8:
+        raise HTTPException(400, "El PIN debe tener al menos 8 caracteres.")
     with Sesion() as s:
         if s.query(Usuario).filter_by(nombre=nombre).first():
             raise HTTPException(409, "Ya existe un usuario con ese nombre.")
-        nuevo = Usuario(nombre=nombre, perfil=datos.perfil,
-                        clave_hash=hash_clave(pin_para_guardar), correo=datos.correo)
+        nuevo = Usuario(nombre=nombre, perfil=datos.perfil, correo=correo)
         s.add(nuevo)
         s.commit()
         s.refresh(nuevo)
@@ -3805,6 +3873,9 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
         # codigo de empleado: para poder ingresar con el ademas del nombre
         nuevo.codigo = f"CS-{48000 + nid}"
         s.commit()
+    if not _crear_usuario_cognito(nombre, correo, pin_para_guardar):
+        raise HTTPException(502, "La cuenta local se creo, pero no se pudo crear en Cognito. "
+                                 "Revise que el correo no este ya registrado.")
     registrar(u, "USUARIO", f"Usuario {nombre} creado ({datos.perfil})", "ok")
     respuesta = {"ok": True, "id": nid}
     if pin_generado:
@@ -3818,6 +3889,13 @@ def editar_perfil(datos: dict, u: Usuario = Depends(usuario_actual)):
     a proposito: "yo" no es un entero, y si esta ruta queda despues, esa otra
     la intercepta primero y revienta con un 422 (el mismo problema que ya
     paso con /usuarios/yo/bodegas)."""
+    correo_nuevo = (datos.get("correo") or "").strip()
+    # si Cognito no queda enterado del correo nuevo, el codigo de "olvide
+    # mi clave" seguiria yendo al correo viejo para siempre - se sincroniza
+    # ANTES de guardar localmente, para no dejar los dos lados desfasados.
+    if correo_nuevo and correo_nuevo != u.correo:
+        if not _actualizar_correo_cognito(u.nombre, correo_nuevo):
+            raise HTTPException(502, "No se pudo actualizar el correo en este momento.")
     with Sesion() as s:
         usr = s.get(Usuario, u.id)
         for k in ("nombre", "correo", "telefono"):
@@ -3854,17 +3932,31 @@ def editar_usuario(usuario_id: int, datos: EditarUsuarioIn,
             raise HTTPException(404, "Usuario no encontrado.")
         cambios = []
         if datos.correo is not None and datos.correo != obj.correo:
+            # mismo motivo que en editar_perfil: sin esto Cognito le
+            # seguiria mandando los codigos de recuperar clave al correo
+            # viejo de esa persona, sin que nada lo avisara.
+            if not _actualizar_correo_cognito(obj.nombre, datos.correo):
+                raise HTTPException(502, "No se pudo actualizar el correo en este momento.")
             obj.correo = datos.correo
             cambios.append("correo")
         if datos.perfil is not None and datos.perfil != obj.perfil:
             obj.perfil = datos.perfil
             cambios.append(f"perfil -> {datos.perfil}")
+        desactivado = False
         if datos.activo is not None and bool(datos.activo) != bool(obj.activo):
             obj.activo = int(datos.activo)
-            obj.version_token = (obj.version_token or 0) + 1  # cierra sus sesiones vivas
+            desactivado = not datos.activo
             cambios.append("activo" if datos.activo else "inactivo")
         s.commit()
         nombre = obj.nombre
+    if desactivado:
+        # cierra sus sesiones vivas en Cognito - el access token ya
+        # emitido sigue valido hasta que vence solo (ver seguridad.py)
+        try:
+            _cliente_cognito().admin_user_global_sign_out(
+                UserPoolId=COGNITO_USER_POOL_ID, Username=nombre)
+        except Exception as e:
+            print(f"[cognito] no se pudo cerrar la sesion de {nombre}: {e}")
     if cambios:
         registrar(u, "USUARIO", f"{nombre} editado: {', '.join(cambios)}", "ok")
     return {"ok": True}
@@ -3900,7 +3992,6 @@ def eliminar_usuario(usuario_id: int, u: Usuario = Depends(requiere_perfil("audi
                 s.delete(c)
             s.delete(ses)
         s.query(AsignacionBodega).filter_by(usuario_id=usuario_id).delete()
-        s.query(CredencialWebAuthn).filter_by(usuario_id=usuario_id).delete()
         # MensajeSoporte exige remitente/destinatario (no admite NULL) - sin
         # cuenta de uno de los dos lados, el mensaje no puede seguir existiendo.
         s.query(MensajeSoporte).filter(
@@ -3919,6 +4010,10 @@ def eliminar_usuario(usuario_id: int, u: Usuario = Depends(requiere_perfil("audi
             t.usuario_id = None
         s.delete(obj)
         s.commit()
+    try:
+        _cliente_cognito().admin_delete_user(UserPoolId=COGNITO_USER_POOL_ID, Username=nombre)
+    except Exception as e:
+        print(f"[cognito] no se pudo borrar la cuenta de {nombre}: {e}")
     registrar(u, "USUARIO", f"{nombre} eliminado de forma permanente", "ok")
     return {"ok": True}
 
@@ -4537,11 +4632,10 @@ def ver_perfil(u: Usuario = Depends(usuario_actual)):
     # la voz neuronal elegida (kore, puck...). Una cuenta con el valor
     # viejo cae a la voz por defecto en vez de romper el selector.
     voz = u.idioma_voz if u.idioma_voz in VOCES else VOZ_DEFECTO
-    return {"nombre": u.nombre, "correo": u.correo, "telefono": u.telefono,
+    return {"id": u.id, "nombre": u.nombre, "correo": u.correo, "telefono": u.telefono,
             "codigo": u.codigo, "perfil": u.perfil,
             "ultimo_acceso": u.ultimo_acceso.strftime("%Y-%m-%d %H:%M") if u.ultimo_acceso else None,
             "pin_vence_en_dias": max(90 - dias_pin, 0),
-            "huella_registrada": bool(u.huella_registrada),
             "idioma_voz": voz, "velocidad_voz": u.velocidad_voz,
             "confirmacion_hablada": bool(u.confirmacion_hablada)}
 
@@ -4591,75 +4685,23 @@ def guardar_preferencias(body: dict, u: Usuario = Depends(usuario_actual)):
     return {"ok": True}
 
 
-@app.post("/api/usuarios/yo/huella/opciones")
-@limiter.limit("10/minute")
-def opciones_registro_huella(request: Request, u: Usuario = Depends(usuario_actual)):
-    """Paso 1 del registro: reto de WebAuthn para navigator.credentials.create()."""
-    with Sesion() as s:
-        existentes = [c.credential_id for c in
-                     s.query(CredencialWebAuthn).filter_by(usuario_id=u.id).all()]
-    return huella.opciones_registro(u.id, u.nombre, existentes)
-
-
-@app.post("/api/usuarios/yo/huella/verificar")
-@limiter.limit("10/minute")
-def verificar_registro_huella(request: Request, credencial: dict, u: Usuario = Depends(usuario_actual)):
-    """Paso 2: verifica la respuesta del navegador y guarda la credencial."""
-    try:
-        verificado = huella.verificar_registro(u.id, credencial)
-    except Exception as e:
-        raise HTTPException(400, f"No se pudo registrar la huella: {e}")
-    with Sesion() as s:
-        s.add(CredencialWebAuthn(usuario_id=u.id, credential_id=verificado["credential_id"],
-                                 public_key=verificado["public_key"],
-                                 sign_count=verificado["sign_count"]))
-        usr = s.get(Usuario, u.id)
-        usr.huella_registrada = 1
-        s.commit()
-    registrar(u, "SEGURIDAD", f"{u.nombre} registro una huella en este dispositivo", "ok")
-    return {"ok": True}
-
-
-@app.delete("/api/usuarios/yo/huella")
-def eliminar_huella(u: Usuario = Depends(usuario_actual)):
-    with Sesion() as s:
-        s.query(CredencialWebAuthn).filter_by(usuario_id=u.id).delete()
-        usr = s.get(Usuario, u.id)
-        usr.huella_registrada = 0
-        s.commit()
-    registrar(u, "SEGURIDAD", f"{u.nombre} elimino sus huellas registradas", "ok")
-    return {"ok": True}
-
-
 @app.post("/api/usuarios/yo/cerrar-todas")
 def cerrar_todas_sesiones(u: Usuario = Depends(usuario_actual)):
-    with Sesion() as s:
-        usr = s.get(Usuario, u.id)
-        usr.version_token = (usr.version_token or 0) + 1
-        s.commit()
+    """Antes invalidaba con un contador propio (version_token) y devolvia
+    un token nuevo firmado por nosotros; ahora la identidad la maneja
+    Cognito, asi que se le pide a Cognito que revoque los refresh tokens
+    de esta persona (AdminUserGlobalSignOut: nadie con sesion abierta en
+    otro dispositivo puede volver a pedir un access token nuevo). El
+    access token que ya tenia emitido cada dispositivo sigue firmando
+    valido hasta que vence solo (el User Pool los emite con vida corta,
+    1 hora, para que esa ventana sea chica)."""
+    cliente = _cliente_cognito()
+    try:
+        cliente.admin_user_global_sign_out(UserPoolId=COGNITO_USER_POOL_ID, Username=u.nombre)
+    except Exception as e:
+        raise HTTPException(502, f"No se pudo cerrar las sesiones en este momento: {e}")
     registrar(u, "SEGURIDAD", "Sesion cerrada en todos los dispositivos")
-    return {"ok": True, "token": crear_token(usr)}
-
-
-@app.put("/api/usuarios/yo/pin")
-@limiter.limit("5/minute")
-def cambiar_pin(request: Request, body: dict, u: Usuario = Depends(usuario_actual)):
-    pin = str(body.get("pin", ""))
-    if len(pin) < 6:
-        raise HTTPException(400, "El PIN debe tener al menos 6 digitos.")
-    with Sesion() as s:
-        usr = s.get(Usuario, u.id)
-        # sin esto, cualquiera con el token abierto (tableta compartida sin
-        # bloquear, token filtrado) podia tomarse la cuenta por completo con
-        # solo mandar un PIN nuevo - ni siquiera hacia falta saber el viejo.
-        if not verificar_clave(str(body.get("pin_actual", "")), usr.clave_hash):
-            raise HTTPException(401, "El PIN actual no es correcto.")
-        usr.clave_hash = hash_clave(pin)      # nunca en texto plano
-        usr.version_token = (usr.version_token or 0) + 1  # cierra sesiones con el PIN viejo
-        s.commit()
-        nuevo_token = crear_token(usr)
-    registrar(u, "SEGURIDAD", "PIN actualizado")
-    return {"ok": True, "token": nuevo_token}
+    return {"ok": True}
 
 
 def _tipo_imagen_real(contenido: bytes) -> str | None:

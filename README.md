@@ -14,7 +14,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python-0B9260?style=for-the-badge&logo=fastapi&logoColor=white)](backend)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-produccion-336791?style=for-the-badge&logo=postgresql&logoColor=white)](backend/bd.py)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-agente_de_voz-1B3A6B?style=for-the-badge&logo=googlegemini&logoColor=white)](backend/agente)
-[![WebAuthn](https://img.shields.io/badge/WebAuthn-ingreso_con_huella-D4A017?style=for-the-badge)](backend/servicios/huella.py)
+[![AWS Cognito](https://img.shields.io/badge/AWS_Cognito-identidad-D4A017?style=for-the-badge&logo=amazoncognito&logoColor=white)](backend/seguridad.py)
 [![Render](https://img.shields.io/badge/Render-despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
 
 <br>
@@ -136,15 +136,13 @@ Los pedidos pueden ser revisados y aprobados por el auditor antes de continuar h
 
 ## 🔐 Ingreso seguro
 
-La plataforma permite:
+La identidad la administra AWS Cognito. La plataforma permite:
 
-- Usuario o código de empleado.
-- PIN.
-- Detección automática del perfil.
-- Autenticación mediante WebAuthn.
-- Windows Hello.
-- Touch ID.
-- Huella compatible del dispositivo.
+- Registro propio (queda siempre como auxiliar de inventarios).
+- Ingreso con usuario + clave, con detección automática del perfil.
+- Recuperar la clave por correo si se olvida.
+- Verificación en dos pasos opcional (código de una app autenticadora),
+  activable desde el registro o desde Mi perfil.
 
 ---
 
@@ -389,8 +387,8 @@ Esto permite aprovechar mejor el espacio disponible en teléfonos.
 ```mermaid
 flowchart LR
     U["👤 Usuario<br/>(voz o texto)"] --> FE["React + Vite<br/>Static Site en Render"]
-    FE -- "HTTPS / JWT" --> API["FastAPI<br/>Web Service en Render"]
-    FE -. WebAuthn .-> BIO["Windows Hello / Touch ID<br/>del dispositivo"]
+    FE -- "HTTPS / access token" --> API["FastAPI<br/>Web Service en Render"]
+    FE -. "registro, login, clave" .-> COGNITO["AWS Cognito<br/>identidad"]
     API --> DB[("PostgreSQL<br/>(SQLite en local)")]
     API --> GEMINI["Google Gemini<br/>agente de voz"]
     API -. "respaldo sin llave" .-> INTERPRETE["Intérprete local<br/>(reglas + fuzzy match)"]
@@ -443,11 +441,12 @@ fallas que hoy suelen dejar afuera a un usuario que no usa mouse.
 
 ## 🔐 Ingreso seguro
 
-Usuario o código de empleado + PIN, con el perfil (auxiliar / administrador)
-detectado solo al escribir — nadie tiene que elegirlo a mano. Cada persona
-puede además registrar la huella de su propio dispositivo (WebAuthn: Windows
-Hello, Touch ID o huella de Android) para entrar sin volver a teclear el PIN
-en ese equipo.
+La identidad la maneja AWS Cognito: registro propio, ingreso con
+usuario + clave y recuperación de clave por correo, con el perfil
+(auxiliar / administrador) detectado solo al escribir — nadie tiene
+que elegirlo a mano. Verificación en dos pasos opcional con app
+autenticadora (Google Authenticator, Microsoft Authenticator...), que
+se puede activar desde el registro o después desde Mi perfil.
 
 ## 📊 Datos reales
 
@@ -460,22 +459,22 @@ negativos detectados** (el mini reto).
 ## 🚀 Tecnologías
 
 <table>
-<tr><td><b>Backend</b></td><td>Python · FastAPI · SQLAlchemy · SQLite (local) / PostgreSQL (producción) · JWT + bcrypt · WebAuthn · Google Gemini AI</td></tr>
+<tr><td><b>Backend</b></td><td>Python · FastAPI · SQLAlchemy · SQLite (local) / PostgreSQL (producción) · AWS Cognito · Google Gemini AI</td></tr>
 <tr><td><b>Frontend</b></td><td>React · Vite · CSS propio, sin framework de UI</td></tr>
 <tr><td><b>Despliegue</b></td><td>Render (Static Site + Web Service) · Docker / docker-compose para desarrollo local</td></tr>
 </table>
 
 ## 🔒 Seguridad
 
-Contraseñas con bcrypt, sesiones con token JWT que vence (invalidado por
-completo al cambiar el PIN o cerrar todas las sesiones), cambio de PIN
-que exige el PIN vigente, ingreso opcional con huella del dispositivo
-(WebAuthn real), permisos por perfil reforzados también por asignación
-de bodega (auditados con tests de regresión), consultas por ORM sin SQL
-armado a mano, límite de tasa en los endpoints sensibles, cabeceras de
-seguridad (incluida HSTS), secretos fuera del repositorio y registro de
-trazabilidad inmutable. Alineado con la Ley 1581 de 2012. Detalle
-técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
+Identidad y contraseñas administradas por AWS Cognito (nunca las ve este
+backend), verificación en dos pasos opcional con app autenticadora,
+sesiones con access token que vence (revocable de inmediato al cerrar
+todas las sesiones), permisos por perfil reforzados también por
+asignación de bodega (auditados con tests de regresión), consultas por
+ORM sin SQL armado a mano, límite de tasa en los endpoints sensibles,
+cabeceras de seguridad (incluida HSTS), secretos fuera del repositorio y
+registro de trazabilidad inmutable. Alineado con la Ley 1581 de 2012.
+Detalle técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 
 ---
 
@@ -498,14 +497,14 @@ técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 La aplicación crea estos usuarios sola la primera vez que arranca (ver
 `backend/main.py: arranque()`):
 
-| Usuario | Código de empleado | PIN | Perfil |
+| Usuario | Código de empleado | Clave | Perfil |
 |---|---|---|---|
-| `luis` | `CS-48127` | `StockXperts` | Auxiliar de inventarios |
-| `diana` | `CS-48200` | `StockXperts` | Administradora de bodega |
-| `stephanie` | `CS-48311` | `StockXperts` | Auxiliar de inventarios |
-| `valentina` | `CS-48342` | `StockXperts` | Auxiliar de inventarios |
+| `luis` | `CS-48127` | `StockXperts1` | Auxiliar de inventarios |
+| `diana` | `CS-48200` | `StockXperts1` | Administradora de bodega |
+| `stephanie` | `CS-48311` | `StockXperts1` | Auxiliar de inventarios |
+| `valentina` | `CS-48342` | `StockXperts1` | Auxiliar de inventarios |
 
-Se puede entrar con el usuario o con el código de empleado, indistintamente.
+El ingreso es con el nombre de usuario (no con el código de empleado).
 
 ---
 

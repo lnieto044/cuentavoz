@@ -518,7 +518,6 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
                 </p>
               ) : <p style={{ marginTop: 10 }}>Pendiente de su firma</p>}
               <p style={{ fontSize: ".82rem", color: "var(--grafito)" }}>
-                {firmas?.conteo?.huella ? "Huella digital registrada · " : ""}
                 {firmas?.referencias ?? comparar.total} referencias
               </p>
               <p style={{ fontSize: ".82rem", fontStyle: "italic", color: "var(--grafito)" }}>
@@ -545,7 +544,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
                 <>
                   <p style={{ color: "var(--azul)", marginTop: 10 }}>Pendiente de su firma</p>
                   <button className="btn" style={{ marginTop: 8 }} onClick={firmarAuditoria}>
-                    Firmar con PIN o huella
+                    Firmar con PIN
                   </button>
                 </>
               )}

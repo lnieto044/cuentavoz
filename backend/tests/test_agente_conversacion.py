@@ -41,7 +41,7 @@ def datos_agente(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict:
         bodega_id = bodega.id
 
     respuesta = client.post("/api/ingresar",
-                            data={"username": "luis", "password": "StockXperts"})
+                            data={"username": "luis", "password": "StockXperts1"})
     assert respuesta.status_code == 200, respuesta.text
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
     return {"headers": headers, "bodega_id": bodega_id}
@@ -114,7 +114,7 @@ def test_abrir_bodega_por_voz_encuentra_el_nombre_aunque_diga_tilde(
         bodega_id = bodega.id
 
     respuesta = client.post("/api/ingresar",
-                            data={"username": "luis", "password": "StockXperts"})
+                            data={"username": "luis", "password": "StockXperts1"})
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
 
     ofrece = _turno(client, headers, "iniciar conteo en almacén central", sesion_id=779)
@@ -152,7 +152,7 @@ def test_abrir_bodega_por_voz_no_confunde_nombres_parecidos(
         fuentes_id = fuentes.id
 
     respuesta = client.post("/api/ingresar",
-                            data={"username": "luis", "password": "StockXperts"})
+                            data={"username": "luis", "password": "StockXperts1"})
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
 
     _turno(client, headers, "iniciar conteo en autoservicios las fuentes", sesion_id=780)
@@ -208,7 +208,7 @@ def test_bodega_ya_abierta_por_otro_dice_quien_la_tiene(
         sesion.commit()
 
     respuesta = client.post("/api/ingresar",
-                            data={"username": "luis", "password": "StockXperts"})
+                            data={"username": "luis", "password": "StockXperts1"})
     headers = {"Authorization": f"Bearer {respuesta.json()['token']}"}
 
     r = _turno(client, headers, "iniciar conteo en bodega compartida", sesion_id=784)

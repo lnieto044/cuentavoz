@@ -446,9 +446,9 @@ function TabUsuarios({ token, usuario }) {
                  onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
                  aria-label="Nombre de usuario"
                  style={{ padding: "10px 12px", border: "1px solid var(--borde)", borderRadius: 10 }} />
-          <input placeholder="correo (opcional)" value={nuevo.correo || ""}
+          <input placeholder="correo (obligatorio)" value={nuevo.correo || ""}
                  onChange={(e) => setNuevo({ ...nuevo, correo: e.target.value })}
-                 aria-label="Correo, opcional"
+                 aria-label="Correo, obligatorio"
                  style={{ padding: "10px 12px", border: "1px solid var(--borde)", borderRadius: 10 }} />
           <select value={nuevo.perfil || "auxiliar"}
                   onChange={(e) => setNuevo({ ...nuevo, perfil: e.target.value })}
@@ -457,7 +457,7 @@ function TabUsuarios({ token, usuario }) {
             <option value="auxiliar">Auxiliar</option>
             <option value="auditor">Administrador</option>
           </select>
-          <button className="btn" onClick={crear}>Crear (PIN StockXperts)</button>
+          <button className="btn" onClick={crear}>Crear (clave temporal)</button>
           <button className="btn gris" onClick={() => setNuevo(null)}>Cancelar</button>
         </div>
       ) : null}

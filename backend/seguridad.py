@@ -1,77 +1,70 @@
-"""Identidad: contraseñas cifradas, token firmado y permisos por perfil."""
+"""Identidad: verificacion de tokens de AWS Cognito y permisos por perfil.
+
+La contraseña, el registro y el login los maneja Cognito directamente (el
+frontend habla con el SDK de Cognito, nunca manda la clave a este backend).
+Lo unico que hace este modulo es comprobar que un access token que llega en
+la cabecera Authorization de verdad lo firmo NUESTRO User Pool de Cognito -
+firma (RS256, con las llaves publicas que Cognito publica), emisor,
+audiencia (client_id) y que sea un access token, no un id token."""
 import os
-import secrets
-import datetime
 import jwt
-import bcrypt
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from bd import Sesion
 from modelos import Usuario
 
+COGNITO_REGION = os.getenv("COGNITO_REGION", "us-east-2")
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
+COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID", "")
+_EMISOR = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
+_JWKS_URL = f"{_EMISOR}/.well-known/jwks.json"
 
-def _secreto_jwt() -> str:
-    """Sin SECRETO_JWT en el entorno, antes se firmaba con una frase fija
-    escrita en el codigo fuente publico - cualquiera que leyera el repo
-    podia forjar un token valido para cualquier perfil, incluido auditor.
-    En Render siempre esta configurado (ver render.yaml, generateValue:
-    true); aqui solo cubre un arranque local sin .env, y con un secreto
-    aleatorio de verdad en vez de uno que cualquiera puede leer."""
-    llave = os.getenv("SECRETO_JWT")
-    if llave:
-        return llave
-    print("[seguridad] SECRETO_JWT no esta configurado: se genero uno "
-          "aleatorio solo para este arranque (las sesiones no sobreviven "
-          "un reinicio). Defina SECRETO_JWT en su .env para desarrollo "
-          "estable, o en las variables de entorno en produccion.")
-    return secrets.token_hex(32)
+if not COGNITO_USER_POOL_ID:
+    print("[seguridad] COGNITO_USER_POOL_ID no esta configurado - "
+          "ninguna sesion va a poder verificarse. Defina COGNITO_REGION, "
+          "COGNITO_USER_POOL_ID y COGNITO_APP_CLIENT_ID en su .env.")
 
-
-SECRETO = _secreto_jwt()
-MINUTOS = int(os.getenv("MINUTOS_TOKEN", 480))
-esquema = OAuth2PasswordBearer(tokenUrl="/api/ingresar", auto_error=False)
+# PyJWKClient trae en cache las llaves publicas del User Pool (se refrescan
+# solas si aparece un "kid" nuevo que no conoce todavia) - sin esto habria
+# que ir a buscarlas a Cognito en cada peticion.
+_jwks_client = jwt.PyJWKClient(_JWKS_URL) if COGNITO_USER_POOL_ID else None
+esquema = OAuth2PasswordBearer(tokenUrl="/api/registro-completado", auto_error=False)
 
 
-def hash_clave(clave: str) -> str:
-    """bcrypt trabaja sobre bytes y no admite mas de 72."""
-    b = clave.encode("utf-8")[:72]
-    return bcrypt.hashpw(b, bcrypt.gensalt()).decode("utf-8")
-
-
-def verificar_clave(clave: str, guardado: str) -> bool:
+def _reclamos_cognito(token: str) -> dict | None:
+    """Verifica un access token de Cognito y devuelve sus datos, o None si
+    no es valido, vencio, es de otro User Pool/App Client, o es un id token
+    en vez de un access token (llevan proposito distinto: el access token
+    es para hablar con la API, el id token es para identificar a la
+    persona ante el propio frontend)."""
+    if not _jwks_client:
+        return None
     try:
-        return bcrypt.checkpw(clave.encode("utf-8")[:72],
-                              guardado.encode("utf-8"))
-    except Exception:
-        return False
-
-
-def crear_token(u: Usuario) -> str:
-    datos = {
-        "sub": str(u.id),
-        "perfil": u.perfil,
-        "ver": u.version_token or 0,
-        "exp": datetime.datetime.now(datetime.timezone.utc)
-               + datetime.timedelta(minutes=MINUTOS),
-    }
-    return jwt.encode(datos, SECRETO, algorithm="HS256")
+        llave = _jwks_client.get_signing_key_from_jwt(token).key
+        datos = jwt.decode(
+            token, llave, algorithms=["RS256"], issuer=_EMISOR,
+            options={"require": ["exp", "iss", "sub", "token_use", "client_id", "username"]},
+        )
+    except jwt.PyJWTError:
+        return None
+    if datos.get("token_use") != "access" or datos.get("client_id") != COGNITO_APP_CLIENT_ID:
+        return None
+    return datos
 
 
 def usuario_actual(token: str = Depends(esquema)) -> Usuario:
     if not token:
         raise HTTPException(401, "Falta la sesion.")
-    try:
-        datos = jwt.decode(token, SECRETO, algorithms=["HS256"])
-    except jwt.PyJWTError:
+    datos = _reclamos_cognito(token)
+    if datos is None:
         raise HTTPException(401, "Sesion invalida o vencida.")
+    nombre = (datos.get("username") or "").lower()
     with Sesion() as s:
-        u = s.get(Usuario, int(datos["sub"]))
+        u = s.query(Usuario).filter_by(nombre=nombre).first()
     if u is None:
         raise HTTPException(401, "Usuario no reconocido.")
     if not u.activo:
         raise HTTPException(403, "Ese usuario esta inactivo.")
-    if (datos.get("ver", 0) or 0) != (u.version_token or 0):
-        raise HTTPException(401, "Sesion cerrada desde otro dispositivo. Ingrese de nuevo.")
     return u
 
 
@@ -81,14 +74,13 @@ def verificar_token(token: str):
     token pasado por query string con la misma regla que usuario_actual."""
     if not token:
         return None
-    try:
-        datos = jwt.decode(token, SECRETO, algorithms=["HS256"])
-    except jwt.PyJWTError:
+    datos = _reclamos_cognito(token)
+    if datos is None:
         return None
+    nombre = (datos.get("username") or "").lower()
     with Sesion() as s:
-        u = s.get(Usuario, int(datos["sub"]))
-    if (u is None or not u.activo
-            or (datos.get("ver", 0) or 0) != (u.version_token or 0)):
+        u = s.query(Usuario).filter_by(nombre=nombre).first()
+    if u is None or not u.activo:
         return None
     return u
 

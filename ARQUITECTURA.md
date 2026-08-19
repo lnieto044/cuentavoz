@@ -45,10 +45,10 @@ cliente HTTP podría reemplazar al frontend.
 | `rapidfuzz` | Coincidencia difusa de texto | El corazón de `servicios/conciliacion.py`: convierte «tabla para picar blanca» (como lo dice alguien en la bodega) en el nombre oficial del catálogo. Es una librería en C (vía bindings), mucho más rápida que comparar cadenas en Python puro para 1.000+ artículos. |
 | `google-genai` | Cliente de Gemini | El modelo entiende la intención detrás de una frase dicha con lenguaje natural (`agente/cerebro.py`) y genera la voz neuronal de las respuestas. Se llama solo si `GOOGLE_API_KEY` está configurada — sin ella, cae al intérprete local sin romper nada (ver [El agente conversacional](#el-agente-conversacional)). |
 | `python-dotenv` | Cargar `.env` en desarrollo | `load_dotenv()` en `main.py` lee variables de entorno de un archivo local; en producción (Render) esas mismas variables ya existen en el entorno del proceso, así que esta librería no hace nada allí — es puramente para no tener que exportar variables a mano en cada sesión de terminal local. |
-| `pyjwt` + `bcrypt` | Sesión y contraseñas | `bcrypt` hashea el PIN (nunca se guarda en texto plano); `pyjwt` firma un token con expiración y un `perfil` embebido, que cada endpoint verifica vía `Depends(usuario_actual)`. |
+| `pyjwt` | Verificar la sesión | La contraseña y el login los maneja AWS Cognito directamente; `pyjwt` (`PyJWKClient`) solo verifica la firma RS256 del access token de Cognito contra sus llaves públicas, en `Depends(usuario_actual)` — este backend nunca ve ni guarda una clave. |
+| `boto3` | Administrar Cognito | El SDK de AWS para las pocas operaciones que sí necesita el backend (no el frontend): crear las cuentas de demo, cerrar todas las sesiones de alguien (`admin_user_global_sign_out`), eliminar una cuenta. Usa una credencial de IAM propia, de solo esos permisos sobre el User Pool. |
 | `python-multipart` | Subida de archivos | FastAPI lo exige para poder recibir `UploadFile` (la foto de perfil llega como `multipart/form-data`, no JSON). |
-| `slowapi` | Límite de tasa | Protege `/api/ingresar` y otros endpoints sensibles contra fuerza bruta (`@limiter.limit("5/minute")`) sin escribir un middleware de rate-limiting a mano. |
-| `webauthn` | Huella del dispositivo | Implementa el protocolo WebAuthn real (reto criptográfico, verificación de firma y `origin`) para el ingreso con Windows Hello/Touch ID/huella de Android — no es una simulación, ver `servicios/huella.py`. |
+| `slowapi` | Límite de tasa | Protege `/api/registro-completado` y otros endpoints sensibles contra fuerza bruta (`@limiter.limit("5/minute")`) sin escribir un middleware de rate-limiting a mano. |
 
 ## Por qué cada librería (frontend)
 
@@ -72,7 +72,7 @@ backend/
 ├── main.py                — todos los endpoints REST + el WebSocket del tablero. El punto de entrada.
 ├── bd.py                  — la conexión (SQLAlchemy engine + sessionmaker). Todo lo demás importa Sesion de aquí.
 ├── modelos.py              — las tablas (ver Modelo de datos).
-├── seguridad.py            — hash de PIN, JWT, Depends(usuario_actual)/requiere_perfil().
+├── seguridad.py            — verifica el access token de Cognito, Depends(usuario_actual)/requiere_perfil().
 ├── reportes.py             — genera los .xlsx descargables (consolidado, diferencias, estado de bodegas).
 │
 ├── agente/
@@ -86,7 +86,6 @@ backend/
     ├── interprete.py        — el intérprete local (sin IA): números en palabras + intenciones por
     │                          palabra clave, para que la demo no dependa de tener internet.
     ├── recetas.py           — calcular_pedido() (receta × porciones − stock) y comparar_legalizacion().
-    ├── huella.py             — registro/verificación WebAuthn.
     └── analitica.py          — las métricas del Panel gerencial, calculadas en vivo sobre la misma base.
 ```
 
@@ -108,13 +107,15 @@ frontend/src/
 │                              (agrega el token, traduce errores de red, detecta 401).
 ├── voz.js                  — escuchar() (Web Speech API del navegador) y hablar() (voz neuronal
 │                              vía backend, con voz del navegador de respaldo si falla).
-├── webauthn.js              — el lado cliente de WebAuthn (conversión base64url <-> buffers).
+├── cognito.js               — registrarse()/iniciarSesion()/recuperarClave()/cambiarClave(), habla
+│                              directo con AWS Cognito (amazon-cognito-identity-js), nunca manda
+│                              la clave al backend.
 ├── interpreteLocal.js       — puerto a JS de servicios/interprete.py, para el modo sin conexión.
 ├── index.css                — todo el estilo de la app (sin framework de CSS).
 ├── Marco.jsx / BarraLateral.jsx / Dialogo.jsx / Iconos.jsx  — piezas de layout compartidas por
 │                              todas las vistas.
 └── vistas/                  — una pantalla por archivo, mapeadas en App.jsx:MENU.
-    ├── Ingreso.jsx           — login (usuario/PIN o huella).
+    ├── Ingreso.jsx           — login, registro y recuperar clave, contra Cognito directamente.
     ├── Inicio.jsx            — resumen del día según el perfil.
     ├── Pedido.jsx            — "hoy preparamos cincuenta ajiacos" -> calcula insumos.
     ├── Conteo.jsx            — el conteo físico por voz, con modo sin conexión (ver más abajo).
@@ -124,7 +125,7 @@ frontend/src/
     ├── Reportes.jsx          — consolidados exportables y su vista previa.
     ├── Panel.jsx             — panel gerencial (solo perfil auditor).
     ├── Ajustes.jsx           — catálogo, usuarios, recetas, trazabilidad.
-    ├── MiPerfil.jsx          — datos personales, cambio de PIN, huella, preferencias de voz.
+    ├── MiPerfil.jsx          — datos personales, cambio de clave (vía Cognito), preferencias de voz.
     └── CerrarSesion.jsx      — modal de confirmación de salida.
 ```
 
@@ -204,29 +205,45 @@ funcionar 100% sin datos móviles/Wi-Fi de por vida:
 Resumen; ver `seguridad.py`, `main.py` y los tests en
 `tests/test_regresiones_seguridad.py` para el detalle.
 
-- **Autenticación:** JWT (`pyjwt`) firmado con `SECRETO_JWT`, con un
-  campo `ver` (versión) que se compara contra `Usuario.version_token` —
-  subir esa versión (cambiar el PIN, "cerrar todas las sesiones")
-  invalida todos los tokens anteriores sin necesidad de una lista de
-  revocación.
+- **Autenticación:** la identidad la maneja AWS Cognito, no este backend
+  — el frontend habla directo con Cognito (`amazon-cognito-identity-js`)
+  y nunca manda la clave para acá. `seguridad.py` solo verifica la firma
+  RS256 del access token (`PyJWKClient` contra las llaves públicas del
+  User Pool), el emisor, que sea un access token (no un id token) y que
+  el `client_id` sea el nuestro. "Cerrar todas las sesiones" llama a
+  `cognito-idp:AdminUserGlobalSignOut` (revoca los refresh tokens; el
+  access token ya emitido sigue válido hasta que vence solo — por eso su
+  vida útil se acortó a 1 hora en el User Pool).
 - **Autorización por perfil y por asignación:** `requiere_perfil("auditor")`
   protege lo administrativo; `AsignacionBodega` limita a cada auxiliar a
   su zona — reforzado tanto en los endpoints REST como en el flujo de
   voz (`agente/orquestador.py:_abrir()`), que antes se lo saltaba.
-- **Contraseñas:** bcrypt, nunca texto plano; cambiar el PIN exige el
-  PIN vigente (no basta con tener un token abierto).
+- **Contraseñas:** las guarda y valida Cognito (política: mín. 8
+  caracteres, mayúscula + minúscula + número); este backend nunca las ve
+  ni las guarda.
+- **Verificación en dos pasos (opcional):** TOTP con app autenticadora,
+  vía `cognito-idp:AssociateSoftwareToken`/`VerifySoftwareToken`/
+  `SetUserMFAPreference` (self-service, la persona ya autenticada - no
+  hay endpoint propio ni admin de por medio). Opcional a nivel de
+  usuario (`MfaConfiguration=OPTIONAL` en el User Pool, no obligatorio
+  para todos) para no bloquear a un auxiliar en una tableta compartida
+  de bodega. Se ofrece justo después de confirmar el registro y también
+  desde Mi perfil (`ConfigurarMFA.jsx`, componente único para ambos).
+- **Registro propio:** `POST /api/registro-completado` siempre crea la
+  cuenta local con `perfil="auxiliar"` fijo — nadie se auto-otorga el
+  perfil auditor registrándose, sin importar qué mande el cliente.
 - **Sin SQL armado a mano:** todo pasa por el ORM de SQLAlchemy.
 - **Cabeceras de seguridad** (`main.py:cabeceras`): `X-Content-Type-Options`,
   `X-Frame-Options`, `Referrer-Policy`, `Strict-Transport-Security`.
-- **Límite de tasa** (`slowapi`) en login, cambio de PIN y registro de
-  huella.
+- **Límite de tasa** (`slowapi`) en registro y otros endpoints sensibles.
 - **CORS** restringido a los orígenes en `ORIGEN_PERMITIDO` (el dominio
   del frontend desplegado) más los puertos de desarrollo local.
-- **Usuarios de demo:** la app crea automáticamente `luis`/`diana`/etc.
-  con la clave pública `StockXperts` (ver README) — es intencional para
-  que cualquiera pueda probar la demo sin pedir acceso; en un despliegue
-  que no sea esta demo, cámbiense esas contraseñas o desactívese ese
-  arranque en `main.py:arranque()`.
+- **Usuarios de demo:** la app crea automáticamente `luis`/`diana`/etc.,
+  tanto en la base local como en Cognito, con la clave pública
+  `StockXperts1` (ver README) — es intencional para que cualquiera pueda
+  probar la demo sin pedir acceso; en un despliegue que no sea esta demo,
+  cámbiense esas contraseñas o desactívese ese arranque en
+  `main.py:arranque()` (`SEMBRAR_DEMO`).
 
 ## Tests
 

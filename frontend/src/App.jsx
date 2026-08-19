@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { alSesionInvalida, borrarSesion, guardarSesion, leerSesion, pedir } from "./api";
+import { obtenerTokenValido, cerrarSesionLocal } from "./cognito";
 import { configurarVoz, detenerVoz } from "./voz";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
@@ -76,11 +77,45 @@ export default function App() {
   // vistas mostrando datos de una sesión que el servidor ya no reconoce.
   useEffect(() => {
     alSesionInvalida(() => {
+      cerrarSesionLocal();
       setSesion(null);
       setVista("inicio");
       setAvisoSesion("Su sesión terminó (se cerró desde otro dispositivo o venció). Ingrese de nuevo.");
     });
   }, []);
+
+  // El access token de Cognito dura poco a propósito (1 hora, ver
+  // ARQUITECTURA.md), pero cada vista recibe el token como prop suelto
+  // (no llama a Cognito directo por sí misma) - sin esto, la sesión se
+  // caía cada hora en plena demo. Se revisa cada pocos minutos (getSession
+  // del SDK refresca solo con el refresh token, sin red de por medio si
+  // el access token todavía es válido) y se actualiza sesion.token para
+  // que el próximo render lo pase ya fresco a todas las pantallas.
+  useEffect(() => {
+    if (!sesion) return;
+    let vivo = true;
+    async function refrescar() {
+      const token = await obtenerTokenValido();
+      if (!vivo) return;
+      if (!token) {
+        cerrarSesionLocal();
+        setSesion(null);
+        setVista("inicio");
+        setAvisoSesion("Su sesión venció. Ingrese de nuevo.");
+        return;
+      }
+      if (token !== sesion.token) {
+        const nueva = { ...sesion, token };
+        guardarSesion(nueva);
+        setSesion(nueva);
+      }
+    }
+    refrescar();
+    const intervalo = setInterval(refrescar, 4 * 60 * 1000);
+    return () => { vivo = false; clearInterval(intervalo); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sesion?.usuario?.id]);
+
   // Contador que sube en cada ir(): las pantallas con pestañas usan
   // [tabInicial, navSeq] como dependencia de su useEffect en vez de solo
   // [tabInicial] - sin navSeq, pedir por voz la MISMA pestaña dos veces
@@ -171,16 +206,17 @@ export default function App() {
           sesionId={ctx.sesionId}
           onCancelar={() => setSalir(false)}
           onSalir={() => {
-            // Invalida el token en el servidor (mismo mecanismo que "cerrar
-            // todas las sesiones" en Mi perfil) antes de limpiar localmente
-            // - sin esto, "Cerrar sesión" solo borraba el token de ESTE
-            // navegador; el JWT seguía siendo válido en el servidor hasta
-            // vencer solo (hasta 8 horas). En una tablet compartida entre
+            // Revoca en Cognito (mismo mecanismo que "cerrar todas las
+            // sesiones" en Mi perfil) antes de limpiar localmente - sin
+            // esto, "Cerrar sesión" solo borraba el token de ESTE
+            // navegador; el access token seguía siendo válido en Cognito
+            // hasta vencer solo (hasta 1 hora). En una tablet compartida entre
             // varios auxiliares, quien lo hubiera copiado antes de que la
             // persona cerrara sesión podía seguir usándolo. No bloquea la
             // salida si la petición falla (sin red) - la persona debe poder
             // salir localmente de todas formas.
             pedir("/api/usuarios/yo/cerrar-todas", { method: "POST" }, sesion.token).catch(() => {});
+            cerrarSesionLocal();
             borrarSesion();
             setSesion(null);
             setSalir(false);

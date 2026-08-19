@@ -304,28 +304,32 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .acceso-rapido b { display: block; color: var(--azul); font-size: .95rem; margin-bottom: 3px; }
 .acceso-rapido small { color: var(--grafito); font-size: .8rem; }
 
-/* ── Ingreso ── */
+/* ── Ingreso ──
+   Una sola tarjeta centrada sobre un fondo con manchas de color
+   difuminadas (en vez del panel azul de antes), mismo lenguaje visual
+   que las pantallas propias de AWS Cognito - la marca de CuentaVoz vive
+   ahora dentro de la tarjeta, compacta, arriba del formulario. */
 .ingreso-fondo { min-height: 100dvh; display: flex; align-items: center;
-  justify-content: center; background: var(--fondo); padding: 24px; }
-.ingreso { display: grid; grid-template-columns: 1fr 1fr; width: 100%;
-  max-width: 960px; min-height: 560px; background: #fff; border-radius: 22px;
-  overflow: hidden; box-shadow: 0 24px 60px -16px rgba(11, 27, 51, .28); }
-.ingreso .marca-lado { background: var(--azul-prof); color: #fff;
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 8px; padding: 30px; }
-.ingreso .marca-lado img.app { width: 110px; border-radius: 22px; }
-.ingreso .marca-lado h1 { font-size: 2.5rem; }
-.ingreso .marca-lado i { color: var(--amarillo); font-size: 1.05rem; }
-.ingreso .marca-lado hr { width: 130px; border: none; border-top: 3px solid var(--amarillo);
-  margin: 12px 0; }
-.ingreso .marca-lado p { color: #C6D2E6; text-align: center; max-width: 300px;
-  font-size: .95rem; }
-.ingreso .marca-lado img.cs { height: 22px; margin-top: 22px; }
-.ingreso .marca-lado .hackathon { color: #7C93BC; font-size: .78rem;
-  margin-top: 6px; letter-spacing: .02em; }
-.ingreso .form { display: flex; flex-direction: column; justify-content: center;
-  gap: 14px; padding: 40px 12%; }
-.ingreso .form h2 { color: var(--azul); font-size: 1.7rem; }
+  justify-content: center; padding: 24px; position: relative;
+  overflow: hidden; background: var(--fondo); }
+.ingreso-fondo::before, .ingreso-fondo::after { content: ""; position: absolute;
+  border-radius: 50%; filter: blur(70px); opacity: .45; z-index: 0; }
+.ingreso-fondo::before { width: 480px; height: 480px; background: var(--azul);
+  top: -180px; left: -160px; }
+.ingreso-fondo::after { width: 420px; height: 420px; background: var(--amarillo);
+  bottom: -160px; right: -140px; }
+.ingreso { position: relative; z-index: 1; width: 100%; max-width: 440px;
+  background: #fff; border-radius: 22px; padding: 40px 36px;
+  box-shadow: 0 24px 60px -16px rgba(11, 27, 51, .28); }
+.ingreso .marca-cabecera { display: flex; flex-direction: column; align-items: center;
+  gap: 2px; text-align: center; margin-bottom: 24px; }
+.ingreso .marca-cabecera img.app { width: 52px; border-radius: 14px; }
+.ingreso .marca-cabecera h1 { font-size: 1.5rem; color: var(--azul-prof); margin-top: 8px; }
+.ingreso .marca-cabecera i { color: var(--grafito); font-size: .85rem; }
+.ingreso .marca-cabecera .hackathon { color: var(--grafito); font-size: .72rem;
+  margin-top: 10px; opacity: .7; letter-spacing: .02em; }
+.ingreso .form { display: flex; flex-direction: column; gap: 14px; }
+.ingreso .form h2 { color: var(--azul); font-size: 1.5rem; }
 .ingreso .form label { font-size: .8rem; color: var(--grafito); }
 .ingreso .campo-icono { position: relative; display: flex; align-items: center; }
 .ingreso .campo-icono svg { position: absolute; left: 14px; color: #9AA7BC; }
@@ -339,25 +343,73 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
   transition: background .15s, color .15s; }
 .ingreso .perfiles span.sel { background: var(--azul); color: #fff; }
 .ingreso .form .btn { margin-top: 6px; }
-.ingreso .form .pista-huella { text-align: center; margin-top: 4px; }
+.ingreso .form .enlaces-ingreso { text-align: center; margin-top: 4px; }
+/* .enlace: sin ámbito a .ingreso a propósito - un botón con pinta de
+   enlace de texto se reusa también fuera del login (p. ej. "mostrar
+   llave secreta" en el MFA de Mi perfil). */
+.enlace { background: none; border: none; padding: 0; margin: 0;
+  color: var(--azul); font-size: .82rem; font-weight: 600; cursor: pointer;
+  text-decoration: underline; }
+.enlace:hover { color: var(--azul-prof); }
 
-/* En pantallas angostas el card apilado puede quedar más alto que la
-   pantalla; centrarlo verticalmente ahí recorta el logo por arriba y obliga
-   a subir el scroll para verlo. Mejor anclarlo arriba y dejar que crezca
-   hacia abajo - así siempre se ve completo desde el primer momento. */
-@media (max-width: 860px) {
-  .ingreso-fondo { align-items: flex-start; padding: 20px 14px; }
-  .ingreso { grid-template-columns: 1fr; max-width: 440px; min-height: auto; }
-  .ingreso .marca-lado { padding: 26px 24px 18px; gap: 6px; }
-  .ingreso .marca-lado img.app { width: 64px; }
-  .ingreso .marca-lado h1 { font-size: 1.7rem; }
-  .ingreso .marca-lado hr { margin: 8px 0; }
-  .ingreso .marca-lado p { font-size: .82rem; }
-  .ingreso .marca-lado img.cs { margin-top: 14px; }
-  .ingreso .form { padding: 24px; gap: 12px; }
+/* Aviso de correo con código (registro / recuperar clave / MFA):
+   icono de sobre + destino enmascarado que ya devuelve Cognito
+   (p***@m***), igual que su propia pantalla "Confirm your account". */
+.ingreso .aviso-codigo { display: flex; gap: 10px; align-items: flex-start;
+  background: var(--azul-claro); border-radius: var(--radio); padding: 12px 14px;
+  font-size: .85rem; color: var(--azul-prof); margin-bottom: 4px; }
+.ingreso .aviso-codigo svg { flex-shrink: 0; margin-top: 2px; color: var(--azul); }
+.ingreso .reenviar-codigo { background: none; border: none; padding: 0;
+  color: var(--azul); font-size: .8rem; font-weight: 600; cursor: pointer;
+  text-decoration: underline; align-self: flex-start; }
+.ingreso .reenviar-codigo:disabled { color: var(--grafito); cursor: default;
+  text-decoration: none; }
+
+/* Checklist en vivo de requisitos de clave (registro, recuperar y cambiar
+   clave en Mi perfil) - igual idea que el checklist de Cognito: cada
+   requisito pasa de gris a verde con un check apenas se cumple, en vez
+   de un solo mensaje de error genérico al enviar. */
+.checklist-clave { list-style: none; padding: 0; margin: -4px 0 4px;
+  display: flex; flex-direction: column; gap: 3px; }
+.checklist-clave li { display: flex; align-items: center; gap: 7px;
+  font-size: .78rem; color: var(--grafito); transition: color .15s; }
+.checklist-clave li svg { flex-shrink: 0; }
+.checklist-clave li.ok { color: var(--verde); }
+.checklist-clave li .circulo { width: 14px; height: 14px; border-radius: 50%;
+  border: 1.5px solid #B7C2D3; flex-shrink: 0; }
+.checklist-clave li.ok .circulo { display: none; }
+
+/* Tarjeta de MFA (Mi perfil): mismos 3 pasos que "Set up authenticator
+   app MFA" de Cognito - instalar, escanear el QR o copiar la llave a
+   mano, y confirmar con el código de 6 dígitos que genera la app. */
+.mfa-pasos { display: flex; flex-direction: column; gap: 16px; }
+.mfa-paso { display: flex; gap: 12px; }
+.mfa-paso .num { width: 26px; height: 26px; border-radius: 50%; background: var(--azul);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .82rem; flex-shrink: 0; }
+.mfa-paso .contenido { flex: 1; }
+.mfa-paso .contenido b { display: block; font-size: .92rem; margin-bottom: 2px; }
+.mfa-paso .contenido p { font-size: .82rem; color: var(--grafito); margin: 0; }
+.mfa-qr { background: #fff; border: 1px solid var(--borde); border-radius: 12px;
+  padding: 10px; width: 168px; height: 168px; margin-top: 8px; }
+.mfa-llave-secreta { font-family: monospace; font-size: .82rem; background: var(--fondo);
+  padding: 8px 10px; border-radius: 8px; word-break: break-all; margin-top: 6px; }
+
+/* En pantallas angostas la tarjeta ocupa casi todo el ancho, con menos
+   relleno para no desperdiciar espacio. */
+@media (max-width: 520px) {
+  .ingreso-fondo { align-items: flex-start; padding: 18px 12px; }
+  .ingreso { padding: 28px 22px; }
+  .ingreso .marca-cabecera img.app { width: 44px; }
+  .ingreso .marca-cabecera h1 { font-size: 1.3rem; }
 }
 .pista { font-size: .78rem; color: var(--grafito); font-style: italic; }
 .error { color: #B3261E; font-size: .85rem; }
+/* como .error, pero pegado justo debajo del campo que falló (Ingreso.jsx)
+   en vez de quedar suelto al fondo del formulario - así se ve CUÁL campo
+   es sin tener que leer el mensaje para adivinarlo. */
+.error-campo { display: block; color: #B3261E; font-size: .78rem;
+  margin: -5px 0 8px; }
 .msg-ok { color: var(--verde); font-size: .85rem; }
 
 /* ── Modal ── */

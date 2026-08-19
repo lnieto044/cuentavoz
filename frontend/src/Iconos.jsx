@@ -42,6 +42,8 @@ const FORMAS = {
   descargar: <><path d="M12 3v11.5" /><path d="M7.5 10.5 12 15l4.5-4.5" /><path d="M4.5 17.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" /></>,
   // Aprobar/resolver: visto bueno en círculo
   aprobar: <><circle cx="12" cy="12" r="8.5" /><path d="M8 12.3l2.6 2.6L16 9.3" /></>,
+  // Visto bueno solo (sin círculo) - checklist de requisitos de clave
+  check: <path d="M4 12.3l5.2 5.2L20 6" />,
   // Rechazar: equis en círculo
   rechazar: <><circle cx="12" cy="12" r="8.5" /><path d="M9 9l6 6M15 9l-6 6" /></>,
   // Advertencia: triángulo con exclamación (reportar un problema)

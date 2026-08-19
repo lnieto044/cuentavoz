@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { ingresar, pedir } from "../api";
-import { hayAutenticadorDisponible, ingresarConHuella } from "../webauthn";
+import { pedir } from "../api";
+import {
+  registrarse, reenviarCodigoRegistro, confirmarRegistro, iniciarSesion,
+  confirmarCodigoMFA, recuperarClave, confirmarNuevaClave, obtenerAtributosUsuario,
+} from "../cognito";
+import ChecklistClave, { claveCumplePolitica } from "../ChecklistClave";
+import ConfigurarMFA from "../ConfigurarMFA";
 import Icono from "../Iconos";
 
 const ETIQUETAS_PERFIL = {
@@ -8,39 +13,164 @@ const ETIQUETAS_PERFIL = {
   auditor: "Administrador de bodega",
 };
 
+/** Junta el token de Cognito con el perfil guardado en esta app (perfil,
+    id, nombre...) - lo que App.jsx espera recibir de alEntrar(). Cognito
+    ya confirmó a la persona, pero la fila local (creada por
+    /api/registro-completado, ver confirmarYEntrar) a veces nunca llegó a
+    crearse - por ejemplo si cerró la pestaña justo después de confirmar
+    el código, antes de esa última llamada. En vez de dejar a alguien con
+    una cuenta "a medias" varado en un 401 sin salida, se autocompleta
+    aquí mismo con los datos que Cognito sí tiene (nombre/correo) y se
+    reintenta - transparente para quien inicia sesión. */
+async function sesionCompleta(token) {
+  try {
+    const perfil = await pedir("/api/usuarios/yo", {}, token);
+    return { token, usuario: perfil };
+  } catch (e) {
+    if (e.message !== "Usuario no reconocido.") throw e;
+    const atributos = await obtenerAtributosUsuario();
+    await pedir("/api/registro-completado", {
+      method: "POST",
+      body: JSON.stringify({ nombre_completo: atributos.nombreCompleto, correo: atributos.correo }),
+    }, token);
+    const perfil = await pedir("/api/usuarios/yo", {}, token);
+    return { token, usuario: perfil };
+  }
+}
+
+/** Aviso de código enviado por correo, con el icono de sobre y el
+    destino ya enmascarado por Cognito (p***@m***) - misma idea que la
+    pantalla "Confirm your account" de Cognito. */
+function AvisoCodigo({ destino, onReenviar, reenviando, reenviado }) {
+  return (
+    <>
+      <div className="aviso-codigo">
+        <Icono nombre="mensajes" tam={18} />
+        <span>
+          Le enviamos un código a <b>{destino || "su correo"}</b>. Ingréselo para continuar.
+        </span>
+      </div>
+      <button type="button" className="reenviar-codigo" onClick={onReenviar} disabled={reenviando}>
+        {reenviando ? "Reenviando…" : reenviado ? "Código reenviado" : "Reenviar código"}
+      </button>
+    </>
+  );
+}
+
 export default function Ingreso({ alEntrar, avisoInicial }) {
+  // "login" | "login-mfa" | "registro" | "registro-codigo" | "registro-mfa" |
+  // "recuperar" | "recuperar-codigo"
+  const [modo, setModo] = useState("login");
+  // la sesión ya está lista (Cognito + fila local) apenas se confirma el
+  // registro - se guarda aquí mientras se ofrece activar la verificación
+  // en dos pasos, y solo se entrega a alEntrar() al terminar ese paso
+  // (activarla o saltarla).
+  const [sesionPendiente, setSesionPendiente] = useState(null);
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
   const [err, setErr] = useState(avisoInicial || "");
+  // errores DE UN CAMPO puntual (falta diligenciarlo, o quedó mal), para
+  // señalar justo debajo de ese campo - "err" (arriba) queda para lo que
+  // no es de un campo en particular (usuario o clave incorrectos, fallas
+  // del servidor...).
+  const [errCampo, setErrCampo] = useState({});
   const [cargando, setCargando] = useState(false);
   const [perfil, setPerfil] = useState(null);
-  const [tieneHuella, setTieneHuella] = useState(false);
-  const [entrandoConHuella, setEntrandoConHuella] = useState(false);
-  const [hayLector, setHayLector] = useState(false);
 
-  useEffect(() => { hayAutenticadorDisponible().then(setHayLector); }, []);
+  /** onChange que además borra el error de ESE campo apenas la persona
+      empieza a corregirlo, en vez de dejarlo marcado en rojo hasta el
+      próximo intento de enviar. */
+  function actualizar(setter, campo) {
+    return (e) => {
+      setter(e.target.value);
+      setErrCampo((prev) => (prev[campo] ? { ...prev, [campo]: null } : prev));
+    };
+  }
 
-  // apenas escribe el usuario (o el codigo de empleado) se identifica el
-  // perfil solo - no hay que elegirlo a mano. Con demora corta para no
-  // disparar una llamada por cada tecla.
+  // registro
+  const [nombreCompleto, setNombreCompleto] = useState("");
+  const [codigoEmpleado, setCodigoEmpleado] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [clave2, setClave2] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [destinoCodigo, setDestinoCodigo] = useState("");
+  const [reenviando, setReenviando] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
+  // recuperar
+  const [claveNueva, setClaveNueva] = useState("");
+  const [claveNueva2, setClaveNueva2] = useState("");
+  // login con verificación en dos pasos
+  const [mfaPendiente, setMfaPendiente] = useState(null);
+  const [codigoMFA, setCodigoMFA] = useState("");
+
+  // apenas escribe el usuario se identifica el perfil solo - no hay que
+  // elegirlo a mano. Con demora corta para no disparar una llamada por
+  // cada tecla. Solo aplica en login: en registro el usuario es nuevo,
+  // no tiene perfil todavía que detectar.
   useEffect(() => {
+    if (modo !== "login") { setPerfil(null); return; }
     const entrada = usuario.trim();
-    if (!entrada) { setPerfil(null); setTieneHuella(false); return; }
+    if (!entrada) { setPerfil(null); return; }
     const espera = setTimeout(() => {
       pedir(`/api/usuarios/perfil?usuario=${encodeURIComponent(entrada)}`)
-        .then((r) => { setPerfil(r.perfil); setTieneHuella(r.tiene_huella); })
-        .catch(() => { setPerfil(null); setTieneHuella(false); });
+        .then((r) => setPerfil(r.perfil))
+        .catch(() => setPerfil(null));
     }, 350);
     return () => clearTimeout(espera);
-  }, [usuario]);
+  }, [usuario, modo]);
+
+  function cambiarModo(nuevo) {
+    setModo(nuevo);
+    setErr(""); setErrCampo({}); setReenviado(false);
+  }
 
   async function entrar(e) {
     e?.preventDefault();
-    setCargando(true);
     setErr("");
+    const errores = {};
+    if (!usuario.trim()) errores.usuario = "Digite su usuario.";
+    if (!clave) errores.clave = "Digite su clave.";
+    if (Object.keys(errores).length) return setErrCampo(errores);
+    setErrCampo({});
+    setCargando(true);
     try {
-      const r = await ingresar(usuario.trim(), clave);
-      alEntrar(r);
+      const r = await iniciarSesion(usuario.trim(), clave);
+      if (r.mfaPendiente) {
+        setMfaPendiente(r.mfaPendiente);
+        setModo("login-mfa");
+        return;
+      }
+      alEntrar(await sesionCompleta(r.token));
+    } catch (e2) {
+      if (e2.code === "UserNotConfirmedException") {
+        // se registró antes pero nunca terminó de confirmar el código
+        // (cerró la pestaña, se le olvidó...) - en vez de dejarlo
+        // varado con un error sin salida, se le reenvía un código
+        // nuevo y se le lleva directo a esa pantalla.
+        try {
+          const { destino } = await reenviarCodigoRegistro(usuario.trim());
+          setDestinoCodigo(destino);
+          setModo("registro-codigo");
+        } catch (e3) {
+          setErr(e3.message);
+        }
+      } else {
+        setErr(e2.message);
+      }
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function confirmarMFALogin(e) {
+    e?.preventDefault();
+    setErr("");
+    if (!codigoMFA.trim()) return setErrCampo({ codigoMFA: "Digite el código de 6 dígitos." });
+    setErrCampo({});
+    setCargando(true);
+    try {
+      const token = await confirmarCodigoMFA(mfaPendiente, codigoMFA.trim());
+      alEntrar(await sesionCompleta(token));
     } catch (e2) {
       setErr(e2.message);
     } finally {
@@ -48,96 +178,376 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     }
   }
 
-  async function entrarConHuella() {
+  async function pedirRegistro(e) {
+    e?.preventDefault();
     setErr("");
-    setEntrandoConHuella(true);
+    const errores = {};
+    if (!nombreCompleto.trim()) errores.nombreCompleto = "Digite su nombre completo.";
+    if (!correo.trim()) errores.correo = "Digite su correo.";
+    else if (!correo.includes("@") || !correo.includes(".")) errores.correo = "Ese correo no parece válido.";
+    if (!usuario.trim()) errores.usuario = "Elija un usuario.";
+    if (!clave) errores.clave = "Digite una clave.";
+    else if (!claveCumplePolitica(clave)) errores.clave = "La clave no cumple los requisitos de arriba.";
+    if (!clave2) errores.clave2 = "Confirme la clave.";
+    else if (clave !== clave2) errores.clave2 = "Las dos claves no coinciden.";
+    if (Object.keys(errores).length) return setErrCampo(errores);
+    setErrCampo({});
+    setCargando(true);
     try {
-      const r = await ingresarConHuella(usuario.trim());
-      alEntrar(r);
+      const { destino } = await registrarse(usuario.trim(), clave, correo.trim(), nombreCompleto.trim());
+      setDestinoCodigo(destino);
+      setModo("registro-codigo");
     } catch (e2) {
-      setErr(e2.name === "NotAllowedError"
-        ? "No se reconoció la huella o se canceló la lectura."
-        : e2.message);
+      setErr(e2.message);
     } finally {
-      setEntrandoConHuella(false);
+      setCargando(false);
     }
   }
+
+  async function reenviarRegistro() {
+    setReenviando(true); setErr("");
+    try {
+      const { destino } = await reenviarCodigoRegistro(usuario.trim());
+      if (destino) setDestinoCodigo(destino);
+      setReenviado(true);
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setReenviando(false);
+    }
+  }
+
+  async function confirmarYEntrar(e) {
+    e?.preventDefault();
+    setErr("");
+    if (!codigo.trim()) return setErrCampo({ codigo: "Digite el código de 6 dígitos." });
+    setErrCampo({});
+    setCargando(true);
+    try {
+      await confirmarRegistro(usuario.trim(), codigo.trim());
+      const r = await iniciarSesion(usuario.trim(), clave);
+      // (una cuenta recién registrada nunca tiene MFA activo todavía,
+      // r.mfaPendiente no aplica aquí)
+      const token = r.token;
+      // el nombre/correo se piden de nuevo a Cognito (no del formulario en
+      // memoria): si esta pantalla se llegó desde "reanudar confirmación"
+      // tras un login fallido (ver entrar()), nunca se llenó el formulario
+      // de registro en esta sesión del navegador - solo Cognito los tiene.
+      const atributos = await obtenerAtributosUsuario();
+      // crea la fila local (perfil auxiliar, siempre - ver main.py) con
+      // los datos personales que Cognito no guarda.
+      await pedir("/api/registro-completado", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre_completo: atributos.nombreCompleto,
+          codigo: codigoEmpleado.trim(),
+          correo: atributos.correo,
+        }),
+      }, token);
+      // antes de entrar del todo, se ofrece (opcional, se puede saltar)
+      // activar la verificación en dos pasos - más fácil que alguien la
+      // active aquí, recién registrado, que que se acuerde de ir a
+      // buscarla después en Mi perfil.
+      setSesionPendiente(await sesionCompleta(token));
+      setModo("registro-mfa");
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function pedirRecuperar(e) {
+    e?.preventDefault();
+    setErr("");
+    if (!usuario.trim()) return setErrCampo({ usuario: "Digite su usuario." });
+    setErrCampo({});
+    setCargando(true);
+    try {
+      const { destino } = await recuperarClave(usuario.trim());
+      setDestinoCodigo(destino);
+      setModo("recuperar-codigo");
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function reenviarRecuperar() {
+    setReenviando(true); setErr("");
+    try {
+      const { destino } = await recuperarClave(usuario.trim());
+      if (destino) setDestinoCodigo(destino);
+      setReenviado(true);
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setReenviando(false);
+    }
+  }
+
+  async function confirmarRecuperar(e) {
+    e?.preventDefault();
+    setErr("");
+    const errores = {};
+    if (!codigo.trim()) errores.codigo = "Digite el código de 6 dígitos.";
+    if (!claveNueva) errores.claveNueva = "Digite una clave nueva.";
+    else if (!claveCumplePolitica(claveNueva)) errores.claveNueva = "La clave no cumple los requisitos de arriba.";
+    if (!claveNueva2) errores.claveNueva2 = "Confirme la clave nueva.";
+    else if (claveNueva !== claveNueva2) errores.claveNueva2 = "Las dos claves no coinciden.";
+    if (Object.keys(errores).length) return setErrCampo(errores);
+    setErrCampo({});
+    setCargando(true);
+    try {
+      await confirmarNuevaClave(usuario.trim(), codigo.trim(), claveNueva);
+      setClave(""); setCodigo(""); setClaveNueva(""); setClaveNueva2("");
+      setModo("login");
+      setErr("");
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  const campo = { width: "100%", padding: "11px 13px", marginBottom: 8,
+                  border: "1px solid var(--borde)", borderRadius: 12 };
 
   return (
     <div className="ingreso-fondo">
       <div className="ingreso">
-        <div className="marca-lado">
-          <img className="app" src="/logo.png" alt="CuentaVoz" />
+        <div className="marca-cabecera">
+          <img className="app" src="/logo.png" alt="CuentaVoz" width={52} />
           <h1>CuentaVoz</h1>
           <i>Tu voz cuenta</i>
-          <hr />
-          <p>Asistente conversacional para la toma física de inventarios</p>
-          <img className="cs" src="/colsubsidio-blanco.png" alt="Colsubsidio" />
           <p className="hackathon">Hackathon Colsubsidio × 30X</p>
         </div>
 
-        <form className="form" onSubmit={entrar}>
-          <h2>Iniciar sesión</h2>
-          <p className="pista">Ingrese con su usuario corporativo.</p>
+        {modo === "login" && (
+          <form className="form" onSubmit={entrar} noValidate>
+            <h2>Iniciar sesión</h2>
+            <p className="pista">Ingrese con su usuario corporativo.</p>
 
-          <label htmlFor="campo-usuario">Usuario o código de empleado</label>
-          <div className="campo-icono">
-            <Icono nombre="perfil" tam={18} />
-            <input
-              id="campo-usuario"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              autoComplete="username"
-              autoFocus
-            />
-          </div>
-
-          <label htmlFor="campo-pin">PIN</label>
-          <div className="campo-icono">
-            <Icono nombre="candado" tam={18} />
-            <input
-              id="campo-pin"
-              type="password"
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
-
-          <div>
-            <span id="etiqueta-perfil" style={{ fontSize: ".8rem", color: "var(--grafito)" }}>
-              Perfil
-            </span>
-            {/* aria-live: el texto de arriba no cambia (siempre dice "Perfil"),
-                pero esta línea sí - solo así un lector de pantalla se entera
-                de qué perfil se detectó al escribir el usuario, sin depender
-                del color que solo ve quien puede ver la pantalla. */}
-            <p aria-live="polite" className="pista" style={{ minHeight: "1.1em", margin: "2px 0 4px" }}>
-              {perfil ? `Perfil detectado: ${ETIQUETAS_PERFIL[perfil]}` : ""}
-            </p>
-            <div className="perfiles" role="group" aria-labelledby="etiqueta-perfil">
-              <span className={perfil === "auxiliar" ? "sel" : ""}>
-                {ETIQUETAS_PERFIL.auxiliar}
-              </span>
-              <span className={perfil === "auditor" ? "sel" : ""}>
-                {ETIQUETAS_PERFIL.auditor}
-              </span>
+            <label htmlFor="campo-usuario">Usuario</label>
+            <div className="campo-icono">
+              <Icono nombre="perfil" tam={18} />
+              <input
+                id="campo-usuario"
+                value={usuario}
+                onChange={actualizar(setUsuario, "usuario")}
+                autoComplete="username"
+                aria-invalid={!!errCampo.usuario}
+                autoFocus
+              />
             </div>
-          </div>
+            {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
 
-          {err && <span className="error" role="alert">{err}</span>}
+            <label htmlFor="campo-clave">Clave</label>
+            <div className="campo-icono">
+              <Icono nombre="candado" tam={18} />
+              <input
+                id="campo-clave"
+                type="password"
+                value={clave}
+                onChange={actualizar(setClave, "clave")}
+                autoComplete="current-password"
+                aria-invalid={!!errCampo.clave}
+              />
+            </div>
+            {errCampo.clave && <span className="error-campo" role="alert">{errCampo.clave}</span>}
 
-          <button className="btn" type="submit" disabled={cargando || !usuario || !clave}>
-            {cargando ? "Entrando…" : "ENTRAR"}
-          </button>
+            <div>
+              <span id="etiqueta-perfil" style={{ fontSize: ".8rem", color: "var(--grafito)" }}>
+                Perfil
+              </span>
+              <p aria-live="polite" className="pista" style={{ minHeight: "1.1em", margin: "2px 0 4px" }}>
+                {perfil ? `Perfil detectado: ${ETIQUETAS_PERFIL[perfil]}` : ""}
+              </p>
+              <div className="perfiles" role="group" aria-labelledby="etiqueta-perfil">
+                <span className={perfil === "auxiliar" ? "sel" : ""}>{ETIQUETAS_PERFIL.auxiliar}</span>
+                <span className={perfil === "auditor" ? "sel" : ""}>{ETIQUETAS_PERFIL.auditor}</span>
+              </div>
+            </div>
 
-          {hayLector && tieneHuella && (
-            <button type="button" className="btn borde" disabled={entrandoConHuella}
-                    onClick={entrarConHuella}>
-              {entrandoConHuella ? "Leyendo huella…" : "Entrar con la huella del dispositivo"}
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Entrando…" : "ENTRAR"}
             </button>
-          )}
-        </form>
+
+            <p className="enlaces-ingreso">
+              <button type="button" className="enlace" onClick={() => cambiarModo("recuperar")}>
+                Olvidé mi clave
+              </button>
+              {" · "}
+              <button type="button" className="enlace" onClick={() => cambiarModo("registro")}>
+                Crear una cuenta
+              </button>
+            </p>
+          </form>
+        )}
+
+        {modo === "login-mfa" && (
+          <form className="form" onSubmit={confirmarMFALogin} noValidate>
+            <h2>Verificación en dos pasos</h2>
+            <p className="pista">Digite el código de 6 dígitos de su app autenticadora.</p>
+
+            <label htmlFor="mfa-codigo">Código</label>
+            <input id="mfa-codigo" style={campo} value={codigoMFA} inputMode="numeric"
+                   onChange={actualizar(setCodigoMFA, "codigoMFA")}
+                   aria-invalid={!!errCampo.codigoMFA} autoFocus />
+            {errCampo.codigoMFA && <span className="error-campo" role="alert">{errCampo.codigoMFA}</span>}
+
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Verificando…" : "VERIFICAR Y ENTRAR"}
+            </button>
+          </form>
+        )}
+
+        {modo === "registro" && (
+          <form className="form" onSubmit={pedirRegistro} noValidate>
+            <h2>Crear una cuenta</h2>
+            <p className="pista">La cuenta queda como auxiliar de inventarios.</p>
+
+            <label htmlFor="reg-nombre">Nombre completo</label>
+            <input id="reg-nombre" style={campo} value={nombreCompleto}
+                   onChange={actualizar(setNombreCompleto, "nombreCompleto")}
+                   aria-invalid={!!errCampo.nombreCompleto} autoFocus />
+            {errCampo.nombreCompleto && <span className="error-campo" role="alert">{errCampo.nombreCompleto}</span>}
+
+            <label htmlFor="reg-codigo-empleado">Código de empleado (opcional)</label>
+            <input id="reg-codigo-empleado" style={campo} value={codigoEmpleado}
+                   onChange={(e) => setCodigoEmpleado(e.target.value)} />
+
+            <label htmlFor="reg-correo">Correo corporativo</label>
+            <input id="reg-correo" type="email" style={campo} value={correo}
+                   onChange={actualizar(setCorreo, "correo")} autoComplete="email"
+                   aria-invalid={!!errCampo.correo} />
+            {errCampo.correo && <span className="error-campo" role="alert">{errCampo.correo}</span>}
+
+            <label htmlFor="reg-usuario">Usuario</label>
+            <input id="reg-usuario" style={campo} value={usuario}
+                   onChange={actualizar(setUsuario, "usuario")} autoComplete="username"
+                   aria-invalid={!!errCampo.usuario} />
+            {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
+
+            <label htmlFor="reg-clave">Clave</label>
+            <input id="reg-clave" type="password" style={campo} value={clave}
+                   onChange={actualizar(setClave, "clave")} autoComplete="new-password"
+                   aria-invalid={!!errCampo.clave} />
+            {errCampo.clave && <span className="error-campo" role="alert">{errCampo.clave}</span>}
+            <ChecklistClave clave={clave} />
+
+            <label htmlFor="reg-clave2">Confirmar clave</label>
+            <input id="reg-clave2" type="password" style={campo} value={clave2}
+                   onChange={actualizar(setClave2, "clave2")} autoComplete="new-password"
+                   aria-invalid={!!errCampo.clave2} />
+            {errCampo.clave2 && <span className="error-campo" role="alert">{errCampo.clave2}</span>}
+
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Creando cuenta…" : "CREAR CUENTA"}
+            </button>
+            <p className="enlaces-ingreso">
+              <button type="button" className="enlace" onClick={() => cambiarModo("login")}>
+                Ya tengo una cuenta
+              </button>
+            </p>
+          </form>
+        )}
+
+        {modo === "registro-codigo" && (
+          <form className="form" onSubmit={confirmarYEntrar} noValidate>
+            <h2>Confirmar correo</h2>
+            <AvisoCodigo destino={destinoCodigo} onReenviar={reenviarRegistro}
+                         reenviando={reenviando} reenviado={reenviado} />
+
+            <label htmlFor="reg-codigo">Código de 6 dígitos</label>
+            <input id="reg-codigo" style={campo} value={codigo} inputMode="numeric"
+                   onChange={actualizar(setCodigo, "codigo")} aria-invalid={!!errCampo.codigo} autoFocus />
+            {errCampo.codigo && <span className="error-campo" role="alert">{errCampo.codigo}</span>}
+
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Confirmando…" : "CONFIRMAR Y ENTRAR"}
+            </button>
+          </form>
+        )}
+
+        {modo === "registro-mfa" && (
+          <div className="form">
+            <h2>¿Verificación en dos pasos?</h2>
+            <p className="pista">
+              Opcional: pida un código de su celular además de la clave, al ingresar. Se puede
+              activar o desactivar después desde Mi perfil.
+            </p>
+            <ConfigurarMFA nombreUsuario={usuario.trim()}
+                           onActivado={() => alEntrar(sesionPendiente)}
+                           onCancelar={() => alEntrar(sesionPendiente)}
+                           textoCancelar="Ahora no" />
+          </div>
+        )}
+
+        {modo === "recuperar" && (
+          <form className="form" onSubmit={pedirRecuperar} noValidate>
+            <h2>Olvidé mi clave</h2>
+            <p className="pista">Le enviaremos un código al correo registrado.</p>
+
+            <label htmlFor="rec-usuario">Usuario</label>
+            <input id="rec-usuario" style={campo} value={usuario}
+                   onChange={actualizar(setUsuario, "usuario")} autoComplete="username"
+                   aria-invalid={!!errCampo.usuario} autoFocus />
+            {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
+
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Enviando…" : "ENVIAR CÓDIGO"}
+            </button>
+            <p className="enlaces-ingreso">
+              <button type="button" className="enlace" onClick={() => cambiarModo("login")}>
+                Volver a iniciar sesión
+              </button>
+            </p>
+          </form>
+        )}
+
+        {modo === "recuperar-codigo" && (
+          <form className="form" onSubmit={confirmarRecuperar} noValidate>
+            <h2>Nueva clave</h2>
+            <AvisoCodigo destino={destinoCodigo} onReenviar={reenviarRecuperar}
+                         reenviando={reenviando} reenviado={reenviado} />
+
+            <label htmlFor="rec-codigo">Código de 6 dígitos</label>
+            <input id="rec-codigo" style={campo} value={codigo} inputMode="numeric"
+                   onChange={actualizar(setCodigo, "codigo")} aria-invalid={!!errCampo.codigo} autoFocus />
+            {errCampo.codigo && <span className="error-campo" role="alert">{errCampo.codigo}</span>}
+
+            <label htmlFor="rec-clave">Clave nueva</label>
+            <input id="rec-clave" type="password" style={campo} value={claveNueva}
+                   onChange={actualizar(setClaveNueva, "claveNueva")} autoComplete="new-password"
+                   aria-invalid={!!errCampo.claveNueva} />
+            {errCampo.claveNueva && <span className="error-campo" role="alert">{errCampo.claveNueva}</span>}
+            <ChecklistClave clave={claveNueva} />
+
+            <label htmlFor="rec-clave2">Confirmar clave nueva</label>
+            <input id="rec-clave2" type="password" style={campo} value={claveNueva2}
+                   onChange={actualizar(setClaveNueva2, "claveNueva2")} autoComplete="new-password"
+                   aria-invalid={!!errCampo.claveNueva2} />
+            {errCampo.claveNueva2 && <span className="error-campo" role="alert">{errCampo.claveNueva2}</span>}
+
+            {err && <span className="error" role="alert">{err}</span>}
+
+            <button className="btn" type="submit" disabled={cargando}>
+              {cargando ? "Guardando…" : "GUARDAR CLAVE NUEVA"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

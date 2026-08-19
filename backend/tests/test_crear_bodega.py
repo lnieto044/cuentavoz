@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 
 def _ingresar(client: TestClient, usuario: str) -> dict[str, str]:
-    r = client.post("/api/ingresar", data={"username": usuario, "password": "StockXperts"})
+    r = client.post("/api/ingresar", data={"username": usuario, "password": "StockXperts1"})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
 

@@ -39,10 +39,14 @@ que antes del paso 1:
    - En **cuentavoz-api**: `GOOGLE_API_KEY` (la llave gratis de
      aistudio.google.com — sin ella el agente sigue funcionando con el
      intérprete local, pero entiende menos variantes de frase).
-   - `ORIGEN_PERMITIDO`, `VITE_API_URL`, `WEBAUTHN_RP_ID` y
-     `WEBAUTHN_ORIGENES` déjelos vacíos por ahora — el Blueprint aún no
-     conoce las URLs finales de cada servicio. Se ponen en el paso 2, es la
-     única parte manual.
+   - `COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_ID`, `AWS_ACCESS_KEY_ID`
+     y `AWS_SECRET_ACCESS_KEY`: las credenciales de la cuenta IAM
+     `cuentavoz-backend` (no la de aprovisionamiento) sobre el User Pool
+     ya creado en AWS Cognito — sin esto la API arranca pero nadie puede
+     iniciar sesión. Pídalas al equipo.
+   - `ORIGEN_PERMITIDO` y `VITE_API_URL` déjelos vacíos por ahora — el
+     Blueprint aún no conoce las URLs finales de cada servicio. Se ponen
+     en el paso 2, es la única parte manual.
 
 ## 2. Conectar el backend al frontend (una vez, tras el primer deploy)
 
@@ -57,27 +61,19 @@ Una vez `cuentavoz-api` termina de desplegar, Render le asigna la URL fija
 Cuando **cuentavoz** termine de desplegar, su URL para compartir es
 `https://cuentavoz.onrender.com`. Con esa URL:
 
-2. Vaya a **cuentavoz-api → Environment** → ponga:
-   - `ORIGEN_PERMITIDO=https://cuentavoz.onrender.com` (si hay más de un
-     origen válido, sepárelos por coma)
-   - `WEBAUTHN_RP_ID=cuentavoz.onrender.com` (el dominio del frontend, sin
-     `https://` ni barra final)
-   - `WEBAUTHN_ORIGENES=https://cuentavoz.onrender.com` (esta vez sí con
-     `https://`)
-   → **Save, deploy**.
+2. Vaya a **cuentavoz-api → Environment** → ponga
+   `ORIGEN_PERMITIDO=https://cuentavoz.onrender.com` (si hay más de un
+   origen válido, sepárelos por coma) → **Save, deploy**.
 
-Sin el primer valor (`ORIGEN_PERMITIDO`) el navegador bloquea las llamadas
-del frontend a la API por CORS aunque todo lo demás esté bien. Los otros
-dos son para que el ingreso con huella del dispositivo (WebAuthn) funcione:
-el navegador solo lo permite si `WEBAUTHN_RP_ID` coincide exacto con el
-dominio que se ve en la barra de direcciones.
+Sin ese valor el navegador bloquea las llamadas del frontend a la API por
+CORS aunque todo lo demás esté bien.
 
 ## 3. Cargar los datos reales (una sola vez)
 
-Los usuarios de prueba se crean solos al primer arranque (ver
-`backend/main.py: arranque()`, clave `StockXperts`), pero el extracto real
-de Colsubsidio (bodegas, artículos, stock) hay que cargarlo a mano contra
-la base nueva:
+Los usuarios de prueba se crean solos al primer arranque, tanto en la
+base local como en Cognito (ver `backend/main.py: arranque()`, clave
+`StockXperts1`), pero el extracto real de Colsubsidio (bodegas,
+artículos, stock) hay que cargarlo a mano contra la base nueva:
 
 1. En **cuentavoz-api → Shell** (consola del propio servicio, ya tiene
    `DB_URL` apuntando a la Postgres de Render):
@@ -99,9 +95,18 @@ la base nueva:
   debe responder `{"api":"ok", ...}`; si `gemini` sale en `false` es porque
   falta `GOOGLE_API_KEY`, no es un fallo — el agente sigue funcionando con
   el intérprete local.
-- **Huella del dispositivo**: cada persona la registra una vez desde Mi
-  perfil, en cada dispositivo donde la quiera usar (queda ligada a ese
-  navegador/equipo, no viaja con la cuenta). Si más adelante cambia el
-  dominio (`WEBAUTHN_RP_ID`), las huellas registradas antes dejan de
-  funcionar y hay que volver a registrarlas.
+- **Identidad**: la maneja AWS Cognito, no este backend - el mismo User
+  Pool sirve tanto para local como para Render (no hay que crear uno
+  nuevo por entorno, basta con apuntar `COGNITO_*`/`AWS_*` al mismo).
+- **Correos (registro/recuperar clave)**: el User Pool está configurado
+  para mandarlos vía Amazon SES con un remitente verificado, en vez del
+  remitente genérico de Cognito (`no-reply@verificationemail.com`, que
+  Gmail y otros suelen marcar como spam). Si se cambia el remitente, hay
+  que verificarlo de nuevo en SES (`ses.verify_email_identity`) y
+  actualizar el `EmailConfiguration` del User Pool
+  (`cognito-idp.update_user_pool`). Nota real: SES no puede autenticar
+  correctamente un envío "desde" una dirección @gmail.com/@hotmail.com/etc.
+  (el DKIM/SPF de esos dominios no lo autoriza) — para que nunca caiga en
+  spam, sin importar el destinatario, el remitente debe ser un correo en
+  un dominio propio con Easy DKIM configurado en SES.
 - Ver [LEEME_PRIMERO.md](LEEME_PRIMERO.md) para correr todo localmente.

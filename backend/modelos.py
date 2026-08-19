@@ -16,13 +16,15 @@ class Usuario(Base):
     # cualquiera de las dos personas.
     nombre = Column(String, nullable=False, unique=True)
     perfil = Column(String, nullable=False)          # auxiliar | auditor
-    clave_hash = Column(String, nullable=False)
+    # La clave la maneja Cognito, no esta base - esta columna ya no se
+    # llena (nullable=True: SQLite no permite quitarle el NOT NULL a una
+    # columna existente sin recrear la tabla; se deja aqui sin usar en
+    # vez de arriesgar esa migracion en una base ya desplegada).
+    clave_hash = Column(String, nullable=True)
     correo = Column(String, default="")
     telefono = Column(String, default="")
     codigo = Column(String, default="")
     activo = Column(Integer, default=1)
-    version_token = Column(Integer, default=0)       # +1 invalida sesiones anteriores
-    huella_registrada = Column(Integer, default=0)   # tiene al menos una CredencialWebAuthn
     pin_actualizado = Column(DateTime, default=ahora)
     ultimo_acceso = Column(DateTime, nullable=True)
     idioma_voz = Column(String, default="es-MX")
@@ -222,17 +224,3 @@ class MensajeSoporte(Base):
     respuesta = Column(String, nullable=True)
     creado = Column(DateTime, default=ahora)
     respondido = Column(DateTime, nullable=True)
-
-
-class CredencialWebAuthn(Base):
-    """Una llave de acceso (huella, Windows Hello, etc.) registrada en un
-    dispositivo para un usuario - el ingreso real por biometria via WebAuthn,
-    no la simulacion anterior."""
-    __tablename__ = "credencial_webauthn"
-    id = Column(Integer, primary_key=True)
-    usuario_id = Column(Integer, ForeignKey("usuario.id"), nullable=False)
-    credential_id = Column(String, nullable=False, unique=True)   # base64url
-    public_key = Column(String, nullable=False)                   # base64url
-    sign_count = Column(Integer, default=0)
-    dispositivo = Column(String, default="")     # nombre amigable, ej. "Edge en este equipo"
-    creado = Column(DateTime, default=ahora)

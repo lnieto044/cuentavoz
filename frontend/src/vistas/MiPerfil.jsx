@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { pedir, BASE, leerToken, actualizarTokenSesion, esFalloRed } from "../api";
+import { pedir, BASE, leerToken, borrarSesion, esFalloRed } from "../api";
+import { cambiarClave, cerrarSesionLocal, tieneMFAActiva, desactivarMFA } from "../cognito";
 import { configurarVoz, hablar } from "../voz";
-import { hayAutenticadorDisponible, registrarHuellaDispositivo } from "../webauthn";
+import ChecklistClave, { claveCumplePolitica } from "../ChecklistClave";
+import ConfigurarMFA from "../ConfigurarMFA";
 import Marco from "../Marco";
 import Dialogo from "../Dialogo";
 import AsistenteVoz from "../AsistenteVoz";
@@ -14,29 +16,31 @@ function formatoAcceso(fechaStr) {
 }
 
 // Lo que YA se puede cambiar por voz aquí (la voz, la velocidad, la
-// confirmación hablada, y preguntar por los datos de la cuenta). El PIN,
-// la huella y la foto son a propósito solo manuales, por seguridad - el
-// agente lo explica si se le pide, en vez de fingir que puede hacerlo.
+// confirmación hablada, y preguntar por los datos de la cuenta). La clave
+// y la foto son a propósito solo manuales, por seguridad - el agente lo
+// explica si se le pide, en vez de fingir que puede hacerlo.
 const _EJEMPLOS_PERFIL = [
   "cambia mi voz a puck", "usa la voz aoede", "habla más lento", "velocidad normal",
   "activa la confirmación hablada", "desactiva la confirmación hablada",
   "¿cuándo fue mi último acceso?", "¿cuántos días le quedan a mi PIN?",
-  "¿qué bodegas tengo asignadas?", "¿tengo la huella registrada?",
+  "¿qué bodegas tengo asignadas?",
 ];
 
 export default function MiPerfil({ token, ir }) {
   const [datos, setDatos] = useState(null);
   const [bodegas, setBodegas] = useState([]);
   const [msg, setMsg] = useState("");
-  const [pinActual, setPinActual] = useState("");
-  const [pin, setPin] = useState("");
-  const [pin2, setPin2] = useState("");
+  const [claveActual, setClaveActual] = useState("");
+  const [claveNueva, setClaveNueva] = useState("");
+  const [claveNueva2, setClaveNueva2] = useState("");
   const [err, setErr] = useState("");
   const [fotoUrl, setFotoUrl] = useState(null);
   const [confirmarCierre, setConfirmarCierre] = useState(false);
-  const [confirmarEliminarHuella, setConfirmarEliminarHuella] = useState(false);
-  const [hayLector, setHayLector] = useState(false);
   const [voces, setVoces] = useState([]);
+  // verificación en dos pasos (MFA con app autenticadora)
+  const [mfaActiva, setMfaActiva] = useState(null);   // null = todavía no se sabe
+  const [configurandoMFA, setConfigurandoMFA] = useState(false);
+  const [confirmarQuitarMFA, setConfirmarQuitarMFA] = useState(false);
 
   // <img src> no puede mandar el header Authorization, y /foto exige
   // sesion - por eso se trae como blob autenticado (mismo patron que
@@ -56,7 +60,7 @@ export default function MiPerfil({ token, ir }) {
     pedir("/api/usuarios/yo", {}, token).then(setDatos).catch(() => {});
     pedir("/api/usuarios/yo/bodegas", {}, token).then(setBodegas).catch(() => {});
     pedir("/api/voz/voces", {}, token).then((r) => setVoces(r.voces)).catch(() => {});
-    hayAutenticadorDisponible().then(setHayLector);
+    tieneMFAActiva().then(setMfaActiva).catch(() => setMfaActiva(false));
     cargarFoto();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -96,51 +100,42 @@ export default function MiPerfil({ token, ir }) {
         : e2.message);
     }
   }
-  async function cambiarPin() {
-    setErr("");
-    if (!pinActual) return setErr("Digite su PIN actual.");
-    if (pin.length < 6) return setErr("El PIN debe tener al menos 6 dígitos.");
-    if (pin !== pin2) return setErr("Los dos PIN no coinciden.");
-    try {
-      const r = await pedir("/api/usuarios/yo/pin", {
-        method: "PUT", body: JSON.stringify({ pin_actual: pinActual, pin }),
-      }, token);
-      // el PIN nuevo invalida el token con el que se pidió el cambio (igual
-      // que "cerrar todas las sesiones"): sin recargar, el resto de llamadas
-      // de esta pantalla seguirían usando el token viejo ya sin validez.
-      actualizarTokenSesion(r.token);
-      window.location.reload();
-    } catch (e) { setErr(e.message); }
-  }
-  async function registrarHuella() {
+  async function cambiarClavePropia() {
     setErr(""); setMsg("");
+    if (!claveActual) return setErr("Digite su clave actual.");
+    if (!claveCumplePolitica(claveNueva)) return setErr("La clave nueva no cumple todos los requisitos.");
+    if (claveNueva !== claveNueva2) return setErr("Las dos claves no coinciden.");
     try {
-      await registrarHuellaDispositivo(token);
-      setDatos({ ...datos, huella_registrada: true });
-      setMsg("Huella registrada en este dispositivo.");
-    } catch (e) {
-      setErr(e.name === "NotAllowedError"
-        ? "Se canceló el registro de la huella."
-        : e.message);
-    }
-  }
-  async function eliminarHuella() {
-    setErr(""); setMsg("");
-    try {
-      // el backend borra TODAS las credenciales del usuario, no solo la de
-      // este equipo (no hay forma hoy de distinguir cual credencial es
-      // "este dispositivo") - el texto y el mensaje reflejan eso, en vez
-      // de prometer un alcance mas angosto del que de verdad tiene.
-      await pedir("/api/usuarios/yo/huella", { method: "DELETE" }, token);
-      setDatos({ ...datos, huella_registrada: false });
-      setMsg("Huella eliminada de todos los dispositivos donde la había registrado.");
+      // habla directo con Cognito (no con este backend, que nunca ve la
+      // clave) - a diferencia del PIN de antes, esto NO invalida la sesión
+      // actual, así que no hace falta recargar la página.
+      await cambiarClave(claveActual, claveNueva);
+      setClaveActual(""); setClaveNueva(""); setClaveNueva2("");
+      setMsg("Clave actualizada.");
     } catch (e) { setErr(e.message); }
   }
   async function cerrarTodas() {
     try {
-      const r = await pedir("/api/usuarios/yo/cerrar-todas", { method: "POST" }, token);
-      actualizarTokenSesion(r.token);
+      await pedir("/api/usuarios/yo/cerrar-todas", { method: "POST" }, token);
+      // revoca las sesiones en TODOS los dispositivos, incluido este -
+      // por consistencia se cierra tambien aqui en vez de seguir en la
+      // pantalla con un token que ya no sirve para pedir uno nuevo.
+      cerrarSesionLocal();
+      borrarSesion();
       window.location.reload();
+    } catch (e) { setErr(e.message); }
+  }
+  function alActivarMFA() {
+    setConfigurandoMFA(false);
+    setMfaActiva(true);
+    setMsg("Verificación en dos pasos activada.");
+  }
+  async function quitarMFA() {
+    setErr(""); setMsg("");
+    try {
+      await desactivarMFA();
+      setMfaActiva(false);
+      setMsg("Verificación en dos pasos desactivada.");
     } catch (e) { setErr(e.message); }
   }
   function probarVoz() {
@@ -232,51 +227,66 @@ export default function MiPerfil({ token, ir }) {
             Su PIN vence en <b>{datos.pin_vence_en_dias} días</b>
           </p>
 
-          <input type="password" placeholder="PIN actual" value={pinActual}
+          <input type="password" placeholder="Clave actual" value={claveActual}
                  autoComplete="current-password"
-                 onChange={(e) => setPinActual(e.target.value)}
-                 aria-label="PIN actual"
+                 onChange={(e) => setClaveActual(e.target.value)}
+                 aria-label="Clave actual"
                  style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
-          <input type="password" placeholder="PIN nuevo (6 dígitos)" value={pin}
+          <input type="password" placeholder="Clave nueva"
+                 value={claveNueva}
                  autoComplete="new-password"
-                 onChange={(e) => setPin(e.target.value)}
-                 aria-label="PIN nuevo, 6 dígitos"
-                 style={{ width: "100%", padding: "11px 13px", marginBottom: 8,
+                 onChange={(e) => setClaveNueva(e.target.value)}
+                 aria-label="Clave nueva"
+                 style={{ width: "100%", padding: "11px 13px", marginBottom: 4,
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
-          <input type="password" placeholder="Confirmar PIN" value={pin2}
+          <ChecklistClave clave={claveNueva} />
+          <input type="password" placeholder="Confirmar clave nueva" value={claveNueva2}
                  autoComplete="new-password"
-                 onChange={(e) => setPin2(e.target.value)}
-                 aria-label="Confirmar PIN nuevo"
+                 onChange={(e) => setClaveNueva2(e.target.value)}
+                 aria-label="Confirmar clave nueva"
                  style={{ width: "100%", padding: "11px 13px",
                           border: "1px solid var(--borde)", borderRadius: 12 }} />
           <div className="grilla-botones">
-            <button className="btn borde" onClick={cambiarPin}>Cambiar PIN</button>
+            <button className="btn borde" onClick={cambiarClavePropia}>Cambiar clave</button>
           </div>
 
           <div className="grilla-botones" style={{ marginTop: 10 }}>
-            {datos.huella_registrada ? (
-              <button className="btn gris" onClick={() => setConfirmarEliminarHuella(true)}>
-                ✓ Huella registrada — quitar de todos los dispositivos
-              </button>
-            ) : (
-              <button className="btn borde" onClick={registrarHuella} disabled={!hayLector}>
-                Registrar huella de este dispositivo
-              </button>
-            )}
             <button className="btn gris" onClick={() => setConfirmarCierre(true)}>
               Cerrar sesión en todos los dispositivos
             </button>
           </div>
           <p className="pista" style={{ marginTop: 8 }}>
-            {hayLector
-              ? "El PIN se guarda cifrado (bcrypt); la huella usa el lector o " +
-                "Windows Hello de este equipo (WebAuthn) y solo sirve para " +
-                "ingresar desde este mismo dispositivo."
-              : "El PIN se guarda cifrado (bcrypt); este equipo o navegador no " +
-                "tiene un lector de huella / Windows Hello configurado, así " +
-                "que el ingreso con huella no está disponible aquí."}
+            La identidad y la clave las administra AWS Cognito, no CuentaVoz -
+            este backend nunca ve ni guarda su clave.
           </p>
+
+          <hr style={{ border: "none", borderTop: "1px solid var(--borde)", margin: "18px 0" }} />
+          <h3 style={{ fontSize: "1rem" }}>Verificación en dos pasos</h3>
+          {mfaActiva === null ? (
+            <p className="pista">Comprobando…</p>
+          ) : configurandoMFA ? (
+            <ConfigurarMFA nombreUsuario={datos.nombre} onActivado={alActivarMFA}
+                           onCancelar={() => setConfigurandoMFA(false)} />
+          ) : mfaActiva ? (
+            <>
+              <p className="pista" style={{ color: "var(--verde)", fontStyle: "normal" }}>
+                ✓ Activada con una app autenticadora.
+              </p>
+              <div className="grilla-botones">
+                <button className="btn gris" onClick={() => setConfirmarQuitarMFA(true)}>Desactivar</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="pista">
+                Pida un código de 6 dígitos generado en su celular además de la clave, al ingresar. Opcional.
+              </p>
+              <div className="grilla-botones">
+                <button className="btn borde" onClick={() => setConfigurandoMFA(true)}>Activar</button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="card">
@@ -343,12 +353,12 @@ export default function MiPerfil({ token, ir }) {
                  onCancelar={() => setConfirmarCierre(false)} />
       )}
 
-      {confirmarEliminarHuella && (
-        <Dialogo titulo="Quitar la huella de todos los dispositivos"
-                 mensaje="Esto elimina TODAS las huellas que haya registrado, no solo la de este equipo (hoy no hay forma de distinguirlas). Para volver a ingresar con huella en cualquier dispositivo, tendrá que registrarla de nuevo. ¿Continuar?"
-                 textoAceptar="Quitar todas" peligro
-                 onAceptar={() => { setConfirmarEliminarHuella(false); eliminarHuella(); }}
-                 onCancelar={() => setConfirmarEliminarHuella(false)} />
+      {confirmarQuitarMFA && (
+        <Dialogo titulo="Desactivar verificación en dos pasos"
+                 mensaje="La próxima vez que entre, bastará con la clave - ya no se pedirá el código de la app autenticadora. ¿Continuar?"
+                 textoAceptar="Desactivar" peligro
+                 onAceptar={() => { setConfirmarQuitarMFA(false); quitarMFA(); }}
+                 onCancelar={() => setConfirmarQuitarMFA(false)} />
       )}
     </Marco>
   );

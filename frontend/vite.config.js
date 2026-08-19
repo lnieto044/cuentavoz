@@ -3,6 +3,14 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // amazon-cognito-identity-js (via su dependencia "buffer") asume que
+  // existe el global de Node "global" - en el navegador no existe, y sin
+  // esto la app entera quedaba en blanco (ReferenceError: global is not
+  // defined) apenas se importaba cognito.js. globalThis es el equivalente
+  // real en cualquier entorno (navegador o Node).
+  define: {
+    global: "globalThis",
+  },
   plugins: [
     react(),   // <-- con paréntesis
     // registra un service worker que deja cacheado el cascarón de la app

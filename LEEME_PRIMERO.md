@@ -71,6 +71,16 @@ Debe imprimir algo así:
 > No importa desde que carpeta corra este paso o el siguiente: la base de
 > datos SQLite siempre queda anclada a `backend/cuentavoz.db`.
 
+## 3.5. Configurar el .env (obligatorio para poder ingresar)
+
+La identidad la maneja AWS Cognito, no este backend - sin estas variables
+la API arranca pero **nadie puede iniciar sesión**. Copie
+`.env.ejemplo` como `.env` en la raíz del repositorio y pida al equipo
+los valores de `COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_ID`,
+`AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` (son de un User Pool ya
+creado - no hace falta cuenta de AWS propia para correr el proyecto,
+solo esas credenciales).
+
 ## 4. Levantar la API
 
 ```bash
@@ -94,7 +104,7 @@ npm run dev
 Abra **http://localhost:5173** en **Chrome o Edge** (Firefox no reconoce voz).
 
 **Usuarios de prueba:** `luis` (auxiliar) y `diana` (administradora).
-**PIN:** `StockXperts`
+**Clave:** `StockXperts1`
 
 ---
 
@@ -171,7 +181,7 @@ backend/
   main.py                  la API: 27 endpoints
   modelos.py               las 12 tablas
   bd.py                    conexion a la base (ruta SQLite fija a backend/)
-  seguridad.py             bcrypt, token JWT, permisos por perfil, rate limit
+  seguridad.py             verifica el access token de Cognito, permisos por perfil, rate limit
   agente/cerebro.py        Gemini (con respaldo local)
   agente/orquestador.py    intención → herramienta → validación
   servicios/

@@ -27,11 +27,21 @@ services:
         fromDatabase:
           name: cuentavoz-db
           property: connectionString
-      - key: SECRETO_JWT
-        generateValue: true
-      - key: MINUTOS_TOKEN
-        value: "480"
-      # Crea luis/diana/stephanie/valentina (clave StockXperts, publicada
+      # Identidad con AWS Cognito - el User Pool/App Client se crean una
+      # sola vez desde la cuenta de AWS del equipo (ver DESPLIEGUE.md);
+      # las credenciales de AWS_* son las de la cuenta IAM propia del
+      # backend (cuentavoz-backend), no la de aprovisionamiento.
+      - key: COGNITO_REGION
+        value: us-east-2
+      - key: COGNITO_USER_POOL_ID
+        sync: false
+      - key: COGNITO_APP_CLIENT_ID
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      # Crea luis/diana/stephanie/valentina (clave StockXperts1, publicada
       # en el README) si la base de usuarios esta vacia - activo a
       # proposito para que cualquiera entre facil en la demo del
       # hackathon. Despues del hackathon, si este mismo servicio pasa a
@@ -50,12 +60,6 @@ services:
         sync: false      # se pega a mano en el dashboard: la llave es secreta
       - key: ORIGEN_PERMITIDO
         sync: false      # URL del static site una vez exista, ver DESPLIEGUE.md
-      - key: WEBAUTHN_RP_ID
-        sync: false      # dominio del static site SIN esquema ni puerto, ver DESPLIEGUE.md
-      - key: WEBAUTHN_RP_NAME
-        value: CuentaVoz
-      - key: WEBAUTHN_ORIGENES
-        sync: false      # URL completa del static site (con https://), ver DESPLIEGUE.md
 
   - type: web
     name: cuentavoz
