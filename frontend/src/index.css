@@ -319,18 +319,19 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
 .ingreso-fondo::after { width: 420px; height: 420px; background: var(--amarillo);
   bottom: -160px; right: -140px; }
 .ingreso { position: relative; z-index: 1; width: 100%; max-width: 440px;
-  background: #fff; border-radius: 22px; padding: 40px 36px;
+  background: #fff; border-radius: 22px; padding: 30px 36px;
   box-shadow: 0 24px 60px -16px rgba(11, 27, 51, .28); }
 .ingreso .marca-cabecera { display: flex; flex-direction: column; align-items: center;
-  gap: 2px; text-align: center; margin-bottom: 24px; }
-.ingreso .marca-cabecera img.app { width: 52px; border-radius: 14px; }
-.ingreso .marca-cabecera h1 { font-size: 1.5rem; color: var(--azul-prof); margin-top: 8px; }
-.ingreso .marca-cabecera i { color: var(--grafito); font-size: .85rem; }
-.ingreso .marca-cabecera .hackathon { color: var(--grafito); font-size: .72rem;
-  margin-top: 10px; opacity: .7; letter-spacing: .02em; }
-.ingreso .form { display: flex; flex-direction: column; gap: 14px; }
-.ingreso .form h2 { color: var(--azul); font-size: 1.5rem; }
-.ingreso .form label { font-size: .8rem; color: var(--grafito); }
+  gap: 2px; text-align: center; margin-bottom: 14px; }
+.ingreso .marca-cabecera img.app { width: 40px; border-radius: 11px; }
+.ingreso .marca-cabecera h1 { font-size: 1.25rem; color: var(--azul-prof); margin-top: 4px; }
+.ingreso .marca-cabecera i { color: var(--grafito); font-size: .8rem; }
+.ingreso .marca-cabecera .hackathon { color: var(--grafito); font-size: .68rem;
+  margin-top: 4px; opacity: .7; letter-spacing: .02em; }
+.ingreso .form { display: flex; flex-direction: column; gap: 11px; }
+.ingreso .form h2 { color: var(--azul); font-size: 1.35rem; }
+.ingreso .form label { display: block; font-size: .8rem; color: var(--grafito); margin-bottom: 4px; }
+.ingreso .campos-2col label { margin-bottom: 4px; }
 .ingreso .campo-icono { position: relative; display: flex; align-items: center; }
 .ingreso .campo-icono svg { position: absolute; left: 14px; color: #9AA7BC; }
 .ingreso .form input { width: 100%; padding: 13px 14px 13px 42px;

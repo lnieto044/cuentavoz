@@ -412,40 +412,55 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             <h2>Crear una cuenta</h2>
             <p className="pista">La cuenta queda como auxiliar de inventarios.</p>
 
-            <label htmlFor="reg-nombre">Nombre completo</label>
-            <input id="reg-nombre" style={campo} value={nombreCompleto}
-                   onChange={actualizar(setNombreCompleto, "nombreCompleto")}
-                   aria-invalid={!!errCampo.nombreCompleto} autoFocus />
-            {errCampo.nombreCompleto && <span className="error-campo" role="alert">{errCampo.nombreCompleto}</span>}
+            <div className="campos-2col">
+              <div>
+                <label htmlFor="reg-nombre">Nombre completo</label>
+                <input id="reg-nombre" style={campo} value={nombreCompleto}
+                       onChange={actualizar(setNombreCompleto, "nombreCompleto")}
+                       aria-invalid={!!errCampo.nombreCompleto} autoFocus />
+                {errCampo.nombreCompleto && <span className="error-campo" role="alert">{errCampo.nombreCompleto}</span>}
+              </div>
+              <div>
+                <label htmlFor="reg-codigo-empleado">Código de empleado (opcional)</label>
+                <input id="reg-codigo-empleado" style={campo} value={codigoEmpleado}
+                       onChange={(e) => setCodigoEmpleado(e.target.value)} />
+              </div>
+            </div>
 
-            <label htmlFor="reg-codigo-empleado">Código de empleado (opcional)</label>
-            <input id="reg-codigo-empleado" style={campo} value={codigoEmpleado}
-                   onChange={(e) => setCodigoEmpleado(e.target.value)} />
+            <div className="campos-2col">
+              <div>
+                <label htmlFor="reg-correo">Correo corporativo</label>
+                <input id="reg-correo" type="email" style={campo} value={correo}
+                       onChange={actualizar(setCorreo, "correo")} autoComplete="email"
+                       aria-invalid={!!errCampo.correo} />
+                {errCampo.correo && <span className="error-campo" role="alert">{errCampo.correo}</span>}
+              </div>
+              <div>
+                <label htmlFor="reg-usuario">Usuario</label>
+                <input id="reg-usuario" style={campo} value={usuario}
+                       onChange={actualizar(setUsuario, "usuario")} autoComplete="username"
+                       aria-invalid={!!errCampo.usuario} />
+                {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
+              </div>
+            </div>
 
-            <label htmlFor="reg-correo">Correo corporativo</label>
-            <input id="reg-correo" type="email" style={campo} value={correo}
-                   onChange={actualizar(setCorreo, "correo")} autoComplete="email"
-                   aria-invalid={!!errCampo.correo} />
-            {errCampo.correo && <span className="error-campo" role="alert">{errCampo.correo}</span>}
-
-            <label htmlFor="reg-usuario">Usuario</label>
-            <input id="reg-usuario" style={campo} value={usuario}
-                   onChange={actualizar(setUsuario, "usuario")} autoComplete="username"
-                   aria-invalid={!!errCampo.usuario} />
-            {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
-
-            <label htmlFor="reg-clave">Clave</label>
-            <input id="reg-clave" type="password" style={campo} value={clave}
-                   onChange={actualizar(setClave, "clave")} autoComplete="new-password"
-                   aria-invalid={!!errCampo.clave} />
-            {errCampo.clave && <span className="error-campo" role="alert">{errCampo.clave}</span>}
+            <div className="campos-2col">
+              <div>
+                <label htmlFor="reg-clave">Clave</label>
+                <input id="reg-clave" type="password" style={campo} value={clave}
+                       onChange={actualizar(setClave, "clave")} autoComplete="new-password"
+                       aria-invalid={!!errCampo.clave} />
+                {errCampo.clave && <span className="error-campo" role="alert">{errCampo.clave}</span>}
+              </div>
+              <div>
+                <label htmlFor="reg-clave2">Confirmar clave</label>
+                <input id="reg-clave2" type="password" style={campo} value={clave2}
+                       onChange={actualizar(setClave2, "clave2")} autoComplete="new-password"
+                       aria-invalid={!!errCampo.clave2} />
+                {errCampo.clave2 && <span className="error-campo" role="alert">{errCampo.clave2}</span>}
+              </div>
+            </div>
             <ChecklistClave clave={clave} />
-
-            <label htmlFor="reg-clave2">Confirmar clave</label>
-            <input id="reg-clave2" type="password" style={campo} value={clave2}
-                   onChange={actualizar(setClave2, "clave2")} autoComplete="new-password"
-                   aria-invalid={!!errCampo.clave2} />
-            {errCampo.clave2 && <span className="error-campo" role="alert">{errCampo.clave2}</span>}
 
             {err && <span className="error" role="alert">{err}</span>}
 
