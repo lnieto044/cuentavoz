@@ -272,7 +272,30 @@ def salud():
                 "bodegas": s.query(Bodega).count(),
                 "articulos": s.query(Articulo).count(),
                 "stock": s.query(StockSistema).count(),
-                "gemini": bool(os.getenv("GOOGLE_API_KEY", "").strip())}
+                "gemini": bool(os.getenv("GOOGLE_API_KEY", "").strip()),
+                "cognito": _estado_cognito()}
+
+
+def _estado_cognito() -> dict:
+    """Con que User Pool y App Client esta trabajando ESTE backend.
+
+    No es informacion secreta: el User Pool Id y el App Client Id viajan en
+    el JavaScript que se descarga cualquiera que abra la aplicacion (ver
+    frontend/src/cognito.js) - por eso pueden ir aqui sin problema, y no se
+    expone nada mas (ni llaves de AWS, ni claves).
+
+    Existe porque estas tres variables van como sync:false en render.yaml,
+    o sea que viven solo en el panel de Render: si una queda vacia o
+    desactualizada, TODOS los tokens se rechazan con "Sesion invalida o
+    vencida.", que suena a problema de la persona cuando en realidad es de
+    configuracion. Comparar esto contra el frontend responde en un segundo
+    algo que si no toca adivinar."""
+    from seguridad import (COGNITO_REGION as reg, COGNITO_USER_POOL_ID as pool,
+                           COGNITO_APP_CLIENT_ID as cli, _jwks_client)
+    return {"region": reg,
+            "user_pool_id": pool or "(sin definir)",
+            "app_client_id": cli or "(sin definir)",
+            "puede_verificar_tokens": _jwks_client is not None}
 
 
 # ─────────────────────── identidad ───────────────────────
