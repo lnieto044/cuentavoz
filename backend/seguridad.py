@@ -27,8 +27,46 @@ if not COGNITO_USER_POOL_ID:
 # PyJWKClient trae en cache las llaves publicas del User Pool (se refrescan
 # solas si aparece un "kid" nuevo que no conoce todavia) - sin esto habria
 # que ir a buscarlas a Cognito en cada peticion.
-_jwks_client = jwt.PyJWKClient(_JWKS_URL) if COGNITO_USER_POOL_ID else None
+#   lifespan: las llaves de firma de un User Pool son estables (no rotan
+#     cada rato). Con el valor por defecto (300 s) el backend volvia a
+#     pedir el JWKS a AWS cada 5 minutos, y CADA una de esas idas a la red
+#     era una oportunidad de que un tropiezo tumbara la sesion de todos
+#     (ver _reclamos_cognito). Una hora reduce esas idas ~12 veces.
+#   timeout: 30 s por defecto es demasiado - deja la peticion colgada. Es
+#     preferible fallar rapido y reintentar.
+_jwks_client = (jwt.PyJWKClient(_JWKS_URL, cache_keys=True, lifespan=3600, timeout=8)
+                if COGNITO_USER_POOL_ID else None)
 esquema = OAuth2PasswordBearer(tokenUrl="/api/registro-completado", auto_error=False)
+
+
+class ServicioIdentidadCaido(Exception):
+    """No se pudieron consultar las llaves publicas de Cognito.
+
+    Ojo con la distincion, que es la razon de ser de esta excepcion: esto
+    NO significa que el token sea malo, significa que este backend no pudo
+    hablar con AWS para comprobarlo. Antes ambos casos terminaban en el
+    mismo 401 "Sesion invalida o vencida.", y como el frontend cierra la
+    sesion ante cualquier 401 (ver api.js: alSesionInvalida), un tropiezo
+    de red de un segundo contra el JWKS sacaba a la persona de la
+    aplicacion y la mandaba de vuelta al login con un mensaje que ademas
+    era mentira. Se responde 503 en su lugar."""
+
+
+def _llave_de_firma(token: str):
+    """La llave publica con la que Cognito firmo este token.
+
+    PyJWT ya reintenta solo (refrescando el JWKS) cuando el "kid" no esta
+    en la cache; lo que no reintenta es un fallo de RED al traer ese JWKS,
+    que es justo el caso que aqui interesa cubrir."""
+    from jwt.exceptions import PyJWKClientConnectionError
+    try:
+        return _jwks_client.get_signing_key_from_jwt(token).key
+    except PyJWKClientConnectionError as e:
+        print(f"[seguridad] no se pudo traer el JWKS de Cognito ({e}); reintentando")
+        try:
+            return _jwks_client.get_signing_key_from_jwt(token).key
+        except PyJWKClientConnectionError as e2:
+            raise ServicioIdentidadCaido(str(e2)) from e2
 
 
 def _reclamos_cognito(token: str) -> dict | None:
@@ -36,11 +74,14 @@ def _reclamos_cognito(token: str) -> dict | None:
     no es valido, vencio, es de otro User Pool/App Client, o es un id token
     en vez de un access token (llevan proposito distinto: el access token
     es para hablar con la API, el id token es para identificar a la
-    persona ante el propio frontend)."""
+    persona ante el propio frontend).
+
+    Levanta ServicioIdentidadCaido si el problema no es el token sino la
+    conexion con Cognito."""
     if not _jwks_client:
         return None
     try:
-        llave = _jwks_client.get_signing_key_from_jwt(token).key
+        llave = _llave_de_firma(token)
         datos = jwt.decode(
             token, llave, algorithms=["RS256"], issuer=_EMISOR,
             options={"require": ["exp", "iss", "sub", "token_use", "client_id", "username"]},
@@ -55,7 +96,15 @@ def _reclamos_cognito(token: str) -> dict | None:
 def usuario_actual(token: str = Depends(esquema)) -> Usuario:
     if not token:
         raise HTTPException(401, "Falta la sesion.")
-    datos = _reclamos_cognito(token)
+    try:
+        datos = _reclamos_cognito(token)
+    except ServicioIdentidadCaido as e:
+        # 503 y no 401 a proposito: el token esta bien, lo que fallo fue la
+        # consulta a Cognito. Un 401 aqui cerraria la sesion de la persona
+        # (ver api.js) por un problema que no es suyo ni de su token.
+        print(f"[seguridad] Cognito no responde: {e}")
+        raise HTTPException(
+            503, "No se pudo verificar su sesion en este momento. Intente de nuevo.")
     if datos is None:
         raise HTTPException(401, "Sesion invalida o vencida.")
     nombre = (datos.get("username") or "").lower()
@@ -74,7 +123,13 @@ def verificar_token(token: str):
     token pasado por query string con la misma regla que usuario_actual."""
     if not token:
         return None
-    datos = _reclamos_cognito(token)
+    try:
+        datos = _reclamos_cognito(token)
+    except ServicioIdentidadCaido as e:
+        # Un WebSocket no tiene forma de decir "reintente": se rechaza la
+        # conexion y el frontend la vuelve a abrir sola mas adelante.
+        print(f"[seguridad] Cognito no responde (websocket): {e}")
+        return None
     if datos is None:
         return None
     nombre = (datos.get("username") or "").lower()

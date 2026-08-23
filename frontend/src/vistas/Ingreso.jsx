@@ -29,9 +29,28 @@ function esCuentaPendiente(e) {
   return e.message === "Ese usuario esta inactivo.";
 }
 
+// El backend responde esto (503) cuando no pudo consultarle a Cognito las
+// llaves para verificar el token - no es culpa del token ni de la persona
+// (ver seguridad.py: ServicioIdentidadCaido), así que vale la pena
+// reintentar solo en vez de mandarla de vuelta al login.
+function esCognitoNoDisponible(e) {
+  return e.message === "No se pudo verificar su sesion en este momento. Intente de nuevo.";
+}
+
+async function perfilConReintento(token) {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await pedir("/api/usuarios/yo", {}, token);
+    } catch (e) {
+      if (!esCognitoNoDisponible(e) || intento >= 3) throw e;
+      await new Promise((r) => setTimeout(r, 700 * intento));
+    }
+  }
+}
+
 async function sesionCompleta(token) {
   try {
-    const perfil = await pedir("/api/usuarios/yo", {}, token);
+    const perfil = await perfilConReintento(token);
     return { token, usuario: perfil };
   } catch (e) {
     if (e.message !== "Usuario no reconocido.") throw e;
@@ -40,7 +59,7 @@ async function sesionCompleta(token) {
       method: "POST",
       body: JSON.stringify({ nombre_completo: atributos.nombreCompleto, correo: atributos.correo }),
     }, token);
-    const perfil = await pedir("/api/usuarios/yo", {}, token);
+    const perfil = await perfilConReintento(token);
     return { token, usuario: perfil };
   }
 }
