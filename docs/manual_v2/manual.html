@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de usuario · CuentaVoz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+  :root{
+    --azul:#0067B1;
+    --navy:#10294C;
+    --navy-2:#1B3A64;
+    --amarillo:#FFD000;
+    --tinta:#16202E;
+    --pizarra:#57667A;
+    --borde:#D3DEEA;
+    --tinte:#F4F8FC;
+    --tinte-2:#EAF2F9;
+    --verde:#1E7A46;
+    --rojo:#B3261E;
+    --display:"Barlow","Segoe UI",system-ui,sans-serif;
+    --cuerpo:"Source Serif 4",Georgia,"Times New Roman",serif;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  @page{ size:A4; margin:19mm 16mm 17mm; }
+
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:var(--cuerpo);
+    font-size:10.4pt;
+    line-height:1.62;
+    color:var(--tinta);
+    background:#fff;
+  }
+
+  /* ─────────── Índice ─────────── */
+  .indice{ break-after:page; }
+  .indice ol{ list-style:none; margin-top:9mm; }
+  .indice li{
+    display:flex; align-items:baseline; gap:10px;
+    padding:7.5px 0; border-bottom:1px solid var(--borde);
+  }
+  .indice .n{
+    font-family:var(--display); font-weight:600; font-size:9.4pt;
+    color:var(--azul); min-width:26px; font-variant-numeric:tabular-nums;
+  }
+  .indice .t{ font-family:var(--display); font-size:11.4pt; font-weight:500; }
+  .indice .rol{
+    margin-left:auto; font-family:var(--display); font-size:7.4pt;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--pizarra);
+    border:1px solid var(--borde); border-radius:20px; padding:2px 9px; white-space:nowrap;
+  }
+
+  /* ─────────── Estructura de secciones ─────────── */
+  h2.seccion{
+    font-family:var(--display); font-weight:700; font-size:22pt;
+    color:var(--navy); letter-spacing:-.018em; line-height:1.12;
+    margin-bottom:3mm; text-wrap:balance;
+  }
+  h2.seccion .num{ color:var(--azul); font-variant-numeric:tabular-nums; margin-right:9px; }
+  .seccion-intro{ color:var(--pizarra); font-size:11pt; max-width:64ch; margin-bottom:7mm; }
+  section{ break-before:page; }
+  section.primera{ break-before:auto; }
+
+  h3{
+    font-family:var(--display); font-weight:600; font-size:13pt;
+    color:var(--navy-2); margin:8mm 0 2.5mm; letter-spacing:-.008em;
+  }
+  h3:first-of-type{ margin-top:5mm; }
+  p{ max-width:66ch; }
+  p + p{ margin-top:2.6mm; }
+  b,strong{ font-weight:600; }
+  em{ font-style:italic; }
+
+  /* voz dictada por el usuario */
+  .dicho{
+    font-family:var(--display); font-weight:500; font-style:normal;
+    background:var(--tinte-2); border-radius:4px; padding:1px 6px;
+    color:var(--navy); white-space:nowrap;
+  }
+  /* nombre de un botón o menú de la interfaz */
+  .ui{
+    font-family:var(--display); font-weight:600; font-size:9.6pt;
+    color:var(--navy); white-space:nowrap;
+  }
+
+  /* ─────────── Pasos numerados ─────────── */
+  ol.pasos{ list-style:none; counter-reset:paso; margin:3.5mm 0 0; }
+  ol.pasos > li{
+    counter-increment:paso; position:relative;
+    padding:0 0 4mm 12mm; break-inside:avoid;
+  }
+  ol.pasos > li::before{
+    content:counter(paso);
+    position:absolute; left:0; top:.4mm;
+    width:7.4mm; height:7.4mm; border-radius:50%;
+    background:var(--azul); color:#fff;
+    font-family:var(--display); font-weight:600; font-size:9.2pt;
+    display:flex; align-items:center; justify-content:center;
+    font-variant-numeric:tabular-nums;
+  }
+  ol.pasos > li::after{
+    content:""; position:absolute; left:3.6mm; top:8.4mm; bottom:1mm;
+    width:1px; background:var(--borde);
+  }
+  ol.pasos > li:last-child::after{ display:none; }
+  ol.pasos b{ display:block; font-family:var(--display); font-size:10.6pt; color:var(--navy); }
+
+  ul.vinetas{ list-style:none; margin:2.5mm 0 0; }
+  ul.vinetas li{
+    position:relative; padding:0 0 2mm 6.5mm; max-width:64ch;
+  }
+  ul.vinetas li::before{
+    content:""; position:absolute; left:1.5mm; top:2.6mm;
+    width:4px; height:4px; border-radius:50%; background:var(--azul);
+  }
+
+  /* ─────────── Figuras ─────────── */
+  figure{ margin:5.5mm 0 0; break-inside:avoid; }
+  figure img{
+    width:100%; display:block;
+    /* tope de alto: una captura muy vertical no debe copar la página entera
+       y empujar el texto que la explica a la siguiente. */
+    max-height:104mm; object-fit:contain; object-position:top;
+    border:1px solid var(--borde); border-radius:5px; background:#fff;
+  }
+  figcaption{
+    font-family:var(--display); font-size:8.4pt; color:var(--pizarra);
+    margin-top:2.2mm; letter-spacing:.005em;
+  }
+  figcaption b{
+    color:var(--azul); font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; font-size:7.6pt; margin-right:6px;
+  }
+
+  /* ─────────── Avisos ─────────── */
+  .aviso{
+    border-left:3px solid var(--amarillo);
+    background:var(--tinte);
+    padding:4mm 5mm; margin:5mm 0 0; border-radius:0 5px 5px 0;
+    break-inside:avoid; max-width:70ch;
+  }
+  .aviso .rotulo{
+    font-family:var(--display); font-size:7.6pt; font-weight:600;
+    letter-spacing:.11em; text-transform:uppercase; color:#8A6D00;
+    display:block; margin-bottom:1.5mm;
+  }
+  .aviso.dato{ border-left-color:var(--azul); }
+  .aviso.dato .rotulo{ color:var(--azul); }
+  .aviso p{ max-width:none; }
+
+  /* ─────────── Tablas ─────────── */
+  table{ width:100%; border-collapse:collapse; margin:4mm 0 0; break-inside:avoid; }
+  th{
+    font-family:var(--display); font-size:7.8pt; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--pizarra);
+    text-align:left; padding:0 8px 2.4mm; border-bottom:1.5px solid var(--navy);
+  }
+  td{
+    padding:2.6mm 8px; border-bottom:1px solid var(--borde);
+    vertical-align:top; font-size:9.9pt;
+  }
+  td:first-child{ font-family:var(--display); font-weight:500; color:var(--navy); }
+
+  /* ─────────── Distintivos de rol ─────────── */
+  .rol-tag{
+    display:inline-block; font-family:var(--display); font-size:7.6pt;
+    font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    padding:2.5px 9px; border-radius:20px; vertical-align:middle;
+    margin-left:9px; position:relative; top:-2px;
+  }
+  .rol-tag.aux{ background:var(--tinte-2); color:var(--azul); }
+  .rol-tag.adm{ background:var(--navy); color:var(--amarillo); }
+
+  /* ─────────── Cierre ─────────── */
+  .cierre{
+    margin-top:9mm; padding-top:5mm; border-top:2px solid var(--navy);
+    display:flex; justify-content:space-between; align-items:flex-end; gap:12mm;
+    break-inside:avoid;
+  }
+  .cierre .col p{ font-size:9.4pt; color:var(--pizarra); max-width:44ch; }
+  .cierre .col b{ font-family:var(--display); color:var(--navy); font-size:10.4pt; display:block; margin-bottom:1.5mm; }
+</style>
+</head>
+<body>
+
+<!-- La portada se genera aparte (portada.html) y se une al armar el PDF:
+     así queda a sangre completa, sin el encabezado ni el pie de página. -->
+
+<!-- ══════════ ÍNDICE ══════════ -->
+<div class="indice">
+  <h2 class="seccion">Contenido</h2>
+  <p class="seccion-intro">Las secciones 1 a 8 aplican a todo el personal. Las secciones 9 y 10 son exclusivas del perfil de administrador de bodega.</p>
+  <ol>
+    <li><span class="n">1</span><span class="t">Antes de empezar</span><span class="rol">Todos</span></li>
+    <li><span class="n">2</span><span class="t">Ingreso a la plataforma</span><span class="rol">Todos</span></li>
+    <li><span class="n">3</span><span class="t">La pantalla de inicio</span><span class="rol">Todos</span></li>
+    <li><span class="n">4</span><span class="t">Contar inventario por voz</span><span class="rol">Todos</span></li>
+    <li><span class="n">5</span><span class="t">Trabajar sin conexión</span><span class="rol">Todos</span></li>
+    <li><span class="n">6</span><span class="t">Pedidos al almacén</span><span class="rol">Todos</span></li>
+    <li><span class="n">7</span><span class="t">Bodegas y legalización</span><span class="rol">Todos</span></li>
+    <li><span class="n">8</span><span class="t">Mi perfil y accesibilidad</span><span class="rol">Todos</span></li>
+    <li><span class="n">9</span><span class="t">Auditoría y aprobaciones</span><span class="rol">Administrador</span></li>
+    <li><span class="n">10</span><span class="t">Panel, reportes y ajustes</span><span class="rol">Administrador</span></li>
+    <li><span class="n">11</span><span class="t">Ayuda, mensajes y soporte</span><span class="rol">Todos</span></li>
+  </ol>
+</div>
+
+<!-- ══════════ 1 ══════════ -->
+<section class="primera">
+  <h2 class="seccion"><span class="num">1</span>Antes de empezar</h2>
+  <p class="seccion-intro">Qué es CuentaVoz, para qué sirve y qué necesita para usarlo.</p>
+
+  <p>CuentaVoz reemplaza la planilla de papel del conteo de inventario. En vez de anotar y luego digitar, usted <b>dice en voz alta lo que está contando</b> y el sistema lo registra en el momento, valida que la cantidad tenga sentido y deja el consolidado listo para cargar a My Inventory.</p>
+
+  <h3>Los dos perfiles</h3>
+  <table>
+    <thead><tr><th>Perfil</th><th>Qué puede hacer</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Auxiliar de inventarios</td>
+        <td>Contar por voz las bodegas que tenga asignadas, hacer pedidos al almacén, legalizar el servicio del turno y consultar existencias.</td>
+      </tr>
+      <tr>
+        <td>Administrador de bodega</td>
+        <td>Todo lo anterior, más auditar y cerrar bodegas con doble firma, aprobar productos, bodegas y cuentas nuevas, ver el panel gerencial y generar los reportes.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Qué necesita</h3>
+  <ul class="vinetas">
+    <li>Una tableta, computador o celular con navegador web actualizado.</li>
+    <li>Conexión a internet para el reconocimiento de voz. Sin señal el conteo continúa por escrito y se sincroniza solo (sección 5).</li>
+    <li>Una cuenta aprobada por su administrador de bodega (sección 2).</li>
+  </ul>
+
+  <div class="aviso dato">
+    <span class="rotulo">Lo primero que debe saber</span>
+    <p>CuentaVoz <b>siempre confirma antes de guardar</b>. Nada queda registrado sin que usted lo apruebe, y ningún dato se sobrescribe: cuando corrige una cantidad, el valor anterior se conserva en el registro de trazabilidad.</p>
+  </div>
+</section>
+
+<!-- ══════════ 2 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">2</span>Ingreso a la plataforma</h2>
+  <p class="seccion-intro">Crear su cuenta, entrar por primera vez y recuperar la clave.</p>
+
+  <h3>Iniciar sesión</h3>
+  <p>Escriba su usuario y su clave, confirme que el perfil que aparece es el correcto y toque <span class="ui">Entrar</span>. Si el campo queda vacío o hay un dato mal escrito, CuentaVoz se lo indica debajo del campo exacto que debe corregir.</p>
+
+  <figure>
+    <img src="01-ingreso.png" alt="Pantalla de inicio de sesión de CuentaVoz">
+    <figcaption><b>Figura 1</b>Pantalla de ingreso. El perfil se detecta solo al escribir el usuario.</figcaption>
+  </figure>
+
+  <h3>Crear una cuenta</h3>
+  <ol class="pasos">
+    <li><b>Toque «Crear una cuenta»</b>en la parte inferior de la pantalla de ingreso.</li>
+    <li><b>Complete sus datos</b>nombre completo, correo corporativo, usuario y clave. El código de empleado es opcional. Los requisitos de la clave se marcan en verde a medida que escribe.</li>
+    <li><b>Confirme el código de su correo</b>CuentaVoz le envía un código de seis dígitos. Ingréselo para verificar que el correo es suyo.</li>
+    <li><b>Espere la aprobación</b>su administrador de bodega revisa la solicitud y le asigna el perfil. Hasta entonces la cuenta no permite el ingreso.</li>
+  </ol>
+
+  <figure>
+    <img src="02-crear-cuenta.png" alt="Formulario de creación de cuenta">
+    <figcaption><b>Figura 2</b>Formulario de registro. La cuenta queda como auxiliar hasta que el administrador defina el perfil.</figcaption>
+  </figure>
+
+  <div class="aviso">
+    <span class="rotulo">Importante</span>
+    <p>Verificar el correo y tener la cuenta aprobada son dos cosas distintas. Si intenta entrar y ve el mensaje <em>«Un administrador debe aprobarla antes de que pueda entrar»</em>, el registro salió bien: solo falta que su administrador la habilite.</p>
+  </div>
+
+  <h3>Olvidé mi clave</h3>
+  <p>Toque <span class="ui">Olvidé mi clave</span>, escriba su usuario y recibirá un código en el correo registrado. Con ese código define una clave nueva, sin necesidad de llamar a soporte.</p>
+
+  <figure>
+    <img src="03-olvide-clave.png" alt="Pantalla de recuperación de clave">
+    <figcaption><b>Figura 3</b>Recuperación de clave por correo.</figcaption>
+  </figure>
+
+  <h3>Verificación en dos pasos</h3>
+  <p>Es opcional y se recomienda para los administradores. Al activarla, además de la clave se pide un código de seis dígitos generado en una aplicación de autenticación del celular. Se ofrece al terminar el registro y se puede activar o desactivar en cualquier momento desde <span class="ui">Mi perfil</span>.</p>
+</section>
+
+<!-- ══════════ 3 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">3</span>La pantalla de inicio</h2>
+  <p class="seccion-intro">Su resumen del día y el punto de partida de todo el trabajo.</p>
+
+  <p>La primera vez que entra, CuentaVoz le muestra un <b>recorrido guiado</b> de dos o tres pasos con lo esencial. Puede saltarlo y volver a verlo cuando quiera desde <span class="ui">Ayuda › Ver el recorrido guiado</span>.</p>
+
+  <figure>
+    <img src="04-tutorial-paso1.png" alt="Recorrido guiado de bienvenida">
+    <figcaption><b>Figura 4</b>Recorrido guiado, solo la primera vez que ingresa.</figcaption>
+  </figure>
+
+  <p>Ya en Inicio verá cuatro indicadores del día — bodegas asignadas, referencias contadas, alertas por revisar y su exactitud del mes — y accesos directos a las tareas más frecuentes. Abajo, la actividad reciente de la operación.</p>
+
+  <figure>
+    <img src="05-inicio-auxiliar.png" alt="Pantalla de inicio con indicadores del día">
+    <figcaption><b>Figura 5</b>Inicio. El cuadro superior permite preguntarle al agente por voz o por escrito desde cualquier pantalla.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════ 4 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">4</span>Contar inventario por voz</h2>
+  <p class="seccion-intro">El corazón de CuentaVoz. Así se levanta una toma física completa.</p>
+
+  <ol class="pasos">
+    <li><b>Abra la bodega</b>entre a <span class="ui">Conteo</span> y elija la bodega, o dígalo: <span class="dicho">iniciar conteo en almacén de suministros</span>. Solo aparecen las bodegas que tiene asignadas.</li>
+    <li><b>Dicte el artículo y la cantidad</b>toque el micrófono y hable con naturalidad: <span class="dicho">arroz veinte kilos</span> o <span class="dicho">tres tablas para picar blancas</span>.</li>
+    <li><b>Confirme</b>CuentaVoz repite lo que entendió. Responda <span class="dicho">sí</span> para guardar o <span class="dicho">no</span> para repetirlo.</li>
+    <li><b>Corrija cuando haga falta</b>diga <span class="dicho">corregir</span> y luego el valor correcto. El dato anterior no se borra: queda en la trazabilidad.</li>
+    <li><b>Continúe con la siguiente referencia</b>hasta terminar la bodega. El avance se ve en todo momento en la parte superior.</li>
+  </ol>
+
+  <figure>
+    <img src="06-conteo.png" alt="Pantalla de conteo por voz">
+    <figcaption><b>Figura 6</b>Conteo. El botón <span class="ui">Teclado</span> permite escribir en vez de hablar, sin salir del flujo.</figcaption>
+  </figure>
+
+  <h3>Cuando el sistema le pregunta algo</h3>
+  <table>
+    <thead><tr><th>Situación</th><th>Qué hace CuentaVoz</th></tr></thead>
+    <tbody>
+      <tr><td>Cantidad fuera de lo esperado</td><td>Avisa cuánto esperaba el sistema y le pide confirmar. Si el número es correcto, confírmelo: queda marcado para revisión del administrador.</td></tr>
+      <tr><td>Nombre ambiguo</td><td>Muestra las opciones parecidas del catálogo para que elija la correcta.</td></tr>
+      <tr><td>Producto que no existe</td><td>Ofrece crearlo. Queda pendiente de aprobación del administrador y usted sigue contando sin interrupciones.</td></tr>
+      <tr><td>Unidad distinta</td><td>Avisa si dicta litros para algo que se maneja en kilos, antes de guardar.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">Recomendación de uso</span>
+    <p>Diga la cantidad y la unidad juntas y en el mismo orden siempre — <em>producto, número, unidad</em>. Es la forma que el agente interpreta con mayor precisión, sobre todo en bodegas con ruido de fondo.</p>
+  </div>
+</section>
+
+<!-- ══════════ 5 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">5</span>Trabajar sin conexión</h2>
+  <p class="seccion-intro">Qué pasa cuando se cae el internet en plena bodega.</p>
+
+  <p>El conteo <b>no se detiene</b>. CuentaVoz cambia a un formulario escrito y guarda cada registro en el propio equipo. Cuando vuelve la señal, sincroniza solo, en orden y sin duplicar nada.</p>
+
+  <ul class="vinetas">
+    <li>Un aviso amarillo con el número de registros pendientes se ve en la barra lateral, <b>en cualquier pantalla</b> en la que esté trabajando.</li>
+    <li>Ese contador baja solo a medida que la sincronización avanza. Cuando desaparece, todo quedó registrado en el servidor.</li>
+    <li>Si un registro falla, la sincronización se detiene ahí y conserva el resto: nunca se pierde trabajo ya capturado.</li>
+  </ul>
+
+  <div class="aviso">
+    <span class="rotulo">Tenga en cuenta</span>
+    <p>El <b>reconocimiento de voz</b> del navegador sí necesita internet. Sin señal, el camino confiable es el teclado, no el dictado. Los pedidos tampoco se pueden calcular sin conexión, porque requieren el stock en vivo del almacén.</p>
+  </div>
+</section>
+
+<!-- ══════════ 6 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">6</span>Pedidos al almacén</h2>
+  <p class="seccion-intro">Calcular los insumos de un servicio a partir de la receta y las porciones.</p>
+
+  <ol class="pasos">
+    <li><b>Elija el plato</b>entre a <span class="ui">Pedidos</span> y selecciónelo del catálogo, o dígalo: <span class="dicho">hoy preparamos cincuenta ajiacos</span>.</li>
+    <li><b>Confirme las porciones</b>CuentaVoz pregunta cuántas son si no lo dijo antes.</li>
+    <li><b>Revise el cálculo</b>verá, por insumo, cuánto se necesita, cuánto hay y cuánto falta.</li>
+    <li><b>Envíe el pedido</b>queda pendiente de aprobación del administrador y usted recibe un recibo con el número del pedido.</li>
+  </ol>
+
+  <figure>
+    <img src="07-pedidos.png" alt="Pantalla de pedidos por voz">
+    <figcaption><b>Figura 7</b>Pedidos. El cálculo se hace contra el stock en vivo de la bodega.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════ 7 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">7</span>Bodegas y legalización</h2>
+  <p class="seccion-intro">Consultar existencias y cerrar el turno.</p>
+
+  <h3>Bodegas</h3>
+  <p>Muestra el estado en vivo de cada bodega — pendiente, en conteo, en auditoría o cerrada — y se actualiza al instante cuando alguien abre o cierra una. El buscador responde preguntas concretas: <span class="dicho">¿cuánto arroz hay y en qué bodegas?</span></p>
+
+  <figure>
+    <img src="08-bodegas.png" alt="Estado en vivo de las bodegas">
+    <figcaption><b>Figura 8</b>Bodegas. Desde aquí también se solicita una bodega nueva que no esté en el catálogo.</figcaption>
+  </figure>
+
+  <h3>Legalización</h3>
+  <p>Al terminar el turno se registra el sobrante y la merma del servicio. CuentaVoz compara contra lo esperado y permite ajustar por voz cuando la diferencia tiene una explicación.</p>
+
+  <figure>
+    <img src="09-legalizacion.png" alt="Pantalla de legalización del servicio">
+    <figcaption><b>Figura 9</b>Legalización del servicio, con sobrante y merma del turno.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════ 8 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">8</span>Mi perfil y accesibilidad</h2>
+  <p class="seccion-intro">Sus datos, su seguridad y cómo se ve la aplicación.</p>
+
+  <h3>Seguridad de la cuenta</h3>
+  <ul class="vinetas">
+    <li><b>Cambiar la clave</b> — se pide la clave vigente. CuentaVoz nunca ve ni almacena su clave: la administra el servicio de identidad.</li>
+    <li><b>Verificación en dos pasos</b> — activarla o desactivarla en cualquier momento.</li>
+    <li><b>Cerrar sesión en todos los dispositivos</b> — útil en tabletas compartidas entre varios turnos.</li>
+    <li><b>Aviso de vencimiento</b> — CuentaVoz le recuerda cambiar la clave cuando está por vencer.</li>
+  </ul>
+
+  <figure>
+    <img src="12-mi-perfil.png" alt="Pantalla de Mi perfil">
+    <figcaption><b>Figura 10</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
+  </figure>
+
+  <h3>Accesibilidad</h3>
+  <p>Al final de <span class="ui">Mi perfil</span> encontrará dos ajustes que se aplican de inmediato, sin necesidad de guardar:</p>
+  <ul class="vinetas">
+    <li><b>Alto contraste</b> — refuerza los colores y los bordes para bodegas con iluminación difícil.</li>
+    <li><b>Tamaño de letra</b> — normal, grande o más grande, para toda la aplicación.</li>
+  </ul>
+  <p>Son preferencias del equipo donde está trabajando, así que se mantienen aunque cierre sesión y funcionan también sin conexión.</p>
+
+  <figure>
+    <img src="13-accesibilidad.png" alt="Ajustes de accesibilidad en Mi perfil">
+    <figcaption><b>Figura 11</b>Accesibilidad. Disponible para todos los perfiles.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════ 9 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">9</span>Auditoría y aprobaciones<span class="rol-tag adm">Administrador</span></h2>
+  <p class="seccion-intro">El control de calidad de la toma física: recuento ciego, cierre con doble firma y las tres bandejas de aprobación.</p>
+
+  <h3>Recuento ciego y cierre</h3>
+  <p>El administrador recuenta una bodega <b>sin ver los números del auxiliar</b>. Al terminar, CuentaVoz muestra la comparación entre el sistema y ambos conteos, y permite cerrar la bodega con doble firma.</p>
+
+  <figure>
+    <img src="15-auditoria-recuento.png" alt="Pestaña de recuento ciego y cierre">
+    <figcaption><b>Figura 12</b>Recuento ciego. La comparación solo se revela al finalizar.</figcaption>
+  </figure>
+
+  <h3>Aprobaciones</h3>
+  <p>Productos y bodegas que un auxiliar creó durante la toma porque no existían en el catálogo. Al aprobarlos entran al catálogo oficial con su código definitivo; el conteo asociado deja de estar marcado como pendiente.</p>
+
+  <figure>
+    <img src="16-auditoria-aprobaciones.png" alt="Bandeja de aprobaciones de productos y bodegas">
+    <figcaption><b>Figura 13</b>Aprobaciones. El conteo en bodega nunca se detiene esperando esta firma.</figcaption>
+  </figure>
+
+  <h3>Cuentas nuevas</h3>
+  <p>Personas que se registraron por su cuenta y esperan autorización. Por cada solicitud, elija el perfil que le corresponde y apruebe o rechace.</p>
+
+  <ol class="pasos">
+    <li><b>Verifique la identidad</b>revise el nombre de usuario y el correo corporativo de la solicitud.</li>
+    <li><b>Elija el perfil</b>auxiliar de inventarios o administrador de bodega. Ante la duda, auxiliar: siempre se puede ascender después desde Ajustes.</li>
+    <li><b>Apruebe o rechace</b>al aprobar, la persona ya puede entrar. Al rechazar, la cuenta queda bloqueada de forma permanente.</li>
+  </ol>
+
+  <figure>
+    <img src="17-auditoria-cuentas-nuevas.png" alt="Bandeja de cuentas nuevas pendientes de aprobación">
+    <figcaption><b>Figura 14</b>Cuentas nuevas. Ninguna cuenta autorregistrada accede a la operación sin pasar por aquí.</figcaption>
+  </figure>
+
+  <div class="aviso">
+    <span class="rotulo">Criterio de seguridad</span>
+    <p>Que alguien haya verificado su correo <b>no lo autoriza</b> a ver los datos de inventario de Colsubsidio. Esta bandeja es el control que separa una cosa de la otra: apruebe únicamente personal que reconozca como parte de la operación.</p>
+  </div>
+
+  <h3>Pedidos pendientes y bandeja de alertas</h3>
+  <p>Los pedidos de los auxiliares esperan aquí su aprobación antes de salir del almacén. La bandeja de alertas reúne las diferencias que quedaron marcadas durante el conteo, con el detalle de cada una.</p>
+
+  <figure>
+    <img src="19-auditoria-alertas.png" alt="Bandeja de alertas de la auditoría">
+    <figcaption><b>Figura 15</b>Bandeja de alertas, agrupada por tipo de diferencia.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════ 10 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">10</span>Panel, reportes y ajustes<span class="rol-tag adm">Administrador</span></h2>
+  <p class="seccion-intro">La vista gerencial de la toma y la salida hacia My Inventory.</p>
+
+  <h3>Panel</h3>
+  <p>Resumen ejecutivo de la operación: diferencias absolutas, alertas por tipo, avance por bodega y exactitud del período.</p>
+
+  <figure>
+    <img src="20-panel.png" alt="Panel gerencial con indicadores de la toma">
+    <figcaption><b>Figura 16</b>Panel. Sirve para decidir qué bodega revisar primero.</figcaption>
+  </figure>
+
+  <h3>Reportes</h3>
+  <p>Cada reporte se puede previsualizar antes de descargarlo: consolidado para My Inventory, detalle por bodega, diferencias, análisis de consumo, estado del tablero y el registro completo de trazabilidad.</p>
+
+  <figure>
+    <img src="21-reportes.png" alt="Pantalla de generación de reportes">
+    <figcaption><b>Figura 17</b>Reportes. La previsualización evita descargar un archivo equivocado.</figcaption>
+  </figure>
+
+  <h3>Ajustes</h3>
+  <table>
+    <thead><tr><th>Pestaña</th><th>Para qué sirve</th></tr></thead>
+    <tbody>
+      <tr><td>Configuración</td><td>Umbral de anomalía (qué tan grande debe ser una diferencia para disparar alerta) y modo sin conexión.</td></tr>
+      <tr><td>Gestión de usuarios</td><td>Crear personas, editar correo o perfil, activar o desactivar cuentas y asignar bodegas.</td></tr>
+      <tr><td>Recetas</td><td>Mantener el catálogo de platos y sus ingredientes, base del cálculo de pedidos.</td></tr>
+      <tr><td>Trazabilidad</td><td>Registro completo de quién hizo qué y cuándo, exportable.</td></tr>
+    </tbody>
+  </table>
+
+  <figure>
+    <img src="22-ajustes.png" alt="Pantalla de ajustes del sistema">
+    <figcaption><b>Figura 18</b>Ajustes. Solo visible para el perfil de administrador.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Asignación de bodegas</span>
+    <p>Un auxiliar solo ve y solo puede contar las bodegas que le fueron asignadas. Esta restricción se aplica también al buscador y al agente de voz, no únicamente al menú.</p>
+  </div>
+</section>
+
+<!-- ══════════ 11 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">11</span>Ayuda, mensajes y soporte</h2>
+  <p class="seccion-intro">Dónde resolver una duda sin salir de la aplicación.</p>
+
+  <h3>Ayuda</h3>
+  <p>Preguntas frecuentes, la guía de frases que el agente entiende y un cuadro para preguntarle directamente. Desde aquí también se reporta un problema y se repite el recorrido guiado.</p>
+
+  <figure>
+    <img src="11-ayuda.png" alt="Pantalla de ayuda con preguntas frecuentes">
+    <figcaption><b>Figura 19</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
+  </figure>
+
+  <h3>Mensajes</h3>
+  <p>Bandeja interna para escribirle al administrador de bodega — por ejemplo, para solicitar la asignación de una bodega. El administrador responde desde la misma bandeja y le llega copia al correo.</p>
+
+  <figure>
+    <img src="10-mensajes.png" alt="Bandeja de mensajes internos">
+    <figcaption><b>Figura 20</b>Mensajes internos entre el equipo de bodega.</figcaption>
+  </figure>
+
+  <h3>Preguntas frecuentes</h3>
+  <table>
+    <thead><tr><th>Situación</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td>El agente no entiende un producto</td><td>Dígalo como aparece en la etiqueta. Si no existe en el catálogo, se puede crear y queda pendiente de aprobación.</td></tr>
+      <tr><td>Se cayó el internet</td><td>Siga contando por teclado. Se sincroniza solo al volver la señal (sección 5).</td></tr>
+      <tr><td>Salió una alerta</td><td>Recuente. Si el número es correcto, confírmelo: queda marcado para el administrador.</td></tr>
+      <tr><td>Contar dos bodegas a la vez</td><td>No es posible en el mismo dispositivo. El candado de sesión evita conteos duplicados.</td></tr>
+      <tr><td>No veo el menú de Auditoría</td><td>Esa sección es exclusiva del perfil de administrador de bodega.</td></tr>
+      <tr><td>Corregir un conteo ya confirmado</td><td>Diga <span class="dicho">corregir</span> y el valor correcto. El anterior se conserva.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cierre">
+    <div class="col">
+      <b>CuentaVoz · Tu voz cuenta</b>
+      <p>Manual de usuario, versión 2.0 — agosto de 2026. Elaborado por el equipo StockXperts para la operación de bodegas de Colsubsidio.</p>
+    </div>
+    <div class="col">
+      <b>Soporte</b>
+      <p>Use <span class="ui">Ayuda › Reportar un problema</span> dentro de la aplicación: el reporte llega con el contexto de la pantalla en la que estaba.</p>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
