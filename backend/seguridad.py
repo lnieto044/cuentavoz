@@ -13,16 +13,26 @@ from fastapi.security import OAuth2PasswordBearer
 from bd import Sesion
 from modelos import Usuario
 
-COGNITO_REGION = os.getenv("COGNITO_REGION", "us-east-2")
-COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
-COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID", "")
+# El User Pool Id y el App Client Id NO son secretos: identifican al pool,
+# no autorizan nada, y de hecho ya viajan dentro del JavaScript que
+# descarga cualquiera que abra la aplicacion (ver frontend/src/cognito.js,
+# donde llevan exactamente estos mismos valores por defecto). Lo secreto
+# son las claves de las personas (que las guarda Cognito, no este backend)
+# y las credenciales AWS_* (que siguen siendo solo variables de entorno).
+#
+# Llevan valor por defecto por la misma razon que VITE_API_URL en api.js o
+# DB_URL en bd.py: que el proyecto funcione sin depender de que alguien se
+# acuerde de llenar una variable. Antes el backend era la unica pieza que
+# NO lo hacia, y el resultado fue un despliegue en el que estas dos
+# quedaron vacias y TODOS los tokens se rechazaron con "Sesion invalida o
+# vencida." - un mensaje que ademas culpaba a la persona equivocada.
+# Definir la variable de entorno sigue mandando: apuntar a otro User Pool
+# (otro entorno, otra cuenta de AWS) es solo ponerla.
+COGNITO_REGION = os.getenv("COGNITO_REGION", "").strip() or "us-east-2"
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "").strip() or "us-east-2_6HbrPruvL"
+COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID", "").strip() or "847jtkc5sem7mr4tb8csrrkqp"
 _EMISOR = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
 _JWKS_URL = f"{_EMISOR}/.well-known/jwks.json"
-
-if not COGNITO_USER_POOL_ID:
-    print("[seguridad] COGNITO_USER_POOL_ID no esta configurado - "
-          "ninguna sesion va a poder verificarse. Defina COGNITO_REGION, "
-          "COGNITO_USER_POOL_ID y COGNITO_APP_CLIENT_ID en su .env.")
 
 # PyJWKClient trae en cache las llaves publicas del User Pool (se refrescan
 # solas si aparece un "kid" nuevo que no conoce todavia) - sin esto habria
