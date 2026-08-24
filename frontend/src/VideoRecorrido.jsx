@@ -20,7 +20,7 @@ const VIDEOS = {
   },
   auditor: {
     src: "/recorrido-administrador.mp4",
-    version: "2026-08-24b",
+    version: "2026-08-24c",
     titulo: "Recorrido para administradores de bodega",
   },
 };
