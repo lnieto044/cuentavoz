@@ -78,8 +78,11 @@ def _manejador_limite_excedido(request: Request, exc: RateLimitExceeded):
     # app ya saben leer para mostrar el mensaje real - sin esto, cualquier
     # pantalla que tropieza con un limite (ingreso, huella, busqueda de
     # perfil...) mostraba "Error 429" en vez de avisar que hay que esperar.
-    return JSONResponse({"detail": "Demasiados intentos. Espere un momento y vuelva a intentarlo."},
-                        status_code=429)
+    respuesta = JSONResponse(
+        {"detail": "Demasiados intentos. Espere un momento y vuelva a intentarlo."},
+        status_code=429)
+    _poner_cabeceras_cors(respuesta, request)   # mismo motivo que en el de 500
+    return respuesta
 
 
 @app.exception_handler(Exception)
@@ -90,8 +93,31 @@ def _manejador_error_no_capturado(request: Request, exc: Exception):
     # como un mensaje crudo en vez del aviso en español de siempre.
     if _SENTRY_DSN:
         sentry_sdk.capture_exception(exc)
-    print(f"[error no capturado] {request.method} {request.url.path}: {exc}")
-    return JSONResponse({"detail": "Ocurrió un error inesperado. Intente de nuevo."}, status_code=500)
+    print(f"[error no capturado] {request.method} {request.url.path}: "
+          f"{type(exc).__name__}: {exc}")
+    respuesta = JSONResponse({"detail": "Ocurrió un error inesperado. Intente de nuevo."},
+                             status_code=500)
+    _poner_cabeceras_cors(respuesta, request)
+    return respuesta
+
+
+def _poner_cabeceras_cors(respuesta, request: Request) -> None:
+    """Le pega las cabeceras CORS a mano a una respuesta de error.
+
+    Los manejadores de excepcion de Starlette corren POR FUERA del
+    CORSMiddleware, asi que sus respuestas salen sin esas cabeceras. El
+    navegador entonces no bloquea el error: bloquea la RESPUESTA ENTERA, y
+    fetch() lanza un TypeError indistinguible de quedarse sin red. Costo
+    real de ese detalle: un 500 de verdad (una insercion que fallaba en
+    Postgres) llego a la pantalla como "Sin conexion con el servidor.
+    Revise el Wi-Fi", mandando a buscar el problema en el router mientras
+    el servidor respondia perfecto. Con las cabeceras puestas, el error se
+    ve tal cual es."""
+    origen = request.headers.get("origin")
+    if origen and origen in _origenes:
+        respuesta.headers["Access-Control-Allow-Origin"] = origen
+        respuesta.headers["Access-Control-Allow-Credentials"] = "true"
+        respuesta.headers["Vary"] = "Origin"
 
 
 _origenes = {o.strip() for o in os.getenv("ORIGEN_PERMITIDO", "").split(",") if o.strip()}
