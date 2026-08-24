@@ -10,7 +10,8 @@ guía la hereda en la siguiente corrida.
 
 | Archivo | Qué es |
 | --- | --- |
-| `cuerpo.html` | **Lo único que se edita a mano.** Solo el contenido: secciones, tablas y avisos. |
+| `cuerpo.html` | **Lo único que se edita a mano.** Las secciones 1 a 16: texto, tablas y avisos. |
+| `codigo.py` | Genera la sección 17 (el código completo) **leyendo los archivos reales** del repositorio. Para agregar o quitar un archivo del apéndice, edite la lista `GRUPOS` de aquí. |
 | `guia.html` | Generado. `cuerpo.html` + los estilos del manual. No lo edite. |
 | `portada.html` | Generado a partir de la portada del manual. No lo edite: los textos propios de la guía están dentro de `armar.py`. |
 | `armar.py` | Arma `guia.html` y `portada.html`, y une el PDF final. |
@@ -35,7 +36,12 @@ node docs/guia_tecnica/generar_pdf.js     # imprime portada y cuerpo
 python docs/guia_tecnica/armar.py         # arma el HTML y une el PDF
 ```
 
-El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf`.
+El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf` (unas 240 páginas).
+
+> **El código del apéndice no se transcribe: se genera.** Es la diferencia de
+> fondo con la guía V4, que traía 270 páginas de código pegado a mano y quedó
+> desactualizada al primer commit. Aquí basta con regenerar para que el listado
+> impreso vuelva a coincidir con el repositorio.
 
 > `armar.py` regenera `guia.html` y `portada.html` **antes** de unir, así que
 > si cambió `cuerpo.html` puede correrlo primero para ver el HTML, y después

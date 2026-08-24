@@ -13,6 +13,7 @@ Salida  : docs/guia_tecnica/guia.html
 import io
 import os
 import re
+import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))   # docs/guia_tecnica
 RAIZ = os.path.dirname(AQUI)                        # docs
@@ -31,6 +32,17 @@ estilos = m.group(0)
 fuentes = "\n".join(re.findall(r'<link[^>]*>', manual[:m.start()]))
 
 cuerpo = io.open(os.path.join(DESTINO, "cuerpo.html"), encoding="utf-8").read()
+
+# ── el apendice de codigo, leido del repositorio en esta misma corrida ──
+# No se transcribe: se genera. Es lo que impide que el listado impreso se
+# separe del codigo real, que es exactamente lo que le paso a la V4.
+sys.path.insert(0, DESTINO)
+import codigo as _codigo
+
+REPO = os.path.dirname(RAIZ)                       # la raiz del repositorio
+apendice, n_archivos, n_lineas = _codigo.generar(REPO)
+cuerpo = cuerpo.rstrip() + "\n\n" + apendice
+estilos = estilos.replace("</style>", _codigo.ESTILO + "</style>")
 
 guia = ("<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<title>Guía técnica · CuentaVoz</title>\n"
@@ -76,6 +88,7 @@ io.open(os.path.join(DESTINO, "portada.html"), "w", encoding="utf-8",
 
 secciones = len(re.findall(r'<h2 class="seccion"><span class="num">', guia))
 print("guia.html armada: %d secciones, %d figuras" % (secciones, n))
+print("apendice de codigo: %d archivos, %d lineas" % (n_archivos, n_lineas))
 print("portada.html armada")
 
 # ── unir el PDF, si los intermedios ya estan generados ──

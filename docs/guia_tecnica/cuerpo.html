@@ -1,6 +1,6 @@
 <div class="indice">
 <h2 class="seccion">Contenido</h2>
-<p class="seccion-intro">Las secciones 1 a 3 son el panorama y el arranque. De la 4 a la 11 va el sistema por dentro, pieza por pieza. Las últimas cuatro son la operación: pruebas, despliegue, decisiones y qué hacer cuando algo falla.</p>
+<p class="seccion-intro">Las secciones 1 a 3 son el panorama y el arranque. De la 4 a la 11 va el sistema por dentro, pieza por pieza. La 12 recorre las catorce pantallas una por una. Las secciones 13 a 16 son la operación: pruebas, despliegue, decisiones y qué hacer cuando algo falla. La 17 es el código completo del proyecto, generado leyendo el repositorio.</p>
 <ol>
   <li><span class="n">1</span><span class="t">Qué es CuentaVoz</span><span class="rol">Panorama</span></li>
   <li><span class="n">2</span><span class="t">La arquitectura en una página</span><span class="rol">Panorama</span></li>
@@ -13,10 +13,12 @@
   <li><span class="n">9</span><span class="t">Trabajar sin conexión</span><span class="rol">Por dentro</span></li>
   <li><span class="n">10</span><span class="t">Reportes y archivos</span><span class="rol">Por dentro</span></li>
   <li><span class="n">11</span><span class="t">Trazabilidad y auditoría</span><span class="rol">Por dentro</span></li>
-  <li><span class="n">12</span><span class="t">Pruebas</span><span class="rol">Operación</span></li>
-  <li><span class="n">13</span><span class="t">Despliegue</span><span class="rol">Operación</span></li>
-  <li><span class="n">14</span><span class="t">Decisiones de diseño</span><span class="rol">Operación</span></li>
-  <li><span class="n">15</span><span class="t">Cuando algo falla</span><span class="rol">Operación</span></li>
+  <li><span class="n">12</span><span class="t">Las catorce vistas, una por una</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">13</span><span class="t">Pruebas</span><span class="rol">Operación</span></li>
+  <li><span class="n">14</span><span class="t">Despliegue</span><span class="rol">Operación</span></li>
+  <li><span class="n">15</span><span class="t">Decisiones de diseño</span><span class="rol">Operación</span></li>
+  <li><span class="n">16</span><span class="t">Cuando algo falla</span><span class="rol">Operación</span></li>
+  <li><span class="n">17</span><span class="t">El código completo</span><span class="rol">Apéndice</span></li>
 </ol>
 </div>
 
@@ -349,7 +351,170 @@
 
 <!-- ══════════ 12 ══════════ -->
 <section>
-  <h2 class="seccion"><span class="num">12</span>Pruebas</h2>
+  <h2 class="seccion"><span class="num">12</span>Las catorce vistas, una por una</h2>
+  <p class="seccion-intro">Qué hay en cada pantalla, qué problema resuelve y con qué endpoints habla. En el orden del menú.</p>
+
+  <p>Cada vista es un archivo en <span class="ui">frontend/src/vistas/</span>. Reciben por props el <span class="ui">token</span>, el <span class="ui">usuario</span>, el contexto de la sesión y la función <span class="ui">ir()</span> para navegar. Ninguna guarda estado global: lo que tiene que sobrevivir a un cambio de pantalla vive en <span class="ui">App.jsx</span>.</p>
+
+  <h3>12.1 Ingreso<span class="rol-tag">Sin sesión</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Ingreso.jsx</span> · 657 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>Siete modos en una sola pantalla: <span class="dicho">login</span>, <span class="dicho">login-mfa</span>, <span class="dicho">registro</span>, <span class="dicho">registro-codigo</span>, <span class="dicho">registro-mfa</span>, <span class="dicho">recuperar</span> y <span class="dicho">recuperar-codigo</span>. El perfil se detecta mientras se escribe el usuario.</td></tr>
+      <tr><th>Qué resuelve</th><td>Todo el ciclo de identidad sin salir de una pantalla ni depender de soporte: crear la cuenta, confirmar el correo, activar el segundo factor y recuperar la clave.</td></tr>
+      <tr><th>Con qué habla</th><td>Con <b>Cognito directamente</b> (vía <span class="ui">cognito.js</span>), no con el backend. La clave nunca llega al servidor. Al terminar llama a <span class="ui">/api/registro-completado</span> para crear la fila local.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.2 Inicio<span class="rol-tag">Menú 1</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Inicio.jsx</span> · 171 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>El saludo con la fecha, cuatro indicadores del día (bodegas asignadas, referencias contadas, alertas por revisar, exactitud del mes), cuatro accesos directos y la actividad reciente del equipo.</td></tr>
+      <tr><th>Qué resuelve</th><td>Que la persona sepa en diez segundos qué le toca hoy, sin recorrer el menú.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/usuarios/yo/resumen</span> y <span class="ui">/api/trazabilidad</span> para la actividad.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.3 Pedidos<span class="rol-tag">Menú 2</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Pedido.jsx</span> · 849 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>El micrófono para dictar el plato y las porciones, la burbuja con lo que entendió el agente, la tabla de insumos calculados (necesario, hay en bodega, falta pedir) y el botón de enviar al almacén.</td></tr>
+      <tr><th>Qué resuelve</th><td>El caso del reto: «hoy preparamos cincuenta ajiacos». La persona no dicta ingredientes — dicta el plato, y la receta hace el resto.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/agente/turno</span> para entender la frase, <span class="ui">/api/pedidos/calcular</span> para la tabla y <span class="ui">/api/pedidos</span> para enviarlo.</td></tr>
+    </tbody>
+  </table>
+  <p>La cuenta que hace el backend: <b>cantidad por porción × porciones − lo que hay en esa bodega</b>. Si el resultado es cero o negativo, el insumo no entra al pedido: no se pide lo que ya está.</p>
+
+  <h3>12.4 Conteo<span class="rol-tag">Menú 3</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Conteo.jsx</span> · 1.174 líneas — la vista más grande del proyecto</td></tr>
+      <tr><th>Qué tiene</th><td>El selector de bodega (tarjetas o nombre exacto), el avance y las alertas arriba, la burbuja del agente, los cuatro botones (<span class="ui">Confirmar</span>, <span class="ui">Corregir</span>, <span class="ui">Teclado</span>, <span class="ui">Pedir ayuda</span>), la desambiguación por tarjetas, el aviso de anomalía, el alta de producto nuevo y el formulario de respaldo sin conexión.</td></tr>
+      <tr><th>Qué resuelve</th><td>Es el corazón del sistema: convertir lo que alguien dice frente a un estante en una fila con código oficial, sin que nada se guarde sin confirmación.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/bodegas/abrir</span>, <span class="ui">/api/agente/turno</span>, <span class="ui">/api/sesiones/{id}/avance</span> y <span class="ui">/api/conteo/crear-producto</span>.</td></tr>
+    </tbody>
+  </table>
+  <div class="aviso dato">
+    <span class="rotulo">Los cuatro caminos de un turno de conteo</span>
+    <p>El agente puede responder cuatro cosas distintas a una frase: <b>confirmar</b> (entendió, pregunta si guarda), <b>desambiguar</b> (varias candidatas en el catálogo, muestra tarjetas), <b>alertar</b> (la cantidad se sale del umbral, pide revisar) o <b>proponer crear</b> (no existe en el catálogo). Los cuatro terminan en una pregunta, nunca en una escritura silenciosa.</p>
+  </div>
+
+  <h3>12.5 Legalización<span class="rol-tag">Menú 4</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Legalizacion.jsx</span> · 297 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>La tabla de lo pedido contra lo usado, con la diferencia y su nombre (cuadro exacto, sobrante que vuelve a bodega, o merma). Cada renglón se puede ajustar dictando.</td></tr>
+      <tr><th>Qué resuelve</th><td>Cerrar el turno con las cuentas claras: lo que sobró vuelve al inventario y lo que faltó queda explicado, en vez de desaparecer.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/legalizacion/{servicio}</span>, <span class="ui">/api/legalizacion/ajustar</span> y <span class="ui">/api/legalizacion/confirmar</span>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.6 Bodegas<span class="rol-tag">Menú 5</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Bodegas.jsx</span> · 848 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>Una tarjeta por zona con su estado por color (pendiente, en conteo, en auditoría, cerrada) y su avance; el detalle al tocar una; el buscador de artículos por voz («¿cuánto arroz hay y en qué bodegas?»); y el alta de una bodega nueva, que queda pendiente de aprobación.</td></tr>
+      <tr><th>Qué resuelve</th><td>Saber en qué va el parque completo sin llamar a nadie, y encontrar un artículo sin recorrer estantes.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/bodegas</span> y sus derivados, <span class="ui">/api/articulos/buscar</span>. Se actualiza sola por WebSocket cuando alguien abre o cierra una bodega.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.7 Auditoría<span class="rol-tag adm">Menú 6 · Administrador</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Auditoria.jsx</span> · 949 líneas</td></tr>
+      <tr><th>Pestañas</th><td><span class="ui">Recuento ciego y cierre</span> · <span class="ui">Aprobaciones</span> · <span class="ui">Pedidos pendientes</span> · <span class="ui">Bandeja de alertas</span></td></tr>
+      <tr><th>Qué resuelve</th><td>El control que solo puede hacer el administrador: verificar una bodega sin ver los números del auxiliar, dar visto bueno a lo que se creó sobre la marcha, autorizar lo que sale del almacén y resolver las diferencias marcadas.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/aprobaciones</span>, <span class="ui">/api/alertas</span>, <span class="ui">/api/pedidos/pendientes</span> y los endpoints de cierre de bodega.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.8 Reportes<span class="rol-tag adm">Menú 7 · Administrador</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Reportes.jsx</span> · 453 líneas</td></tr>
+      <tr><th>Pestañas</th><td><span class="ui">Consolidado de la toma</span> · <span class="ui">Análisis de consumo</span></td></tr>
+      <tr><th>Qué tiene</th><td>Los botones de generar (consolidado y diferencias), la lista de archivos ya generados con su estado, y el panel de vista previa a la derecha.</td></tr>
+      <tr><th>Qué resuelve</th><td>La salida hacia My Inventory, con los códigos oficiales. La previsualización evita cargar el archivo equivocado.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/reportes</span>, <span class="ui">/api/reportes/diferencias</span>, <span class="ui">/api/reportes/vista-previa</span> y <span class="ui">/api/reportes/descargar</span>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.9 Panel<span class="rol-tag adm">Menú 8 · Administrador</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Panel.jsx</span> · 396 líneas</td></tr>
+      <tr><th>Pestañas</th><td><span class="ui">Resumen ejecutivo</span> · <span class="ui">Bodegas y alertas</span></td></tr>
+      <tr><th>Qué tiene</th><td>Exactitud de primera pasada, referencias contadas, alertas gestionadas y la gráfica de diferencia absoluta por bodega. En la segunda pestaña, los saldos negativos y las alertas por tipo.</td></tr>
+      <tr><th>Qué resuelve</th><td>Decidir con datos qué zona revisar primero, en vez de revisarlas todas.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/panel</span> y <span class="ui">/api/reportes/diferencias-por-bodega</span>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.10 Ajustes<span class="rol-tag adm">Menú 9 · Administrador</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Ajustes.jsx</span> · 1.074 líneas</td></tr>
+      <tr><th>Pestañas</th><td><span class="ui">Configuración</span> · <span class="ui">Gestión de usuarios</span> · <span class="ui">Recetas</span> · <span class="ui">Registro de trazabilidad</span></td></tr>
+      <tr><th>Qué resuelve</th><td>Adaptar la plataforma a la operación sin tocar código: el umbral que dispara las alertas, quién existe y qué bodegas le tocan, los platos con sus ingredientes, y el registro de todo lo que pasó.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/ajustes</span>, <span class="ui">/api/usuarios</span>, <span class="ui">/api/recetas</span> y <span class="ui">/api/trazabilidad</span>.</td></tr>
+    </tbody>
+  </table>
+  <div class="aviso dato">
+    <span class="rotulo">Por qué el auxiliar no ve esta pantalla</span>
+    <p>El umbral y el modo sin conexión ya estaban bloqueados en el backend con <span class="ui">requiere_perfil</span>. Mostrarle la pantalla igual, en solo lectura, le enseñaba controles administrativos que no le sirven y que no puede tocar. Se oculta del todo, como Auditoría, Reportes y Panel.</p>
+  </div>
+
+  <h3>12.11 Ayuda<span class="rol-tag">Menú 10</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Ayuda.jsx</span> · 364 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>Preguntas frecuentes filtrables, el cuadro para preguntarle al agente por voz o por escrito, la guía de frases que entiende, el estado del sistema en vivo, y tres botones: <span class="ui">Escribirle al administrador</span>, <span class="ui">Reportar un problema</span> y <span class="ui">Ver mensajes</span>. Arriba a la derecha, <span class="ui">Ver el recorrido en video</span>.</td></tr>
+      <tr><th>Qué resuelve</th><td>Que una duda no obligue a salir de la aplicación ni a llamar a nadie.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/salud</span>, <span class="ui">/api/agente/asistente</span>, <span class="ui">/api/soporte/reportar</span>, <span class="ui">/api/soporte/mensaje-administrador</span> y <span class="ui">/api/soporte/administrador</span>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.12 Mensajes<span class="rol-tag">Menú 11</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">Mensajes.jsx</span> · 248 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>Tres contadores que cambian de significado según el perfil (enviados/recibidos, esperando/por responder, respondidos/resueltos) y la lista de mensajes. Para el administrador, el botón <span class="ui">Responder</span> y, si hay uno solo pendiente, un cuadro de responder por voz.</td></tr>
+      <tr><th>Qué resuelve</th><td>Comunicación de la operación sin salir a un correo que nadie revisa en bodega.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/soporte/mensajes</span> y <span class="ui">/api/soporte/mensajes/{id}/responder</span>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.13 Mi perfil<span class="rol-tag">Menú 12</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">MiPerfil.jsx</span> · 429 líneas</td></tr>
+      <tr><th>Qué tiene</th><td>Datos personales y foto, cambio de clave, cerrar sesión en todos los dispositivos, verificación en dos pasos, preferencias de voz y el bloque de accesibilidad (alto contraste y tamaño de letra).</td></tr>
+      <tr><th>Qué resuelve</th><td>Que cada quien administre su propia cuenta sin pedirle nada a un administrador.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/usuarios/yo</span> y sus derivados; el cambio de clave y el segundo factor van directo a Cognito.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.14 Cerrar sesión<span class="rol-tag">Menú 13</span></h3>
+  <table>
+    <tbody>
+      <tr><th>Archivo</th><td><span class="ui">CerrarSesion.jsx</span></td></tr>
+      <tr><th>Qué tiene</th><td>Un diálogo que primero <b>consulta si hay trabajo abierto</b> y lo dice con la bodega y cuántas referencias lleva, antes de ofrecer salir.</td></tr>
+      <tr><th>Qué resuelve</th><td>Que nadie se vaya con la duda de si perdió lo contado. Y que la sesión se cierre también en el servidor, no solo en ese navegador.</td></tr>
+      <tr><th>Con qué habla</th><td><span class="ui">/api/sesiones/{id}/avance</span> para el aviso y <span class="ui">/api/usuarios/yo/cerrar-todas</span> para revocar en Cognito.</td></tr>
+    </tbody>
+  </table>
+  <div class="aviso dato">
+    <span class="rotulo">Si no se puede comprobar, no se dice que todo está bien</span>
+    <p>Cuando la consulta de trabajo pendiente falla (sin conexión, sesión vencida), el diálogo <b>no</b> asume que no hay nada abierto: avisa que no se pudo comprobar. «Puede salir sin problema» es la respuesta más tranquilizadora posible justo cuando menos se sabe, y por eso es la que no se da.</p>
+  </div>
+</section>
+
+<!-- ══════════ 13 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">13</span>Pruebas</h2>
   <p class="seccion-intro">Qué hay, cómo se corre y qué cubre.</p>
 
   <table>
@@ -368,9 +533,9 @@
   </div>
 </section>
 
-<!-- ══════════ 13 ══════════ -->
+<!-- ══════════ 14 ══════════ -->
 <section>
-  <h2 class="seccion"><span class="num">13</span>Despliegue</h2>
+  <h2 class="seccion"><span class="num">14</span>Despliegue</h2>
   <p class="seccion-intro">Cómo llega esto a producción.</p>
 
   <p>El despliegue está descrito en <span class="ui">render.yaml</span> y detallado en <span class="ui">DESPLIEGUE.md</span>. Son tres servicios en Render:</p>
@@ -391,9 +556,9 @@
   </div>
 </section>
 
-<!-- ══════════ 14 ══════════ -->
+<!-- ══════════ 15 ══════════ -->
 <section>
-  <h2 class="seccion"><span class="num">14</span>Decisiones de diseño</h2>
+  <h2 class="seccion"><span class="num">15</span>Decisiones de diseño</h2>
   <p class="seccion-intro">Por qué las cosas son como son. Útil antes de cambiarlas.</p>
 
   <table>
@@ -411,9 +576,9 @@
   </table>
 </section>
 
-<!-- ══════════ 15 ══════════ -->
+<!-- ══════════ 16 ══════════ -->
 <section>
-  <h2 class="seccion"><span class="num">15</span>Cuando algo falla</h2>
+  <h2 class="seccion"><span class="num">16</span>Cuando algo falla</h2>
   <p class="seccion-intro">Los tropiezos más frecuentes, y qué revisar primero.</p>
 
   <table>
