@@ -486,8 +486,8 @@ Detalle técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 | ☁️ **Guía de despliegue**    | Despliegue en Render con Static Site, Web Service y PostgreSQL → **[DESPLIEGUE.md](DESPLIEGUE.md)**      |
 | 🧭 **Arquitectura**          | Estructura del código, dependencias y modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)**           |
 | 🤖 **Guía técnica**          | Construcción y funcionamiento del agente → **[PDF](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V4.pdf)** |
-| 📖 **Manual de usuario**     | Guía de capacitación para el personal de bodega, 26 pág. → **[PDF](docs/Manual_Usuario_CuentaVoz_V2.pdf)** · fuente → **[Markdown](docs/Manual_Usuario.md)** |
-| 🎬 **Recorrido en video**    | Recorrido narrado, uno por rol — el mismo que la aplicación abre al ingresar: **[Auxiliar, 3:16](frontend/public/recorrido-auxiliar.mp4)** · **[Administrador de bodega, 4:18](frontend/public/recorrido-administrador.mp4)** |
+| 📖 **Manual de usuario**     | Guía de capacitación para el personal de bodega, 25 pág. → **[PDF](docs/Manual_Usuario_CuentaVoz_V2.pdf)** · fuente → **[Markdown](docs/Manual_Usuario.md)** |
+| 🎬 **Recorrido en video**    | Recorrido narrado, uno por rol — el mismo que la aplicación abre al ingresar: **[Auxiliar de inventarios, 3:15](frontend/public/recorrido-auxiliar.mp4)** · **[Administrador de bodega, 4:18](frontend/public/recorrido-administrador.mp4)** |
 | 🎞️ **Presentación**         | Presentación general del proyecto → **[PPTX](docs/capturas/CuentaVoz_Colsubsidio_V1.pptx)**              |
 | 🌐 **Demo en línea**         | Aplicación desplegada → **https://cuentavoz.onrender.com**                                               |
 | 🎥 **Video de demostración** | Recorrido y funcionamiento del proyecto → **https://www.youtube.com/watch?v=4tSRTV5POd4**                |

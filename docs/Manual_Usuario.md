@@ -127,9 +127,9 @@ asignar bodegas), recetas y registro de trazabilidad completo.
 ![Ayuda](capturas/tablet/ayuda.png)
 
 Preguntas frecuentes, guía de comandos de voz, y un cuadro para
-preguntarle directo al agente. El botón **Ver el recorrido guiado** repite
-la introducción de 2-3 pasos que se muestra la primera vez que alguien
-entra a CuentaVoz. **Mensajes** es la bandeja para escribirle al
+preguntarle directo al agente. El botón **Ver el recorrido en video**
+vuelve a abrir el recorrido narrado de su perfil — el mismo que
+CuentaVoz muestra al ingresar, con un ejemplo de cada pantalla. **Mensajes** es la bandeja para escribirle al
 administrador (o, si usted es administrador, responder a su equipo).
 
 ## 12. Cerrar sesión
