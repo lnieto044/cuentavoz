@@ -21,6 +21,7 @@ const VIDEOS = {
 export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
   const video = VIDEOS[perfil === "auditor" ? "auditor" : "auxiliar"];
   const modalRef = useRef(null);
+  const videoRef = useRef(null);
   // Refleja lo que ya hay guardado para este usuario, no un estado nuevo
   // en false: si ya lo habia desactivado antes y por lo que sea el video
   // se abrio igual (p. ej. "Ver el recorrido en video" desde Ayuda), el
@@ -40,6 +41,17 @@ export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Se intenta reproducir solo, sin que la persona tenga que darle play:
+  // el video se abre COMO CONSECUENCIA de un clic (entrar, o "Ver el
+  // recorrido en video" en Ayuda), y ese gesto reciente es justo lo que
+  // los navegadores piden para permitir sonido automático. Si de todas
+  // formas lo bloquean (típico cuando la sesión se retomó sola, sin clic
+  // reciente), se queda pausado con los controles listos - nunca se
+  // fuerza a silenciarlo, porque un video narrado mudo no sirve de nada.
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {});
+  }, []);
+
   return (
     <div className="overlay" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}
@@ -52,11 +64,7 @@ export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
           y seguir después.
         </p>
 
-        {/* controls y sin autoplay a proposito: que suene un video solo, a
-            volumen alto, en una bodega o en una reunion, es peor que un
-            clic mas. preload="metadata" para no bajar los megas completos
-            hasta que la persona le de reproducir. */}
-        <video src={video.src} controls preload="metadata" playsInline
+        <video ref={videoRef} src={video.src} controls preload="auto" playsInline
                style={{ width: "100%", display: "block", borderRadius: 10,
                         background: "#000", border: "1px solid var(--borde)" }}>
           Su navegador no puede reproducir este video.{" "}
