@@ -15,12 +15,12 @@ import { debeAbrirTutorial, deshabilitarTutorial, habilitarTutorial } from "./tu
 const VIDEOS = {
   auxiliar: {
     src: "/recorrido-auxiliar.mp4",
-    version: "2026-08-24a",
+    version: "2026-08-24e",
     titulo: "Recorrido para auxiliares de inventarios",
   },
   auditor: {
     src: "/recorrido-administrador.mp4",
-    version: "2026-08-24c",
+    version: "2026-08-24e",
     titulo: "Recorrido para administradores de bodega",
   },
 };
