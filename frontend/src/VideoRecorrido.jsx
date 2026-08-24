@@ -7,19 +7,27 @@ import { debeAbrirTutorial, deshabilitarTutorial, habilitarTutorial } from "./tu
    con el resto de la aplicación. Están fuera del precacheo del service
    worker (ver vite.config.js) para no obligar a bajar varios megas la
    primera vez que alguien abre el login. */
+/* El ?v= no lo lee el servidor: es solo para el cache del navegador. Los
+   mp4 viven en una ruta fija (no llevan hash como los bundles de Vite), asi
+   que sin esto quien ya vio el recorrido una vez se queda con la copia
+   vieja aunque publiquemos una corregida. Al volver a grabar un recorrido
+   hay que subirle la fecha a su version. */
 const VIDEOS = {
   auxiliar: {
     src: "/recorrido-auxiliar.mp4",
+    version: "2026-08-24a",
     titulo: "Recorrido para auxiliares de inventarios",
   },
   auditor: {
     src: "/recorrido-administrador.mp4",
+    version: "2026-08-24b",
     titulo: "Recorrido para administradores de bodega",
   },
 };
 
 export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
   const video = VIDEOS[perfil === "auditor" ? "auditor" : "auxiliar"];
+  const fuente = `${video.src}?v=${video.version}`;
   const modalRef = useRef(null);
   const videoRef = useRef(null);
   // Refleja lo que ya hay guardado para este usuario, no un estado nuevo
@@ -64,11 +72,11 @@ export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
           y seguir después.
         </p>
 
-        <video ref={videoRef} src={video.src} controls preload="auto" playsInline
+        <video ref={videoRef} src={fuente} controls preload="auto" playsInline
                style={{ width: "100%", display: "block", borderRadius: 10,
                         background: "#000", border: "1px solid var(--borde)" }}>
           Su navegador no puede reproducir este video.{" "}
-          <a href={video.src} download>Descárguelo aquí.</a>
+          <a href={fuente} download>Descárguelo aquí.</a>
         </video>
 
         {usuarioId != null && (
