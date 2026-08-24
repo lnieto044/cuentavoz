@@ -48,14 +48,32 @@ function esCognitoNoDisponible(e) {
     - Cognito no respondió al verificar el token (ver seguridad.py).
     alEsperar avisa a la pantalla para que diga qué está pasando en vez de
     dejar un botón mudo. */
+// Despertar el servicio dormido de Render tarda entre 30 y 50 segundos, asi
+// que la espera total tiene que cubrir eso con margen: 2+4+6+8+10+12+15 = 57
+// segundos repartidos en 8 intentos. Un reintento corto (los 9 s que habia
+// antes) se agota entero DENTRO de la ventana de arranque y falla igual.
+const ESPERAS = [2000, 4000, 6000, 8000, 10000, 12000, 15000];
+
 async function conPaciencia(fn, alEsperar) {
-  for (let intento = 1; ; intento++) {
+  for (let intento = 0; ; intento++) {
     try {
       return await fn();
     } catch (e) {
-      if ((!esFalloRed(e) && !esCognitoNoDisponible(e)) || intento >= 4) throw e;
-      alEsperar?.(intento);
-      await new Promise((r) => setTimeout(r, 1500 * intento));
+      const recuperable = esFalloRed(e) || esCognitoNoDisponible(e);
+      if (!recuperable || intento >= ESPERAS.length) {
+        if (recuperable) {
+          // Ya no es "revise su Wi-Fi": la red de esta persona esta bien,
+          // el servidor no alcanzo a despertar. Culpar al Wi-Fi manda a
+          // buscar el problema donde no esta.
+          const falla = new Error("El servidor está tardando en responder. "
+            + "Espere unos segundos y vuelva a intentarlo.");
+          falla.esFalloRed = true;
+          throw falla;
+        }
+        throw e;
+      }
+      alEsperar?.(intento + 1);
+      await new Promise((r) => setTimeout(r, ESPERAS[intento]));
     }
   }
 }
@@ -116,9 +134,9 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   // que esperar (servidor dormido, ver conPaciencia), para que el botón no
   // se quede mudo y parezca colgado.
   const [avisoEspera, setAvisoEspera] = useState("");
-  const avisarEspera = () =>
-    setAvisoEspera("El servidor estaba en reposo y está despertando. "
-                   + "Esto puede tardar hasta un minuto la primera vez…");
+  const avisarEspera = (intento) =>
+    setAvisoEspera("El servidor estaba en reposo y está despertando "
+                   + `(intento ${intento})… puede tardar hasta un minuto.`);
   const [perfil, setPerfil] = useState(null);
 
   /** onChange que además borra el error de ESE campo apenas la persona
@@ -146,6 +164,17 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   // login con verificación en dos pasos
   const [mfaPendiente, setMfaPendiente] = useState(null);
   const [codigoMFA, setCodigoMFA] = useState("");
+
+  // Despierta el backend apenas se abre esta pantalla, sin esperar a que
+  // alguien pulse nada. En el plan gratuito de Render el servicio se duerme
+  // tras 15 minutos sin tráfico y tarda 30-50 segundos en levantarse; ese
+  // tiempo se lo comía la primera acción de la persona (confirmar el código
+  // del correo, justo el peor momento). Iniciándolo aquí, mientras se
+  // escriben los datos y llega el correo, el servidor ya está listo cuando
+  // de verdad hace falta. /api/salud no pide sesión y no cambia nada.
+  useEffect(() => {
+    pedir("/api/salud").catch(() => {});
+  }, []);
 
   // apenas escribe el usuario se identifica el perfil solo - no hay que
   // elegirlo a mano. Con demora corta para no disparar una llamada por
