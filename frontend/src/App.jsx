@@ -176,7 +176,7 @@ export default function App() {
           setSesion(s);
           setAvisoSesion("");
           setVista("inicio");
-          if (debeAbrirTutorial()) { marcarTutorialVisto(); setMostrarVideo(true); }
+          if (debeAbrirTutorial(s.usuario?.id)) { marcarTutorialVisto(s.usuario?.id); setMostrarVideo(true); }
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
             configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,
                            confirmacionHablada: p.confirmacion_hablada })

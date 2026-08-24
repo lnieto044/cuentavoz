@@ -11,10 +11,13 @@ globalThis.localStorage = {
 const { debeAbrirTutorial, marcarTutorialVisto } = await import("./tutorial.js");
 
 test("debeAbrirTutorial es true la primera vez (nada guardado todavía)", () => {
-  assert.equal(debeAbrirTutorial(), true);
+  assert.equal(debeAbrirTutorial(11), true);
 });
 
-test("marcarTutorialVisto hace que debeAbrirTutorial pase a false", () => {
-  marcarTutorialVisto();
-  assert.equal(debeAbrirTutorial(), false);
+test("marcarTutorialVisto hace que debeAbrirTutorial pase a false, solo para ESE usuario", () => {
+  marcarTutorialVisto(11);
+  assert.equal(debeAbrirTutorial(11), false);
+  // otro usuario en el mismo dispositivo (tablet compartida en bodega)
+  // debe seguir viendo el video la primera vez que él entra.
+  assert.equal(debeAbrirTutorial(22), true);
 });
