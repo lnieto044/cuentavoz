@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { debeAbrirTutorial, deshabilitarTutorial, habilitarTutorial } from "./tutorial";
 
 /* El video se sirve desde /public, no desde un servicio externo: la app se
    usa en bodegas con señal irregular y un video en YouTube que no carga es
@@ -17,9 +18,16 @@ const VIDEOS = {
   },
 };
 
-export default function VideoRecorrido({ perfil, onCerrar }) {
+export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
   const video = VIDEOS[perfil === "auditor" ? "auditor" : "auxiliar"];
   const modalRef = useRef(null);
+  // Refleja lo que ya hay guardado para este usuario, no un estado nuevo
+  // en false: si ya lo habia desactivado antes y por lo que sea el video
+  // se abrio igual (p. ej. "Ver el recorrido en video" desde Ayuda), el
+  // interruptor no debe mostrarse como si estuviera activado.
+  const [desactivado, setDesactivado] = useState(
+    () => usuarioId != null && !debeAbrirTutorial(usuarioId)
+  );
 
   useEffect(() => {
     function alTecla(e) { if (e.key === "Escape") onCerrar(); }
@@ -54,6 +62,20 @@ export default function VideoRecorrido({ perfil, onCerrar }) {
           Su navegador no puede reproducir este video.{" "}
           <a href={video.src} download>Descárguelo aquí.</a>
         </video>
+
+        {usuarioId != null && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8,
+                          marginTop: 14, fontSize: ".9rem", color: "var(--grafito)" }}>
+            <input type="checkbox" checked={desactivado}
+                   onChange={(e) => {
+                     const marcado = e.target.checked;
+                     setDesactivado(marcado);
+                     if (marcado) deshabilitarTutorial(usuarioId);
+                     else habilitarTutorial(usuarioId);
+                   }} />
+            No mostrar este video automáticamente la próxima vez que ingrese
+          </label>
+        )}
 
         <div className="botones" style={{ marginTop: 16 }}>
           <button className="btn" onClick={onCerrar}>Cerrar</button>

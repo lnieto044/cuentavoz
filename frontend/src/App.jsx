@@ -4,7 +4,7 @@ import { obtenerTokenValido, cerrarSesionLocal } from "./cognito";
 import { configurarVoz, detenerVoz } from "./voz";
 import { leerPreferencias, aplicarPreferencias } from "./accesibilidad";
 import VideoRecorrido from "./VideoRecorrido";
-import { debeAbrirTutorial, marcarTutorialVisto, EVENTO_ABRIR_VIDEO } from "./tutorial";
+import { debeAbrirTutorial, EVENTO_ABRIR_VIDEO } from "./tutorial";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
 import Inicio from "./vistas/Inicio";
@@ -83,6 +83,20 @@ export default function App() {
     window.addEventListener(EVENTO_ABRIR_VIDEO, abrirVideo);
     return () => window.removeEventListener(EVENTO_ABRIR_VIDEO, abrirVideo);
   }, []);
+
+  // El video del recorrido abre en CADA ingreso, no solo el primero - lo
+  // único que lo apaga es que la propia persona lo desactive desde el
+  // video (ver VideoRecorrido.jsx). "Ingreso" no es solo el instante de
+  // escribir usuario y clave: la sesión guardada (arriba, leerSesion())
+  // hace que reabrir la app o recargar la página entre DIRECTO a Inicio
+  // sin pasar por Ingreso.jsx. Enganchado solo al login manual, alguien
+  // que ya tenía sesión activa en este equipo (lo normal) nunca disparaba
+  // el video. Aquí se revisa cada vez que hay un usuario con sesión, la
+  // haya iniciado ahora o la haya retomado la app sola.
+  useEffect(() => {
+    const id = sesion?.usuario?.id;
+    if (id != null && debeAbrirTutorial(id)) setMostrarVideo(true);
+  }, [sesion?.usuario?.id]);
 
   // Alto contraste / tamaño de letra (Mi perfil > Accesibilidad) son
   // preferencias de ESTE equipo (localStorage), no de la cuenta - se
@@ -176,7 +190,6 @@ export default function App() {
           setSesion(s);
           setAvisoSesion("");
           setVista("inicio");
-          if (debeAbrirTutorial(s.usuario?.id)) { marcarTutorialVisto(s.usuario?.id); setMostrarVideo(true); }
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
             configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,
                            confirmacionHablada: p.confirmacion_hablada })
@@ -250,6 +263,7 @@ export default function App() {
 
       {mostrarVideo && (
         <VideoRecorrido perfil={sesion.usuario?.perfil}
+                        usuarioId={sesion.usuario?.id}
                         onCerrar={() => setMostrarVideo(false)} />
       )}
     </div>
