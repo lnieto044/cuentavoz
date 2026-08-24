@@ -98,17 +98,46 @@ artículos, stock) hay que cargarlo a mano contra la base nueva:
 - **Identidad**: la maneja AWS Cognito, no este backend - el mismo User
   Pool sirve tanto para local como para Render (no hay que crear uno
   nuevo por entorno, basta con apuntar `COGNITO_*`/`AWS_*` al mismo).
-- **Correos (registro/recuperar clave)**: el User Pool está configurado
-  para mandarlos vía Amazon SES con un remitente verificado, en vez del
-  remitente genérico de Cognito (`no-reply@verificationemail.com`, que
-  Gmail y otros suelen marcar como spam). Si se cambia el remitente, hay
-  que verificarlo de nuevo en SES (`ses.verify_email_identity`) y
-  actualizar el `EmailConfiguration` del User Pool
-  (`cognito-idp.update_user_pool`). Nota real: SES no puede autenticar
-  correctamente un envío "desde" una dirección @gmail.com/@hotmail.com/etc.
-  (el DKIM/SPF de esos dominios no lo autoriza) — para que nunca caiga en
-  spam, sin importar el destinatario, el remitente debe ser un correo en
-  un dominio propio con Easy DKIM configurado en SES.
+- **Correos (registro/recuperar clave)**: el User Pool usa el remitente
+  propio de Cognito (`EmailSendingAccount: COGNITO_DEFAULT`), no Amazon
+  SES. Es una decisión tomada a conciencia, no un descuido — vale la pena
+  entender el porqué antes de "mejorarlo":
+
+  | | Cognito por defecto | Amazon SES |
+  |---|---|---|
+  | Destinatarios | **cualquier correo** | solo direcciones verificadas una por una (modo *sandbox*) |
+  | Límite | 50 correos/día | 200/día en sandbox |
+  | Bandeja | suele caer en **spam** | igual cae en spam desde un @gmail.com |
+  | Costo | gratis | gratis |
+
+  Se intentó SES primero, buscando sacar los correos de spam. No sirvió:
+  SES arranca en modo *sandbox*, donde **descarta en silencio** todo
+  correo a una dirección no verificada previamente — sin error, sin
+  rebote, sin nada en los logs. En la práctica el registro solo funcionaba
+  para dos direcciones y para cualquier otra persona parecía que la
+  aplicación estaba rota. Salir del sandbox se solicitó a AWS (caso
+  178754215000785) y quedó pendiente de más información; además, el
+  registro de dominios de Route 53 esta bloqueado en cuentas del plan
+  gratuito ("Free Tier accounts are not supported for this service").
+
+  Entregar a todo el mundo aunque caiga en spam es estrictamente mejor que
+  no entregar. Por eso se volvió al remitente de Cognito.
+
+  **Lo único que arregla el spam de verdad** es un dominio propio (no un
+  @gmail.com ni el dominio compartido de AWS) con Easy DKIM configurado en
+  SES: Gmail no puede autenticar un envío "desde" gmail.com hecho por un
+  tercero, así que mientras el remitente sea una dirección prestada,
+  cualquier proveedor lo va a mirar con sospecha. Eso exige comprar un
+  dominio (~14 USD/año) y pasar la cuenta de AWS a plan de pago.
+
+  La plantilla del correo (asunto, HTML con la marca de CuentaVoz y
+  Colsubsidio, logos y firma) vive en el propio User Pool, en
+  `VerificationMessageTemplate`. Se cambia con
+  `cognito-idp.update_user_pool` — ojo: esa llamada **reemplaza la
+  configuración completa del pool**, así que hay que leerla antes con
+  `describe_user_pool` y reenviar todo lo que se quiera conservar. No
+  hacerlo apagó `AutoVerifiedAttributes` una vez y dejó el registro sin
+  enviar códigos.
 - Ver [LEEME_PRIMERO.md](LEEME_PRIMERO.md) para correr todo localmente.
 
 ## Monitoreo de errores en producción (Sentry, opcional)
