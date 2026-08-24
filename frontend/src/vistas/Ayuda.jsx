@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { pedir, preguntarAsistente } from "../api";
-import { EVENTO_ABRIR_TUTORIAL, EVENTO_ABRIR_VIDEO } from "../tutorial";
+import { EVENTO_ABRIR_VIDEO } from "../tutorial";
 import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
@@ -207,10 +207,6 @@ export default function Ayuda({ token, usuario, ir }) {
     <Marco titulo="Ayuda  ·  cómo usar CuentaVoz" chip={{ texto: "SOPORTE", tipo: "azul" }}>
       <div className="card">
         <div className="grilla-botones" style={{ justifyContent: "flex-end", marginBottom: 10 }}>
-          <button className="btn borde"
-                  onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_TUTORIAL))}>
-            Ver el recorrido guiado
-          </button>
           <button className="btn borde"
                   onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_VIDEO))}>
             Ver el recorrido en video

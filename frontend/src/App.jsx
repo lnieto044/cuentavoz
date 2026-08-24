@@ -3,10 +3,8 @@ import { alSesionInvalida, borrarSesion, guardarSesion, leerSesion, pedir } from
 import { obtenerTokenValido, cerrarSesionLocal } from "./cognito";
 import { configurarVoz, detenerVoz } from "./voz";
 import { leerPreferencias, aplicarPreferencias } from "./accesibilidad";
-import TutorialGuiado from "./TutorialGuiado";
 import VideoRecorrido from "./VideoRecorrido";
-import { debeAbrirTutorial, marcarTutorialVisto, EVENTO_ABRIR_TUTORIAL,
-         EVENTO_ABRIR_VIDEO } from "./tutorial";
+import { debeAbrirTutorial, marcarTutorialVisto, EVENTO_ABRIR_VIDEO } from "./tutorial";
 import BarraLateral from "./BarraLateral";
 import Ingreso from "./vistas/Ingreso";
 import Inicio from "./vistas/Inicio";
@@ -75,21 +73,15 @@ export default function App() {
   const [ctx, setCtx] = useState(() => ({ sesionId: -2000 - (sesion?.usuario?.id || 0) }));
   const [salir, setSalir] = useState(false);
   const [avisoSesion, setAvisoSesion] = useState("");
-  const [mostrarTutorial, setMostrarTutorial] = useState(false);
   const [mostrarVideo, setMostrarVideo] = useState(false);
 
-  // "Ver el recorrido guiado" en Ayuda.jsx reabre el tutorial bajo demanda
-  // con un evento (mismo patrón que cuentavoz:foto-actualizada) en vez de
-  // pasar la función por props a través de todas las vistas.
+  // "Ver el recorrido en video" en Ayuda.jsx reabre el recorrido bajo
+  // demanda con un evento (mismo patrón que cuentavoz:foto-actualizada) en
+  // vez de pasar la función por props a través de todas las vistas.
   useEffect(() => {
-    function abrirTutorial() { setMostrarTutorial(true); }
-    function abrirVideo() { setMostrarTutorial(false); setMostrarVideo(true); }
-    window.addEventListener(EVENTO_ABRIR_TUTORIAL, abrirTutorial);
+    function abrirVideo() { setMostrarVideo(true); }
     window.addEventListener(EVENTO_ABRIR_VIDEO, abrirVideo);
-    return () => {
-      window.removeEventListener(EVENTO_ABRIR_TUTORIAL, abrirTutorial);
-      window.removeEventListener(EVENTO_ABRIR_VIDEO, abrirVideo);
-    };
+    return () => window.removeEventListener(EVENTO_ABRIR_VIDEO, abrirVideo);
   }, []);
 
   // Alto contraste / tamaño de letra (Mi perfil > Accesibilidad) son
@@ -184,7 +176,7 @@ export default function App() {
           setSesion(s);
           setAvisoSesion("");
           setVista("inicio");
-          if (debeAbrirTutorial()) setMostrarTutorial(true);
+          if (debeAbrirTutorial()) { marcarTutorialVisto(); setMostrarVideo(true); }
           pedir("/api/usuarios/yo", {}, s.token).then((p) =>
             configurarVoz({ idioma: p.idioma_voz, velocidad: p.velocidad_voz,
                            confirmacionHablada: p.confirmacion_hablada })
@@ -252,18 +244,6 @@ export default function App() {
             setSesion(null);
             setSalir(false);
             setVista("inicio");
-          }}
-        />
-      )}
-
-      {mostrarTutorial && (
-        <TutorialGuiado
-          perfil={sesion.usuario?.perfil}
-          onCerrar={() => { marcarTutorialVisto(); setMostrarTutorial(false); }}
-          onVerVideo={() => {
-            marcarTutorialVisto();
-            setMostrarTutorial(false);
-            setMostrarVideo(true);
           }}
         />
       )}
