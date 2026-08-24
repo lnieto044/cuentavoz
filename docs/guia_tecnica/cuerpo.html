@@ -1,0 +1,442 @@
+<div class="indice">
+<h2 class="seccion">Contenido</h2>
+<p class="seccion-intro">Las secciones 1 a 3 son el panorama y el arranque. De la 4 a la 11 va el sistema por dentro, pieza por pieza. Las últimas cuatro son la operación: pruebas, despliegue, decisiones y qué hacer cuando algo falla.</p>
+<ol>
+  <li><span class="n">1</span><span class="t">Qué es CuentaVoz</span><span class="rol">Panorama</span></li>
+  <li><span class="n">2</span><span class="t">La arquitectura en una página</span><span class="rol">Panorama</span></li>
+  <li><span class="n">3</span><span class="t">Poner el proyecto a andar</span><span class="rol">Arranque</span></li>
+  <li><span class="n">4</span><span class="t">Identidad y permisos</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">5</span><span class="t">El agente de voz</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">6</span><span class="t">El modelo de datos</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">7</span><span class="t">La API</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">8</span><span class="t">El frontend</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">9</span><span class="t">Trabajar sin conexión</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">10</span><span class="t">Reportes y archivos</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">11</span><span class="t">Trazabilidad y auditoría</span><span class="rol">Por dentro</span></li>
+  <li><span class="n">12</span><span class="t">Pruebas</span><span class="rol">Operación</span></li>
+  <li><span class="n">13</span><span class="t">Despliegue</span><span class="rol">Operación</span></li>
+  <li><span class="n">14</span><span class="t">Decisiones de diseño</span><span class="rol">Operación</span></li>
+  <li><span class="n">15</span><span class="t">Cuando algo falla</span><span class="rol">Operación</span></li>
+</ol>
+</div>
+
+<!-- ══════════ 1 ══════════ -->
+<section class="primera">
+  <h2 class="seccion"><span class="num">1</span>Qué es CuentaVoz</h2>
+  <p class="seccion-intro">El problema que resuelve, y por qué se resuelve hablando.</p>
+
+  <p>CuentaVoz reemplaza la planilla de papel del conteo de inventario en las bodegas de alimentos y bebidas. En vez de anotar en una hoja y después transcribir a un archivo, la persona <b>dicta lo que ve</b> — «arroz, veinte kilos» — y la plataforma lo entiende, lo confirma en voz alta y lo guarda con el código oficial del catálogo.</p>
+
+  <p>Eso quita los dos puntos donde se pierde la información: la letra en la planilla y la transcripción posterior. Y como quien cuenta tiene las manos ocupadas, hablar es la única interfaz que no lo obliga a soltar el producto.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">La regla que gobierna todo el sistema</span>
+    <p>CuentaVoz <b>siempre confirma antes de guardar</b>, y <b>nunca sobrescribe</b>. Cada dato que entra pasa por una confirmación explícita de la persona, y cuando se corrige una cantidad el valor anterior no se borra: queda en el registro de trazabilidad. Si alguna vez una función nueva rompe esa regla, es la función la que está mal.</p>
+  </div>
+
+  <h3>Los dos perfiles</h3>
+  <table>
+    <thead><tr><th>Perfil</th><th>Qué hace</th><th>Qué ve</th></tr></thead>
+    <tbody>
+      <tr><td><b>Auxiliar de inventarios</b><br><span class="dicho">auxiliar</span></td><td>Cuenta las bodegas que le asignaron, pide insumos al almacén y legaliza el servicio del turno.</td><td>9 opciones de menú.</td></tr>
+      <tr><td><b>Administrador de bodega</b><br><span class="dicho">auditor</span></td><td>Todo lo anterior, más auditar, aprobar lo que se creó durante el conteo, sacar los reportes y administrar la configuración.</td><td>13 opciones de menú.</td></tr>
+    </tbody>
+  </table>
+  <p>El perfil vive en <span class="ui">usuario.perfil</span> y vale <span class="dicho">auxiliar</span> o <span class="dicho">auditor</span>. En el código el administrador se llama siempre <span class="dicho">auditor</span>; «Administrador de bodega» es solo la etiqueta que se le muestra a la gente.</p>
+</section>
+
+<!-- ══════════ 2 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">2</span>La arquitectura en una página</h2>
+  <p class="seccion-intro">Cuatro piezas y tres servicios externos. Nada más.</p>
+
+  <table>
+    <thead><tr><th>Pieza</th><th>Tecnología</th><th>De qué responde</th></tr></thead>
+    <tbody>
+      <tr><td><b>Frontend</b><br><span class="ui">frontend/</span></td><td>React 18 + Vite, PWA</td><td>Las 14 vistas, el reconocimiento de voz del navegador, la cola sin conexión y el diálogo con Cognito.</td></tr>
+      <tr><td><b>Backend</b><br><span class="ui">backend/</span></td><td>FastAPI + Uvicorn</td><td>90 endpoints, las reglas del negocio, la conversación con el agente y la generación de archivos.</td></tr>
+      <tr><td><b>Base de datos</b></td><td>SQLAlchemy 2 sobre SQLite (local) o PostgreSQL (producción)</td><td>18 tablas. El mismo código sirve para las dos: solo cambia <span class="ui">DB_URL</span>.</td></tr>
+      <tr><td><b>Servicios</b><br><span class="ui">backend/servicios/</span></td><td>Python puro</td><td>Intérprete local, recetas, conciliación, analítica, validación y archivos. Sin FastAPI adentro, por eso se pueden probar solos.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Los tres servicios externos</h3>
+  <table>
+    <thead><tr><th>Servicio</th><th>Para qué</th><th>Si no está</th></tr></thead>
+    <tbody>
+      <tr><td><b>AWS Cognito</b></td><td>Identidad: registro, ingreso, cambio de clave, verificación en dos pasos.</td><td>No se puede entrar. Es la única dependencia dura.</td></tr>
+      <tr><td><b>Google Gemini</b></td><td>Entender lo que la persona dice, en lenguaje libre.</td><td>Entra el intérprete local: entiende menos variantes, pero el flujo completo sigue funcionando.</td></tr>
+      <tr><td><b>Brevo</b> (correo)</td><td>Avisar por correo de un mensaje al administrador.</td><td>El mensaje igual queda en la bandeja; se ofrece abrir el correo del propio dispositivo.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">El patrón que se repite: degradarse sin romperse</span>
+    <p>Ninguna función se cae por completo cuando falla algo de afuera. Sin Gemini hay intérprete local; sin internet hay cola local que se sincroniza sola; sin servicio de correo el mensaje queda igual registrado. Es la diferencia entre una demo y algo que se puede usar en una bodega con señal irregular.</p>
+  </div>
+</section>
+
+<!-- ══════════ 3 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">3</span>Poner el proyecto a andar</h2>
+  <p class="seccion-intro">De un clon a la aplicación abierta en el navegador.</p>
+
+  <h3>Qué necesita instalado</h3>
+  <table>
+    <thead><tr><th>Herramienta</th><th>Versión</th><th>Para qué</th></tr></thead>
+    <tbody>
+      <tr><td>Python</td><td>3.12 o superior</td><td>El backend.</td></tr>
+      <tr><td>Node.js</td><td>18 o superior</td><td>El frontend y las pruebas.</td></tr>
+      <tr><td>Git</td><td>cualquiera reciente</td><td>Traer el proyecto.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Backend</h3>
+  <ol class="pasos">
+    <li><b>Cree el entorno virtual</b><span class="ui">cd backend</span> y luego <span class="ui">python -m venv .venv</span>.</li>
+    <li><b>Actívelo</b>en Windows, <span class="ui">.venv\Scripts\activate</span>; en Linux o macOS, <span class="ui">source .venv/bin/activate</span>.</li>
+    <li><b>Instale las dependencias</b><span class="ui">pip install -r requirements.txt</span>.</li>
+    <li><b>Copie el archivo de configuración</b><span class="ui">.env.ejemplo</span> a <span class="ui">.env</span> y llene las llaves (ver el cuadro siguiente).</li>
+    <li><b>Arranque</b><span class="ui">uvicorn main:app --reload</span>. Queda en <span class="ui">http://127.0.0.1:8000</span>.</li>
+  </ol>
+
+  <h3>Frontend</h3>
+  <ol class="pasos">
+    <li><b>Instale</b><span class="ui">cd frontend</span> y <span class="ui">npm install</span>.</li>
+    <li><b>Arranque</b><span class="ui">npm run dev</span>. Queda en <span class="ui">http://localhost:5173</span>.</li>
+  </ol>
+  <p>El frontend apunta por defecto a <span class="ui">http://127.0.0.1:8000</span>. Para apuntarlo a otro backend, defina <span class="ui">VITE_API_URL</span> antes de arrancar.</p>
+
+  <h3>Las variables de entorno</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Obligatoria</th><th>Qué controla</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">COGNITO_REGION</span><br><span class="ui">COGNITO_USER_POOL_ID</span><br><span class="ui">COGNITO_APP_CLIENT_ID</span></td><td>Sí</td><td>Identifican el User Pool. No son secretos: viajan dentro del JavaScript que descarga cualquiera.</td></tr>
+      <tr><td><span class="ui">AWS_ACCESS_KEY_ID</span><br><span class="ui">AWS_SECRET_ACCESS_KEY</span></td><td>Sí</td><td>Credenciales de una cuenta IAM propia del backend, con permiso solo sobre ese User Pool. <b>Nunca</b> la cuenta que creó el pool.</td></tr>
+      <tr><td><span class="ui">DB_URL</span></td><td>No</td><td>Por defecto <span class="dicho">sqlite:///cuentavoz.db</span>. En producción, la cadena de PostgreSQL.</td></tr>
+      <tr><td><span class="ui">GOOGLE_API_KEY</span></td><td>No</td><td>Activa Gemini. Sin ella entra el intérprete local.</td></tr>
+      <tr><td><span class="ui">UMBRAL_ANOMALIA</span></td><td>No</td><td>Qué tan grande debe ser una diferencia para disparar una alerta. Por defecto <span class="dicho">0.5</span> (50 %).</td></tr>
+      <tr><td><span class="ui">ORIGEN_PERMITIDO</span></td><td>No</td><td>Orígenes extra para CORS, separados por coma. Los puertos 5173 y 4173 ya vienen permitidos.</td></tr>
+      <tr><td><span class="ui">SENTRY_DSN</span></td><td>No</td><td>Monitoreo de errores. Vacía, no se inicializa nada.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">Cuentas de demostración</span>
+    <p>Con la variable de siembra activa y la tabla de usuarios vacía, el backend crea <span class="dicho">luis</span>, <span class="dicho">diana</span>, <span class="dicho">stephanie</span> y <span class="dicho">valentina</span> con la clave <span class="dicho">StockXperts1</span>. <b>No la active en un despliegue con datos reales</b>: <span class="dicho">diana</span> tiene perfil de administrador.</p>
+  </div>
+</section>
+
+<!-- ══════════ 4 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">4</span>Identidad y permisos</h2>
+  <p class="seccion-intro">Quién es quién, y qué puede tocar cada quien.</p>
+
+  <h3>La clave nunca pasa por el backend</h3>
+  <p>El registro, el ingreso, el cambio de clave y la verificación en dos pasos los maneja <b>AWS Cognito directamente</b>: el frontend habla con el SDK de Cognito y la clave nunca llega a este servidor. El backend no puede filtrar una clave que nunca ve.</p>
+  <p>Lo único que hace <span class="ui">backend/seguridad.py</span> es comprobar que el <i>access token</i> que llega en la cabecera <span class="ui">Authorization</span> de verdad lo firmó nuestro User Pool: firma RS256 contra las llaves públicas que Cognito publica, emisor, audiencia, y que sea un access token y no un id token.</p>
+
+  <h3>Los dos niveles de permiso</h3>
+  <table>
+    <thead><tr><th>Nivel</th><th>Cómo se aplica</th><th>Qué protege</th></tr></thead>
+    <tbody>
+      <tr><td><b>Por perfil</b></td><td><span class="ui">Depends(requiere_perfil("auditor"))</span> en el endpoint.</td><td>Auditoría, Panel, Reportes y Ajustes.</td></tr>
+      <tr><td><b>Por bodega</b></td><td>La tabla <span class="ui">asignacion_bodega</span>.</td><td>Un auxiliar solo puede contar las zonas que le asignaron.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">El permiso por bodega se aplica en cuatro sitios, no en uno</span>
+    <p>Listar bodegas, abrir una bodega, ver su detalle y <b>la búsqueda por voz</b>. Ocultar la opción en el menú no es seguridad: si la restricción no está también en el endpoint, basta con pedir la URL a mano. Por eso el agente de voz también la respeta — es la puerta que más fácil se olvida.</p>
+  </div>
+
+  <h3>Cerrar sesión de verdad</h3>
+  <p>«Cerrar sesión» no se limita a borrar el token de este navegador: llama a <span class="ui">/api/usuarios/yo/cerrar-todas</span>, que revoca la sesión en Cognito. Sin eso, el access token seguía siendo válido hasta vencer solo — hasta una hora. En una tableta que se pasan entre turnos, eso es una cuenta abierta para el siguiente.</p>
+</section>
+
+<!-- ══════════ 5 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">5</span>El agente de voz</h2>
+  <p class="seccion-intro">De «arroz, veinte kilos» a una fila en la base de datos.</p>
+
+  <h3>El recorrido de una frase</h3>
+  <ol class="pasos">
+    <li><b>El navegador escucha</b>con la API <span class="ui">SpeechRecognition</span>, en español de Colombia. El audio no sale del dispositivo: lo que viaja es el texto.</li>
+    <li><b>El texto llega al backend</b>por <span class="ui">POST /api/agente/turno</span>, junto con la sesión de conteo y el contexto de lo que quedó pendiente de confirmar.</li>
+    <li><b>El agente interpreta</b>Gemini recibe la frase, el contexto y las reglas, y devuelve una intención con sus datos. Sin llave de Gemini, ese trabajo lo hace el intérprete local.</li>
+    <li><b>Se resuelve el artículo</b>el nombre dictado se empareja contra el catálogo con <span class="ui">rapidfuzz</span> y la tabla de alias. Si hay varias candidatas, se devuelven como opciones para que la persona elija.</li>
+    <li><b>Se valida</b>si la cantidad se sale del umbral, o la unidad no coincide, o el número es imposible, se genera una alerta <b>antes</b> de guardar.</li>
+    <li><b>Se confirma y se guarda</b>la plataforma repite lo que entendió y espera un «confirmo». Solo entonces se escribe la fila y se registra la traza.</li>
+  </ol>
+
+  <h3>Por qué hay dos intérpretes</h3>
+  <p><span class="ui">backend/servicios/interprete.py</span> es un intérprete escrito a mano: reconoce números en palabras («veinte» → 20), unidades («kilos» → <span class="dicho">Kilogram</span>) y las intenciones más frecuentes. No reemplaza al modelo — entiende menos variantes de frase — pero garantiza que <b>la demo nunca se cae por falta de internet o de cuota</b>.</p>
+  <p>El mismo intérprete corre además <b>dentro del navegador</b> (<span class="ui">frontend/src/interpreteLocal.js</span>) para el modo sin conexión, donde no hay backend con quien hablar.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Por qué el turno del agente corre en un hilo aparte</span>
+    <p>Llamar a Gemini puede tardar varios segundos. Hacerlo directo dentro de la ruta <span class="ui">async</span> bloqueaba <b>todo</b> el bucle de eventos: cualquier otra petición, de cualquier otra persona, a cualquier endpoint — hasta <span class="ui">/api/salud</span> — se quedaba esperando. Por eso <span class="ui">procesar_turno</span> se saca con <span class="ui">run_in_threadpool</span>.</p>
+  </div>
+
+  <h3>El asistente contextual</h3>
+  <p>Aparte del conteo, <span class="ui">POST /api/agente/asistente</span> responde preguntas sobre la pantalla en la que está la persona y sabe navegar: «lléveme al panel» cambia de vista. Las claves de destino tienen que calzar exactamente con las que usa <span class="ui">ir(destino)</span> en <span class="ui">App.jsx</span>; si no calzan, la navegación por voz apunta a una vista que no existe.</p>
+</section>
+
+<!-- ══════════ 6 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">6</span>El modelo de datos</h2>
+  <p class="seccion-intro">Dieciocho tablas, en <span class="ui">backend/modelos.py</span>.</p>
+
+  <table>
+    <thead><tr><th>Tabla</th><th>Guarda</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">usuario</span></td><td>Las personas, su perfil y su estado. La clave no está aquí: la guarda Cognito.</td></tr>
+      <tr><td><span class="ui">asignacion_bodega</span></td><td>Qué bodegas puede contar cada auxiliar.</td></tr>
+      <tr><td><span class="ui">bodega</span></td><td>Las zonas y su estado: pendiente, en conteo, en auditoría o cerrada.</td></tr>
+      <tr><td><span class="ui">articulo</span></td><td>El catálogo oficial, con su código.</td></tr>
+      <tr><td><span class="ui">stock_sistema</span></td><td>Lo que el sistema cree que hay, contra lo que se compara el conteo.</td></tr>
+      <tr><td><span class="ui">alias_articulo</span></td><td>Cómo llama la gente a las cosas, contra el nombre oficial. Es lo que hace que «papa criolla» encuentre <span class="dicho">PAPA CRIOLLA PRECOCIDA</span>.</td></tr>
+      <tr><td><span class="ui">sesion_conteo</span></td><td>Una toma de una bodega por una persona. Es el candado que evita conteos duplicados.</td></tr>
+      <tr><td><span class="ui">conteo</span></td><td>Cada renglón contado. Las correcciones no borran: apuntan al anterior con <span class="ui">corrige_a</span>.</td></tr>
+      <tr><td><span class="ui">alerta</span></td><td>Las diferencias que quedaron marcadas durante el conteo.</td></tr>
+      <tr><td><span class="ui">traza</span></td><td>Quién hizo qué y cuándo. Nunca se borra.</td></tr>
+      <tr><td><span class="ui">receta</span> · <span class="ui">receta_ingrediente</span></td><td>Los platos con sus ingredientes y su rendimiento. Es la base del cálculo de pedidos.</td></tr>
+      <tr><td><span class="ui">linea_servicio</span></td><td>Lo pedido contra lo usado en un servicio. Es lo que compara la legalización.</td></tr>
+      <tr><td><span class="ui">aprobacion</span></td><td>Productos y bodegas creados en medio del conteo, esperando el visto bueno.</td></tr>
+      <tr><td><span class="ui">historial_cierre</span></td><td>El cierre de cada bodega, con su doble firma.</td></tr>
+      <tr><td><span class="ui">config_clave</span></td><td>Configuración del sistema por clave y valor: umbral de anomalía, modo sin conexión.</td></tr>
+      <tr><td><span class="ui">archivo_generado</span></td><td>Los reportes que se han sacado, para poder previsualizarlos y volver a descargarlos.</td></tr>
+      <tr><td><span class="ui">mensaje_soporte</span></td><td>La bandeja interna entre auxiliares y administrador.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Cómo se conectan</h3>
+  <p>Tres cadenas explican casi todo el sistema:</p>
+  <table>
+    <thead><tr><th>Cadena</th><th>Recorrido</th></tr></thead>
+    <tbody>
+      <tr><td><b>El conteo</b></td><td><span class="ui">bodega</span> → <span class="ui">sesion_conteo</span> → <span class="ui">conteo</span> → <span class="ui">alerta</span> → <span class="ui">historial_cierre</span>. Una bodega se abre en una sesión, la sesión acumula renglones, los renglones que se salen del umbral generan alertas, y el cierre con doble firma congela el resultado.</td></tr>
+      <tr><td><b>El pedido</b></td><td><span class="ui">receta</span> → <span class="ui">receta_ingrediente</span> → <span class="ui">stock_sistema</span> → <span class="ui">linea_servicio</span>. La receta dice cuánto se necesita por porción, el stock dice cuánto hay, y la diferencia es lo que hay que pedir. Al cerrar el turno, esa misma línea guarda lo que de verdad se usó.</td></tr>
+      <tr><td><b>El nombre</b></td><td>lo dictado → <span class="ui">alias_articulo</span> → <span class="ui">articulo</span>. Es la cadena que convierte «papa criolla» en un código oficial. Cuando no encuentra nada, nace una fila en <span class="ui">aprobacion</span> en vez de detener el conteo.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">Nada se borra</span>
+    <p>Corregir un conteo escribe una fila nueva que apunta a la anterior. Desactivar a una persona pone <span class="ui">activo = 0</span>, no borra la fila. Rechazar una aprobación la deja marcada como rechazada. Un inventario que pierde su historia no sirve para auditar.</p>
+  </div>
+</section>
+
+<!-- ══════════ 7 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">7</span>La API</h2>
+  <p class="seccion-intro">Noventa endpoints en <span class="ui">backend/main.py</span>, agrupados por familia.</p>
+
+  <table>
+    <thead><tr><th>Familia</th><th>Cuántos</th><th>Para qué</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">/api/usuarios</span></td><td>16</td><td>El perfil propio, la administración de cuentas y la asignación de bodegas.</td></tr>
+      <tr><td><span class="ui">/api/bodegas</span></td><td>15</td><td>Listar, abrir, cerrar, detalle y exportaciones.</td></tr>
+      <tr><td><span class="ui">/api/reportes</span></td><td>6</td><td>Generar, previsualizar y descargar.</td></tr>
+      <tr><td><span class="ui">/api/pedidos</span></td><td>6</td><td>Calcular desde la receta, enviar y aprobar.</td></tr>
+      <tr><td><span class="ui">/api/soporte</span></td><td>5</td><td>Reportar un problema, escribirle al administrador y la bandeja.</td></tr>
+      <tr><td><span class="ui">/api/recetas</span></td><td>5</td><td>Mantener los platos y sus ingredientes.</td></tr>
+      <tr><td><span class="ui">/api/articulos</span></td><td>4</td><td>Buscar en el catálogo y consultar existencias.</td></tr>
+      <tr><td><span class="ui">/api/legalizacion</span></td><td>3</td><td>Comparar, ajustar y confirmar el cierre del servicio.</td></tr>
+      <tr><td><span class="ui">/api/aprobaciones</span> · <span class="ui">/api/alertas</span> · <span class="ui">/api/trazabilidad</span></td><td>9</td><td>El control del administrador.</td></tr>
+      <tr><td><span class="ui">/api/agente</span> · <span class="ui">/api/voz</span></td><td>4</td><td>El turno de conversación, el asistente contextual y las voces.</td></tr>
+      <tr><td><span class="ui">/api/panel</span> · <span class="ui">/api/analisis</span> · <span class="ui">/api/ajustes</span></td><td>6</td><td>Indicadores, análisis de consumo y configuración.</td></tr>
+      <tr><td><span class="ui">/api/salud</span></td><td>1</td><td>Estado del sistema. Es el que consulta la pantalla de Ayuda.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Todos exigen un access token válido salvo <span class="ui">/api/salud</span> y <span class="ui">/api/registro-completado</span>. Los que solo puede usar el administrador llevan <span class="ui">Depends(requiere_perfil("auditor"))</span>.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Los errores llegan con sus cabeceras CORS</span>
+    <p>Un error que sale sin las cabeceras de CORS llega al navegador como «error de red», y la pantalla dice «Sin conexión con el servidor. Revise el Wi-Fi» — mandando a buscar el problema en el router mientras el servidor respondía perfecto. Por eso los manejadores de excepción las ponen a mano: para que el error se vea tal cual es.</p>
+  </div>
+</section>
+
+<!-- ══════════ 8 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">8</span>El frontend</h2>
+  <p class="seccion-intro">Catorce vistas, una barra lateral y un puñado de módulos compartidos.</p>
+
+  <h3>Cómo está organizado</h3>
+  <table>
+    <thead><tr><th>Archivo</th><th>De qué responde</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">App.jsx</span></td><td>El menú (<span class="ui">MENU</span>), qué vista está activa, la sesión y el contexto que se pasa a las vistas.</td></tr>
+      <tr><td><span class="ui">vistas/</span></td><td>Las 14 pantallas, una por archivo.</td></tr>
+      <tr><td><span class="ui">api.js</span></td><td>Todas las llamadas al backend, y <span class="ui">esFalloRed</span>, que distingue un fallo de red de un error del servidor.</td></tr>
+      <tr><td><span class="ui">cognito.js</span></td><td>Registro, ingreso, clave y verificación en dos pasos.</td></tr>
+      <tr><td><span class="ui">voz.js</span></td><td>Escuchar y hablar.</td></tr>
+      <tr><td><span class="ui">interpreteLocal.js</span></td><td>El intérprete del modo sin conexión.</td></tr>
+      <tr><td><span class="ui">colaOffline.js</span></td><td>La cola de conteos pendientes de sincronizar.</td></tr>
+      <tr><td><span class="ui">accesibilidad.js</span></td><td>Alto contraste y tamaño de letra.</td></tr>
+      <tr><td><span class="ui">tutorial.js</span> · <span class="ui">VideoRecorrido.jsx</span></td><td>El recorrido en video que se abre al ingresar.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>El menú es la única fuente de verdad de la navegación</h3>
+  <p>La lista <span class="ui">MENU</span> de <span class="ui">App.jsx</span> define el orden, el título, la vista y si la opción es solo del administrador (<span class="ui">soloAuditor: true</span>). Agregar una pantalla es agregar una entrada ahí y su componente en <span class="ui">vistas/</span>.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Quien desplaza es <span class="ui">.contenido</span>, no la ventana</span>
+    <p>El contenedor raíz ocupa <span class="ui">100dvh</span> y el que tiene la barra de desplazamiento es <span class="ui">.contenido</span>. Un <span class="ui">window.scrollTo</span> no mueve nada. Vale la pena saberlo antes de perder una tarde.</p>
+  </div>
+</section>
+
+<!-- ══════════ 9 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">9</span>Trabajar sin conexión</h2>
+  <p class="seccion-intro">Lo que pasa cuando se cae el internet en plena bodega.</p>
+
+  <p>El conteo no se detiene. El navegador dispara el evento <span class="dicho">offline</span>, la pantalla de Conteo cambia sola a un formulario de respaldo, y lo que se registre se guarda en <span class="ui">localStorage</span> bajo la clave de <b>la sesión de conteo activa</b>. Un aviso muestra cuántos registros quedan pendientes, tanto en la pantalla como en la barra lateral.</p>
+
+  <p>Al volver la señal, el evento <span class="dicho">online</span> dispara la sincronización: cada renglón se reenvía y se confirma, y <b>solo se saca de la cola lo que de verdad se confirmó</b>. Si uno falla, o vuelve a caerse la red a mitad, el resto queda guardado para el próximo intento — antes, cualquier falla borraba toda la cola sin distinguir qué alcanzó a guardarse.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">La cola va por sesión de conteo, no por usuario</span>
+    <p>La clave es <span class="ui">cv_offline_&lt;sesionId&gt;</span>. Sin una bodega abierta no hay sesión, y por lo tanto no hay dónde encolar: el modo sin conexión solo tiene sentido dentro de un conteo en curso.</p>
+  </div>
+</section>
+
+<!-- ══════════ 10 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">10</span>Reportes y archivos</h2>
+  <p class="seccion-intro">Seis salidas, repartidas en las pantallas a las que pertenecen.</p>
+
+  <table>
+    <thead><tr><th>Archivo</th><th>Se genera desde</th></tr></thead>
+    <tbody>
+      <tr><td>Consolidado para My Inventory</td><td>Reportes › Consolidado de la toma</td></tr>
+      <tr><td>Diferencias por bodega</td><td>Reportes › Consolidado de la toma</td></tr>
+      <tr><td>Análisis de consumo</td><td>Reportes › Análisis de consumo</td></tr>
+      <tr><td>Estado del tablero</td><td>Bodegas</td></tr>
+      <tr><td>Detalle de una bodega</td><td>Bodegas › detalle</td></tr>
+      <tr><td>Registro de trazabilidad</td><td>Ajustes › Registro de trazabilidad</td></tr>
+    </tbody>
+  </table>
+
+  <p>Todo lo generado queda en <span class="ui">archivo_generado</span>, así que se puede <b>previsualizar en pantalla antes de descargar</b> y volver a bajar después. Los archivos salen en XLSX con <span class="ui">openpyxl</span>, con los códigos oficiales del catálogo — que es lo que My Inventory espera recibir.</p>
+</section>
+
+<!-- ══════════ 11 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">11</span>Trazabilidad y auditoría</h2>
+  <p class="seccion-intro">Cómo se responde a «¿quién cambió esto?».</p>
+
+  <p>Cada acción con consecuencia llama a <span class="ui">registrar(usuario, accion, detalle, nivel)</span>, que escribe en <span class="ui">traza</span>. Ahí quedan los conteos, las correcciones, las aprobaciones, los cierres, los reportes de soporte y los mensajes. El administrador lo consulta y lo exporta desde <span class="ui">Ajustes › Registro de trazabilidad</span>.</p>
+
+  <h3>Las cuatro pestañas de Auditoría</h3>
+  <table>
+    <thead><tr><th>Pestaña</th><th>Qué resuelve</th></tr></thead>
+    <tbody>
+      <tr><td>Recuento ciego y cierre</td><td>Volver a contar una bodega <b>sin ver</b> los números del auxiliar. La comparación solo se revela al terminar, y el cierre lleva doble firma.</td></tr>
+      <tr><td>Aprobaciones</td><td>Los productos y bodegas que alguien creó en medio del conteo para no detenerse. Al aprobarlos entran al catálogo con su código definitivo.</td></tr>
+      <tr><td>Pedidos pendientes</td><td>Autorizar lo solicitado antes de que salga del almacén.</td></tr>
+      <tr><td>Bandeja de alertas</td><td>Las diferencias marcadas durante el conteo, agrupadas por tipo.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso dato">
+    <span class="rotulo">Por qué el recuento es ciego</span>
+    <p>Si quien audita ve el número del primer conteo, lo confirma. El sesgo de anclaje convierte la auditoría en un trámite. Ocultar el dato hasta el final es lo que hace que la segunda pasada valga algo.</p>
+  </div>
+</section>
+
+<!-- ══════════ 12 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">12</span>Pruebas</h2>
+  <p class="seccion-intro">Qué hay, cómo se corre y qué cubre.</p>
+
+  <table>
+    <thead><tr><th>Suite</th><th>Cómo se corre</th><th>Qué cubre</th></tr></thead>
+    <tbody>
+      <tr><td><b>Backend</b><br>128 pruebas</td><td><span class="ui">cd backend</span><br><span class="ui">python -m pytest tests/ -q</span></td><td>El agente y sus conversaciones, el intérprete, la conciliación, las recetas, la seguridad y las regresiones de legalización.</td></tr>
+      <tr><td><b>Frontend</b><br>5 archivos</td><td><span class="ui">cd frontend</span><br><span class="ui">npm test</span></td><td>Lógica pura: intérprete local, cola sin conexión, accesibilidad, confirmación por voz y tutorial.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Las pruebas de backend usan <span class="ui">conftest.py</span> con una base en memoria, así que no tocan <span class="ui">cuentavoz.db</span>. Las de frontend usan <span class="ui">node:test</span>, sin infraestructura de renderizado: se prueba la lógica que no depende del DOM.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Las pruebas con nombre <span class="dicho">regresiones</span> no son opcionales</span>
+    <p><span class="ui">test_regresiones_seguridad.py</span> y <span class="ui">test_regresiones_legalizacion.py</span> existen porque esos fallos ya ocurrieron una vez. Si una de ellas se pone en rojo, no es una prueba frágil: es el mismo error volviendo.</p>
+  </div>
+</section>
+
+<!-- ══════════ 13 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">13</span>Despliegue</h2>
+  <p class="seccion-intro">Cómo llega esto a producción.</p>
+
+  <p>El despliegue está descrito en <span class="ui">render.yaml</span> y detallado en <span class="ui">DESPLIEGUE.md</span>. Son tres servicios en Render:</p>
+  <table>
+    <thead><tr><th>Servicio</th><th>Tipo</th><th>Qué es</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">cuentavoz-db</span></td><td>PostgreSQL</td><td>La base de producción.</td></tr>
+      <tr><td><span class="ui">cuentavoz-api</span></td><td>Web (Python)</td><td>El backend con Uvicorn.</td></tr>
+      <tr><td><span class="ui">cuentavoz</span></td><td>Estático</td><td>El build del frontend, con reescritura para que las rutas de la aplicación funcionen.</td></tr>
+    </tbody>
+  </table>
+
+  <p>La misma base de código sirve en local y en producción: lo único que cambia es <span class="ui">DB_URL</span> y las llaves. Las credenciales se cargan como variables de entorno del servicio, nunca en el repositorio.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">El servidor se duerme</span>
+    <p>En el plan gratuito de Render el backend entra en reposo tras un rato sin tráfico, y la primera petición puede tardar hasta un minuto. Por eso las pantallas que dependen de la red avisan «el servidor estaba en reposo y está despertando» en vez de dar un error seco.</p>
+  </div>
+</section>
+
+<!-- ══════════ 14 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">14</span>Decisiones de diseño</h2>
+  <p class="seccion-intro">Por qué las cosas son como son. Útil antes de cambiarlas.</p>
+
+  <table>
+    <thead><tr><th>Decisión</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td><b>Confirmar siempre antes de guardar</b></td><td>El reconocimiento de voz se equivoca. Un inventario con datos que nadie aprobó es peor que no tener inventario.</td></tr>
+      <tr><td><b>Nunca sobrescribir</b></td><td>Sin el valor anterior no hay auditoría posible.</td></tr>
+      <tr><td><b>Intérprete local además de Gemini</b></td><td>Una bodega con mala señal, o una cuota agotada, no pueden dejar a nadie sin poder contar.</td></tr>
+      <tr><td><b>La clave la guarda Cognito</b></td><td>Lo que no se almacena no se puede filtrar.</td></tr>
+      <tr><td><b>Permisos también en el endpoint</b></td><td>Ocultar una opción del menú no es seguridad.</td></tr>
+      <tr><td><b>El auxiliar no ve pantallas que no puede usar</b></td><td>Mostrarle Ajustes en solo lectura le enseña controles que no puede tocar y hace ver la herramienta más complicada de lo que es para él.</td></tr>
+      <tr><td><b>Los reportes se previsualizan</b></td><td>Descargar el archivo equivocado y cargarlo a My Inventory cuesta más que un clic de más.</td></tr>
+      <tr><td><b>Un mensaje se responde una sola vez</b></td><td>Dos respuestas al mismo mensaje pisaban la anterior en silencio, y quien ya la había leído no se enteraba del cambio.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════ 15 ══════════ -->
+<section>
+  <h2 class="seccion"><span class="num">15</span>Cuando algo falla</h2>
+  <p class="seccion-intro">Los tropiezos más frecuentes, y qué revisar primero.</p>
+
+  <table>
+    <thead><tr><th>Síntoma</th><th>Causa probable</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td>«Sesión inválida o vencida» al entrar</td><td>Quedó un token viejo en <span class="ui">localStorage</span>.</td><td>Limpiar el almacenamiento del sitio y volver a entrar.</td></tr>
+      <tr><td>El navegador dice «error de red» pero el servidor responde</td><td>El origen no está en la lista de CORS.</td><td>Agregarlo a <span class="ui">ORIGEN_PERMITIDO</span> y reiniciar el backend.</td></tr>
+      <tr><td>El agente entiende menos de lo esperado</td><td>No hay <span class="ui">GOOGLE_API_KEY</span>: está corriendo el intérprete local.</td><td>Ponerla en el <span class="ui">.env</span>. Lo confirma <span class="ui">Ayuda › Estado del sistema</span>.</td></tr>
+      <tr><td>Un auxiliar no ve su bodega</td><td>No se la asignaron.</td><td><span class="ui">Ajustes › Gestión de usuarios</span> › asignar bodegas.</td></tr>
+      <tr><td>La primera petición tarda un minuto</td><td>El servidor estaba en reposo.</td><td>Esperar. La aplicación ya lo avisa en pantalla.</td></tr>
+      <tr><td>El correo al administrador no sale</td><td>No hay <span class="ui">BREVO_API_KEY</span>.</td><td>Es esperado: el mensaje igual queda en la bandeja y en la trazabilidad.</td></tr>
+      <tr><td>Una prueba de <span class="dicho">regresiones</span> se pone en rojo</td><td>Volvió un fallo que ya se había corregido.</td><td>No ajustar la prueba. Arreglar el código.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cierre">
+    <div class="col">
+      <b>CuentaVoz · Tu voz cuenta</b>
+      <p>Guía técnica, versión 5.0 — agosto de 2026. Elaborada por el equipo StockXperts para la operación de bodegas de Colsubsidio.</p>
+    </div>
+    <div class="col">
+      <b>El código manda</b>
+      <p>Esta guía explica el porqué y el cómo, no reemplaza al repositorio. Cuando una y otro no coincidan, el código tiene la razón — y esta guía tiene un error que vale la pena corregir.</p>
+    </div>
+  </div>
+</section>
