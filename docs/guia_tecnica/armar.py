@@ -42,7 +42,16 @@ import codigo as _codigo
 REPO = os.path.dirname(RAIZ)                       # la raiz del repositorio
 apendice, n_archivos, n_lineas = _codigo.generar(REPO)
 cuerpo = cuerpo.rstrip() + "\n\n" + apendice
-estilos = estilos.replace("</style>", _codigo.ESTILO + "</style>")
+
+# El manual limita las figuras a 104 mm de alto para que una captura muy
+# vertical no empuje a la pagina siguiente el texto que la explica. En la
+# guia tecnica la captura ES el contenido, y las de tablet son altas: con
+# ese tope salian encogidas y centradas, con franjas blancas a los lados.
+ESTILO_FIGURAS = """
+  /* ── figuras de la guia: mas altas que en el manual ──────────────── */
+  figure img{ max-height:168mm; }
+"""
+estilos = estilos.replace("</style>", _codigo.ESTILO + ESTILO_FIGURAS + "</style>")
 
 guia = ("<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<title>Guía técnica · CuentaVoz</title>\n"

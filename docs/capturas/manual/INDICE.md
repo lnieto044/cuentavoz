@@ -1,9 +1,17 @@
 # Índice de capturas para el manual
 
 Todas las capturas están tomadas en **modo tablet** (viewport 820×1180 @2x)
-contra producción (`https://cuentavoz.onrender.com`), con datos reales de
-la demo — ninguna es un mockup ni tiene datos inventados. Cada imagen está
-recortada a su alto real de contenido (sin recortes a mitad de pantalla).
+contra la aplicación de verdad, con datos reales de la demo — ninguna es un
+mockup ni tiene datos inventados. Cada imagen está recortada a su alto real
+de contenido (sin recortes a mitad de pantalla).
+
+> **Cómo se refrescan.** `node docs/capturas/recapturar.js` vuelve a tomar
+> las 32 principales (las 14 de `tablet/` y las pestañas y modales más
+> usados de `manual/`) contra la aplicación corriendo en local. Necesita
+> Playwright con Chromium. Las demás —estados sin conexión, errores,
+> desambiguaciones— se toman a mano porque hay que provocarlas.
+>
+> Última pasada automática: **24 de agosto de 2026**.
 
 Son 61 capturas en total (14 vistas de menú + 47 sub-pantallas, pestañas
 y modales), repartidas en dos carpetas para no duplicar fotos iguales:
