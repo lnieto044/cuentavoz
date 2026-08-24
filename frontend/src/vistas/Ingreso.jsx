@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { pedir } from "../api";
+import { pedir, esFalloRed } from "../api";
 import {
   registrarse, reenviarCodigoRegistro, confirmarRegistro, iniciarSesion,
   confirmarCodigoMFA, recuperarClave, confirmarNuevaClave, obtenerAtributosUsuario,
@@ -37,30 +37,41 @@ function esCognitoNoDisponible(e) {
   return e.message === "No se pudo verificar su sesion en este momento. Intente de nuevo.";
 }
 
-async function perfilConReintento(token) {
+/** Reintenta lo que falló por algo pasajero, no por culpa de quien ingresa.
+    Dos casos, los dos reales:
+    - El backend vive en el plan gratuito de Render: si lleva 15 minutos sin
+      tráfico se duerme, y la petición que lo despierta tarda 30-50 segundos
+      o se corta en seco. Sin esto, quien se está registrando ve el botón
+      congelado en «Confirmando…», y al reintentar un «Sin conexión con el
+      servidor» que además es falso - su Wi-Fi está bien, el servidor estaba
+      dormido.
+    - Cognito no respondió al verificar el token (ver seguridad.py).
+    alEsperar avisa a la pantalla para que diga qué está pasando en vez de
+    dejar un botón mudo. */
+async function conPaciencia(fn, alEsperar) {
   for (let intento = 1; ; intento++) {
     try {
-      return await pedir("/api/usuarios/yo", {}, token);
+      return await fn();
     } catch (e) {
-      if (!esCognitoNoDisponible(e) || intento >= 3) throw e;
-      await new Promise((r) => setTimeout(r, 700 * intento));
+      if ((!esFalloRed(e) && !esCognitoNoDisponible(e)) || intento >= 4) throw e;
+      alEsperar?.(intento);
+      await new Promise((r) => setTimeout(r, 1500 * intento));
     }
   }
 }
 
-async function sesionCompleta(token) {
+async function sesionCompleta(token, alEsperar) {
+  const perfil = () => conPaciencia(() => pedir("/api/usuarios/yo", {}, token), alEsperar);
   try {
-    const perfil = await perfilConReintento(token);
-    return { token, usuario: perfil };
+    return { token, usuario: await perfil() };
   } catch (e) {
     if (e.message !== "Usuario no reconocido.") throw e;
     const atributos = await obtenerAtributosUsuario();
-    await pedir("/api/registro-completado", {
+    await conPaciencia(() => pedir("/api/registro-completado", {
       method: "POST",
       body: JSON.stringify({ nombre_completo: atributos.nombreCompleto, correo: atributos.correo }),
-    }, token);
-    const perfil = await perfilConReintento(token);
-    return { token, usuario: perfil };
+    }, token), alEsperar);
+    return { token, usuario: await perfil() };
   }
 }
 
@@ -101,6 +112,13 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   // del servidor...).
   const [errCampo, setErrCampo] = useState({});
   const [cargando, setCargando] = useState(false);
+  // Lo que está pasando mientras se espera - solo aparece si de verdad hay
+  // que esperar (servidor dormido, ver conPaciencia), para que el botón no
+  // se quede mudo y parezca colgado.
+  const [avisoEspera, setAvisoEspera] = useState("");
+  const avisarEspera = () =>
+    setAvisoEspera("El servidor estaba en reposo y está despertando. "
+                   + "Esto puede tardar hasta un minuto la primera vez…");
   const [perfil, setPerfil] = useState(null);
 
   /** onChange que además borra el error de ESE campo apenas la persona
@@ -147,7 +165,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
 
   function cambiarModo(nuevo) {
     setModo(nuevo);
-    setErr(""); setErrCampo({}); setReenviado(false);
+    setErr(""); setErrCampo({}); setReenviado(false); setAvisoEspera("");
   }
 
   async function entrar(e) {
@@ -166,7 +184,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
         setModo("login-mfa");
         return;
       }
-      alEntrar(await sesionCompleta(r.token));
+      alEntrar(await sesionCompleta(r.token, avisarEspera));
     } catch (e2) {
       if (esCuentaPendiente(e2)) {
         setModo("registro-pendiente");
@@ -187,6 +205,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       }
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -198,12 +217,13 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     setCargando(true);
     try {
       const token = await confirmarCodigoMFA(mfaPendiente, codigoMFA.trim());
-      alEntrar(await sesionCompleta(token));
+      alEntrar(await sesionCompleta(token, avisarEspera));
     } catch (e2) {
       if (esCuentaPendiente(e2)) setModo("registro-pendiente");
       else setErr(e2.message);
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -230,6 +250,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setErr(e2.message);
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -277,13 +298,14 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       // activar la verificación en dos pasos - más fácil que alguien la
       // active aquí, recién registrado, que que se acuerde de ir a
       // buscarla después en Mi perfil.
-      setSesionPendiente(await sesionCompleta(token));
+      setSesionPendiente(await sesionCompleta(token, avisarEspera));
       setModo("registro-mfa");
     } catch (e2) {
       if (esCuentaPendiente(e2)) setModo("registro-pendiente");
       else setErr(e2.message);
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -301,6 +323,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setErr(e2.message);
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -338,6 +361,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setErr(e2.message);
     } finally {
       setCargando(false);
+      setAvisoEspera("");
     }
   }
 
@@ -401,6 +425,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             </div>
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Entrando…" : "ENTRAR"}
@@ -430,6 +455,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             {errCampo.codigoMFA && <span className="error-campo" role="alert">{errCampo.codigoMFA}</span>}
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Verificando…" : "VERIFICAR Y ENTRAR"}
@@ -493,6 +519,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             <ChecklistClave clave={clave} />
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Creando cuenta…" : "CREAR CUENTA"}
@@ -517,6 +544,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             {errCampo.codigo && <span className="error-campo" role="alert">{errCampo.codigo}</span>}
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Confirmando…" : "CONFIRMAR Y ENTRAR"}
@@ -563,6 +591,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             {errCampo.usuario && <span className="error-campo" role="alert">{errCampo.usuario}</span>}
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Enviando…" : "ENVIAR CÓDIGO"}
@@ -600,6 +629,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
             {errCampo.claveNueva2 && <span className="error-campo" role="alert">{errCampo.claveNueva2}</span>}
 
             {err && <span className="error" role="alert">{err}</span>}
+            {avisoEspera && <span className="pista" role="status">{avisoEspera}</span>}
 
             <button className="btn" type="submit" disabled={cargando}>
               {cargando ? "Guardando…" : "GUARDAR CLAVE NUEVA"}
