@@ -179,6 +179,22 @@ La interfaz de CuentaVoz utiliza un diseño responsivo que se adapta a:
 -  📱 Celulares.
 -  💻 Computadores.
 
+## 🎬 Recorrido narrado, uno por rol
+
+<sub>Es el mismo video que la aplicación abre sola la primera vez que alguien
+ingresa, y que queda siempre a la mano en <b>Ayuda › Ver el recorrido en
+video</b>. Cada uno recorre únicamente las pantallas de su perfil, con sus
+pestañas completas y haciendo las cosas de verdad contra la aplicación: se
+dicta un conteo y se confirma, se genera un reporte, se responde un mensaje.</sub>
+
+| Rol | Duración | Qué recorre |
+| --- | --- | --- |
+| **[👷 Auxiliar de inventarios](frontend/public/recorrido-auxiliar.mp4)** | 4:43 | Ingreso · Inicio · Pedidos · Conteo · Legalización · Bodegas · Ayuda (escribirle al administrador y reportar un problema) · Mensajes · Mi perfil · y qué pasa cuando se cae la señal en plena bodega |
+| **[🧑‍💼 Administrador de bodega](frontend/public/recorrido-administrador.mp4)** | 6:56 | Todo lo anterior más Auditoría (sus 4 pestañas) · Reportes (2) · Panel (2) · Ajustes (4) · aprobar pedidos y productos · responderle al equipo |
+
+<sub>GitHub no reproduce estos MP4 dentro de la página: dele clic al nombre del
+rol para abrirlo, o descárguelo desde <code>frontend/public/</code>.</sub>
+
 ## 🎥 Recorrido animado por las 14 pantallas principales
 
 <sub>Cada GIF recorre el menú completo (Ingreso → Inicio → Pedidos → Conteo →
@@ -487,7 +503,7 @@ Detalle técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 | 🧭 **Arquitectura**          | Estructura del código, dependencias y modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)**           |
 | 🤖 **Guía técnica**          | Construcción y funcionamiento del agente → **[PDF](docs/capturas/Guia_Tecnica_Agente_CuentaVoz_V4.pdf)** |
 | 📖 **Manual de usuario**     | Guía de capacitación para el personal de bodega, 25 pág. → **[PDF](docs/Manual_Usuario_CuentaVoz_V2.pdf)** · fuente → **[Markdown](docs/Manual_Usuario.md)** |
-| 🎬 **Recorrido en video**    | Recorrido narrado, uno por rol — el mismo que la aplicación abre al ingresar: **[Auxiliar de inventarios, 4:30](frontend/public/recorrido-auxiliar.mp4)** · **[Administrador de bodega, 6:56](frontend/public/recorrido-administrador.mp4)** |
+| 🎬 **Recorrido en video**    | Recorrido narrado, uno por rol — el mismo que la aplicación abre al ingresar: **[Auxiliar de inventarios, 4:43](frontend/public/recorrido-auxiliar.mp4)** · **[Administrador de bodega, 6:56](frontend/public/recorrido-administrador.mp4)** |
 | 🎞️ **Presentación**         | Presentación general del proyecto → **[PPTX](docs/capturas/CuentaVoz_Colsubsidio_V1.pptx)**              |
 | 🌐 **Demo en línea**         | Aplicación desplegada → **https://cuentavoz.onrender.com**                                               |
 | 🎥 **Video de demostración** | Recorrido y funcionamiento del proyecto → **https://www.youtube.com/watch?v=4tSRTV5POd4**                |
