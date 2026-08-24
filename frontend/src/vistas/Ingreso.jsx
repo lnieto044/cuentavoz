@@ -197,6 +197,15 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     setErr(""); setErrCampo({}); setReenviado(false); setAvisoEspera("");
   }
 
+  /** Cierra el registro después del paso de la verificación en dos pasos,
+      se haya activado o saltado. Si hay sesión lista, entra; si no la hay
+      es porque la cuenta espera aprobación de un auditor, y entonces se
+      explica eso en vez de dejarla en una pantalla sin salida. */
+  function terminarRegistro() {
+    if (sesionPendiente) alEntrar(sesionPendiente);
+    else cambiarModo("registro-pendiente");
+  }
+
   async function entrar(e) {
     e?.preventDefault();
     setErr("");
@@ -334,8 +343,18 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setSesionPendiente(await sesionCompleta(token, avisarEspera));
       setModo("registro-mfa");
     } catch (e2) {
-      if (esCuentaPendiente(e2)) setModo("registro-pendiente");
-      else setErr(e2.message);
+      if (esCuentaPendiente(e2)) {
+        // La cuenta quedó esperando el visto bueno de un auditor, así que
+        // todavía no puede entrar - pero eso NO es motivo para saltarse el
+        // paso de la verificación en dos pasos: activarla solo necesita la
+        // sesión de Cognito, que sí existe. Se ofrece igual y al terminar
+        // (o al saltarla) se explica lo de la aprobación, en vez de perder
+        // el único momento en que a alguien le queda cómodo activarla.
+        setSesionPendiente(null);
+        setModo("registro-mfa");
+      } else {
+        setErr(e2.message);
+      }
     } finally {
       setCargando(false);
       setAvisoEspera("");
@@ -593,8 +612,8 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
               activar o desactivar después desde Mi perfil.
             </p>
             <ConfigurarMFA nombreUsuario={usuario.trim()}
-                           onActivado={() => alEntrar(sesionPendiente)}
-                           onCancelar={() => alEntrar(sesionPendiente)}
+                           onActivado={terminarRegistro}
+                           onCancelar={terminarRegistro}
                            textoCancelar="Ahora no" />
           </div>
         )}
