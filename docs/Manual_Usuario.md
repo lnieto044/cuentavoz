@@ -96,10 +96,6 @@ número no cuadra con lo esperado.
 - **Aprobaciones**: productos y bodegas nuevas que un auxiliar contó pero
   no existían todavía en el catálogo — apruebe o rechace cada uno
   (![aprobaciones](capturas/manual/auditoria-aprobaciones.png)).
-- **Cuentas nuevas pendientes**: alguien que se registró por su cuenta no
-  puede entrar hasta que usted apruebe su registro y le asigne perfil
-  (auxiliar o administrador) — vea la pestaña correspondiente, mismo lugar
-  que las aprobaciones de productos/bodegas.
 - **Bandeja de alertas** y **Pedidos pendientes**: diferencias por revisar
   y pedidos por confirmar.
 

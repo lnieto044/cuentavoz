@@ -9,7 +9,6 @@ import Icono from "../Iconos";
 const TABS = [
   { id: "recuento", t: "Recuento ciego y cierre" },
   { id: "aprobaciones", t: "Aprobaciones" },
-  { id: "usuarios-pendientes", t: "Cuentas nuevas" },
   { id: "pedidos", t: "Pedidos pendientes" },
   { id: "alertas", t: "Bandeja de alertas" },
 ];
@@ -72,7 +71,6 @@ export default function Auditoria({ token, usuario, ir, tabInicial, bodegaAudita
         <TabRecuento token={token} esAuditor={esAuditor} onEnFoco={setEnFoco}
                     bodegaAuditar={bodegaAuditar} navSeq={navSeq} />}
       {tab === "aprobaciones" && <TabAprobaciones token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
-      {tab === "usuarios-pendientes" && <TabUsuariosPendientes token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "pedidos" && <TabPedidosPendientes token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
       {tab === "alertas" && <TabAlertas token={token} esAuditor={esAuditor} onEnFoco={setEnFoco} />}
     </Marco>
@@ -702,112 +700,6 @@ function TabAprobaciones({ token, esAuditor, onEnFoco }) {
         conteo asociado deja de estar marcado. Mientras tanto el conteo nunca se
         detiene: la aprobación ocurre en paralelo al trabajo en bodega.
       </p>
-    </div>
-  );
-}
-
-/* ── Cuentas que se autoregistraron y esperan que un auditor les asigne
-   perfil antes de poder entrar (ver main.py: registro_completado) - mismo
-   patrón que TabAprobaciones, con un selector de perfil extra. ── */
-function TabUsuariosPendientes({ token, esAuditor, onEnFoco }) {
-  const [lista, setLista] = useState(null);
-  const [msg, setMsg] = useState("");
-  const [saludo, setSaludo] = useState("");
-  const [perfilElegido, setPerfilElegido] = useState({});
-  const yaSaludo = useRef(false);
-
-  function cargar() {
-    pedir("/api/usuarios/pendientes-aprobacion", {}, token).then(setLista)
-      .catch((e) => { setLista([]); setMsg(e.message); });
-  }
-  useEffect(cargar, [token]);
-  useEffect(() => {
-    window.addEventListener("cuentavoz:auditoria-actualizada", cargar);
-    return () => window.removeEventListener("cuentavoz:auditoria-actualizada", cargar);
-  }, [token]);
-
-  useEffect(() => {
-    onEnFoco({ titulo: "Cuentas nuevas pendientes de aprobación",
-              chip: { texto: lista === null ? "…" : `${lista.length} PENDIENTES`, tipo: "borde oro" } });
-  }, [lista]);
-
-  useEffect(() => {
-    if (lista === null || yaSaludo.current) return;
-    yaSaludo.current = true;
-    let texto;
-    if (lista.length === 0) {
-      texto = "No hay cuentas nuevas pendientes.";
-    } else if (lista.length === 1) {
-      texto = `Hay una cuenta nueva pendiente: ${lista[0].nombre}. ¿Quiere aprobarla o rechazarla?`;
-    } else {
-      const nombres = lista.slice(0, 5).map((p) => p.nombre).join(", ");
-      texto = `Hay ${lista.length} cuentas nuevas pendientes: ${nombres}. ¿Cuál quiere aprobar o rechazar?`;
-    }
-    setSaludo(texto);
-    hablar(texto);
-  }, [lista]);
-
-  async function resolver(id, accion, cuerpo) {
-    try {
-      await pedir(`/api/usuarios/${id}/${accion}`,
-        { method: "POST", body: cuerpo ? JSON.stringify(cuerpo) : undefined }, token);
-      setMsg(accion === "aprobar-registro" ? "Cuenta aprobada." : "Registro rechazado.");
-      cargar();
-    } catch (e) { setMsg(e.message); }
-  }
-
-  if (!esAuditor) return null;
-
-  return (
-    <div className="card">
-      <p className="pista" style={{ marginTop: 0 }}>
-        Personas que se registraron por su cuenta y esperan que usted les asigne perfil antes de poder entrar.
-      </p>
-      {saludo && (
-        <>
-          <p className="rotulo">CuentaVoz responde</p>
-          <p className="burbuja" style={{ marginBottom: 12 }}
-             aria-live="polite" aria-atomic="true">{saludo}</p>
-        </>
-      )}
-      {msg && <p className="msg-ok">{msg}</p>}
-      {lista === null ? (
-        <p className="cargando">Cargando…</p>
-      ) : lista.length === 0 ? (
-        <p className="vacio">Nada pendiente de aprobación.</p>
-      ) : (
-        lista.map((p) => (
-          <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 14,
-                                   flexWrap: "wrap",
-                                   border: "1px solid var(--borde)", borderRadius: 10,
-                                   padding: "12px 14px", marginBottom: 10 }}>
-            <span style={{ flex: 1, minWidth: 200 }}>
-              <b style={{ color: "var(--azul)", textTransform: "capitalize" }}>{p.nombre}</b>
-              <br />
-              <small style={{ color: "var(--grafito)" }}>{p.correo || "sin correo"}</small>
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <select value={perfilElegido[p.id] || "auxiliar"}
-                      onChange={(e) => setPerfilElegido({ ...perfilElegido, [p.id]: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--borde)", borderRadius: 8 }}>
-                <option value="auxiliar">Auxiliar de inventarios</option>
-                <option value="auditor">Administrador de bodega</option>
-              </select>
-              <button className="btn gris" onClick={() => resolver(p.id, "rechazar-registro")}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Icono nombre="rechazar" tam={16} />
-                Rechazar
-              </button>
-              <button className="btn verde"
-                      onClick={() => resolver(p.id, "aprobar-registro", { perfil: perfilElegido[p.id] || "auxiliar" })}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Icono nombre="aprobar" tam={16} />
-                Aprobar
-              </button>
-            </span>
-          </div>
-        ))
-      )}
     </div>
   );
 }

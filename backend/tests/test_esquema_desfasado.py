@@ -56,7 +56,8 @@ def test_el_autoregistro_inserta_sin_clave_hash(
     with Sesion() as s:
         fila = s.query(Usuario).filter_by(nombre="autoregistrada").one()
         assert fila.clave_hash is None
-        assert fila.activo == 0 and fila.aprobado == 0
+        # entra de una: sin espera de aprobacion de un administrador
+        assert fila.activo == 1
 
 
 def test_un_500_llega_con_cabeceras_cors(app_modulos: object) -> None:

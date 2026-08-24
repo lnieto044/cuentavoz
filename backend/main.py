@@ -372,12 +372,14 @@ def registro_completado(request: Request, datos: RegistroCompletadoIn,
     autoasignarse el perfil de auditor solo registrandose, ese ascenso
     lo hace un administrador despues desde Ajustes.
 
-    La fila queda inactiva (activo=0, aprobado=0) hasta que un auditor la
-    apruebe (ver aprobar_registro/rechazar_registro, mas abajo) - Cognito
-    ya verifico el correo, pero eso no es lo mismo que decidir si esa
-    persona debe tener acceso a los datos de inventario de Colsubsidio.
-    usuario_actual() (seguridad.py) ya rechaza cualquier activo=0, asi que
-    el bloqueo real no necesita logica nueva ahi - solo esta fila."""
+    La cuenta queda ACTIVA de inmediato: quien confirmo el codigo que
+    Cognito le mando al correo ya puede entrar, sin esperar a que un
+    administrador la habilite. Se probo la variante con aprobacion previa
+    y se descarto por decision de producto - agregaba una espera entre
+    registrarse y poder trabajar que no compensaba, dado que el perfil
+    siempre nace como auxiliar y sus permisos estan limitados a las
+    bodegas que un auditor le asigne (ver AsignacionBodega). Si alguna vez
+    hay que bloquear a alguien, editar_usuario ya permite desactivarlo."""
     from seguridad import _reclamos_cognito
     reclamos = _reclamos_cognito(token) if token else None
     if reclamos is None:
@@ -392,8 +394,7 @@ def registro_completado(request: Request, datos: RegistroCompletadoIn,
             return {"ok": True, "ya_existia": True}
         nuevo = Usuario(nombre=nombre, perfil="auxiliar",
                         correo=(datos.correo or "").strip(),
-                        codigo=(datos.codigo or "").strip().upper(),
-                        activo=0, aprobado=0)
+                        codigo=(datos.codigo or "").strip().upper())
         s.add(nuevo)
         s.commit()
         s.refresh(nuevo)
@@ -4540,57 +4541,6 @@ def rechazar(aprobacion_id: int, u: Usuario = Depends(requiere_perfil("auditor")
         s.commit()
         nombre = a.nombre
     registrar(u, "APROBACION", f"{nombre} rechazado", "alerta")
-    return {"ok": True}
-
-
-@app.get("/api/usuarios/pendientes-aprobacion")
-def listar_usuarios_pendientes(u: Usuario = Depends(requiere_perfil("auditor"))):
-    """Cuentas que se autoregistraron (ver registro_completado) y siguen
-    esperando que un auditor elija su perfil - aprobado=NULL (cualquier
-    cuenta anterior a este filtro, semilla o creada a mano) nunca aparece
-    aqui, solo aprobado=0."""
-    with Sesion() as s:
-        pendientes = s.query(Usuario).filter_by(aprobado=0).order_by(Usuario.id.desc()).all()
-        return [{"id": p.id, "nombre": p.nombre, "correo": p.correo,
-                 "codigo": p.codigo} for p in pendientes]
-
-
-class AprobarRegistroIn(BaseModel):
-    perfil: str = "auxiliar"
-
-
-@app.post("/api/usuarios/{usuario_id}/aprobar-registro")
-def aprobar_registro(usuario_id: int, datos: AprobarRegistroIn,
-                     u: Usuario = Depends(requiere_perfil("auditor"))):
-    if datos.perfil not in ("auxiliar", "auditor"):
-        raise HTTPException(400, "El perfil debe ser auxiliar o auditor.")
-    with Sesion() as s:
-        p = s.get(Usuario, usuario_id)
-        if p is None or p.aprobado != 0:
-            raise HTTPException(404, "Registro no encontrado o ya resuelto.")
-        p.activo = 1
-        p.aprobado = 1
-        p.perfil = datos.perfil
-        s.commit()
-        nombre = p.nombre
-    registrar(u, "USUARIO", f"{nombre} aprobado como {datos.perfil} tras autoregistro", "ok")
-    return {"ok": True}
-
-
-@app.post("/api/usuarios/{usuario_id}/rechazar-registro")
-def rechazar_registro(usuario_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
-    """No borra la fila ni la identidad de Cognito (mismo principio que el
-    resto de la app: no se borra a nadie) - aprobado=-1 la saca de la
-    lista de pendientes para siempre, y activo se queda en 0, bloqueando
-    el ingreso via usuario_actual() igual que hoy."""
-    with Sesion() as s:
-        p = s.get(Usuario, usuario_id)
-        if p is None or p.aprobado != 0:
-            raise HTTPException(404, "Registro no encontrado o ya resuelto.")
-        p.aprobado = -1
-        s.commit()
-        nombre = p.nombre
-    registrar(u, "USUARIO", f"{nombre} rechazado tras autoregistro", "alerta")
     return {"ok": True}
 
 

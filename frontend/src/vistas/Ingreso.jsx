@@ -22,13 +22,6 @@ const ETIQUETAS_PERFIL = {
     una cuenta "a medias" varado en un 401 sin salida, se autocompleta
     aquí mismo con los datos que Cognito sí tiene (nombre/correo) y se
     reintenta - transparente para quien inicia sesión. */
-// Mismo mensaje exacto que usuario_actual() (seguridad.py) para
-// activo=0 - una cuenta recién autoregistrada (ver /api/registro-
-// completado) queda así hasta que un auditor la apruebe.
-function esCuentaPendiente(e) {
-  return e.message === "Ese usuario esta inactivo.";
-}
-
 // El backend responde esto (503) cuando no pudo consultarle a Cognito las
 // llaves para verificar el token - no es culpa del token ni de la persona
 // (ver seguridad.py: ServicioIdentidadCaido), así que vale la pena
@@ -198,12 +191,9 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   }
 
   /** Cierra el registro después del paso de la verificación en dos pasos,
-      se haya activado o saltado. Si hay sesión lista, entra; si no la hay
-      es porque la cuenta espera aprobación de un auditor, y entonces se
-      explica eso en vez de dejarla en una pantalla sin salida. */
+      se haya activado o saltado: entra directo a la aplicación. */
   function terminarRegistro() {
-    if (sesionPendiente) alEntrar(sesionPendiente);
-    else cambiarModo("registro-pendiente");
+    alEntrar(sesionPendiente);
   }
 
   async function entrar(e) {
@@ -224,9 +214,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       }
       alEntrar(await sesionCompleta(r.token, avisarEspera));
     } catch (e2) {
-      if (esCuentaPendiente(e2)) {
-        setModo("registro-pendiente");
-      } else if (e2.code === "UserNotConfirmedException") {
+      if (e2.code === "UserNotConfirmedException") {
         // se registró antes pero nunca terminó de confirmar el código
         // (cerró la pestaña, se le olvidó...) - en vez de dejarlo
         // varado con un error sin salida, se le reenvía un código
@@ -257,8 +245,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       const token = await confirmarCodigoMFA(mfaPendiente, codigoMFA.trim());
       alEntrar(await sesionCompleta(token, avisarEspera));
     } catch (e2) {
-      if (esCuentaPendiente(e2)) setModo("registro-pendiente");
-      else setErr(e2.message);
+      setErr(e2.message);
     } finally {
       setCargando(false);
       setAvisoEspera("");
@@ -343,18 +330,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       setSesionPendiente(await sesionCompleta(token, avisarEspera));
       setModo("registro-mfa");
     } catch (e2) {
-      if (esCuentaPendiente(e2)) {
-        // La cuenta quedó esperando el visto bueno de un auditor, así que
-        // todavía no puede entrar - pero eso NO es motivo para saltarse el
-        // paso de la verificación en dos pasos: activarla solo necesita la
-        // sesión de Cognito, que sí existe. Se ofrece igual y al terminar
-        // (o al saltarla) se explica lo de la aprobación, en vez de perder
-        // el único momento en que a alguien le queda cómodo activarla.
-        setSesionPendiente(null);
-        setModo("registro-mfa");
-      } else {
-        setErr(e2.message);
-      }
+      setErr(e2.message);
     } finally {
       setCargando(false);
       setAvisoEspera("");
@@ -615,19 +591,6 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
                            onActivado={terminarRegistro}
                            onCancelar={terminarRegistro}
                            textoCancelar="Ahora no" />
-          </div>
-        )}
-
-        {modo === "registro-pendiente" && (
-          <div className="form">
-            <h2>Cuenta creada</h2>
-            <p className="pista">
-              Su cuenta quedó registrada y su correo confirmado. Un administrador debe
-              aprobarla antes de que pueda entrar — le avisaremos cuando esté lista.
-            </p>
-            <button type="button" className="btn" onClick={() => cambiarModo("login")}>
-              Entendido
-            </button>
           </div>
         )}
 
