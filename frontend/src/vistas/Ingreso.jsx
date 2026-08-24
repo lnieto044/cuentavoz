@@ -314,15 +314,19 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       // de registro en esta sesión del navegador - solo Cognito los tiene.
       const atributos = await obtenerAtributosUsuario();
       // crea la fila local (perfil auxiliar, siempre - ver main.py) con
-      // los datos personales que Cognito no guarda.
-      await pedir("/api/registro-completado", {
+      // los datos personales que Cognito no guarda. Con conPaciencia porque
+      // esta es la PRIMERA llamada al backend de todo el registro: si el
+      // servicio estaba dormido (plan gratuito de Render), le toca a ella
+      // despertarlo, y sin reintento fallaba dejando la cuenta a medias -
+      // confirmada en Cognito pero sin fila local.
+      await conPaciencia(() => pedir("/api/registro-completado", {
         method: "POST",
         body: JSON.stringify({
           nombre_completo: atributos.nombreCompleto,
           codigo: codigoEmpleado.trim(),
           correo: atributos.correo,
         }),
-      }, token);
+      }, token), avisarEspera);
       // antes de entrar del todo, se ofrece (opcional, se puede saltar)
       // activar la verificación en dos pasos - más fácil que alguien la
       // active aquí, recién registrado, que que se acuerde de ir a

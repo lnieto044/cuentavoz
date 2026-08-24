@@ -79,7 +79,19 @@ export function reenviarCodigoRegistro(usuario) {
 export function confirmarRegistro(usuario, codigo) {
   return new Promise((resolve, reject) => {
     usuarioCognito(usuario).confirmRegistration(codigo, true, (error, resultado) => {
-      if (error) return reject(mensajeClaro(error));
+      // Si la cuenta YA estaba confirmada, no es un fallo: el objetivo de
+      // esta función es "que quede confirmada", y ya lo está. Pasa de
+      // verdad cuando el código se confirmó bien pero el paso siguiente
+      // (crear la fila local) se cayó - al reintentar, Cognito responde
+      // NotAuthorizedException, que mensajeClaro traduce a "Usuario o clave
+      // incorrectos" y deja a la persona atascada sin salida, culpándola de
+      // un dato que escribió bien. Se trata como exitoso y el flujo sigue.
+      if (error) {
+        const yaConfirmada = error.code === "NotAuthorizedException"
+          && /current status is confirmed/i.test(error.message || "");
+        if (yaConfirmada) return resolve({ yaEstaba: true });
+        return reject(mensajeClaro(error));
+      }
       resolve(resultado);
     });
   });
