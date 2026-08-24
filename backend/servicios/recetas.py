@@ -16,6 +16,24 @@ def _sin_tildes(t: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+def _sin_plural(t: str) -> str:
+    """El chef siempre nombra el plato en plural («cincuenta ajiacos») pero
+    la receta esta guardada en singular («AJIACO SANTAFEREÑO»), asi que la
+    comparacion por substring nunca coincidia: la frase de ejemplo que la
+    propia pantalla de Pedidos sugiere contestaba «no encontre una receta».
+    Se normaliza cada palabra por separado para que «ajiacos santafereños»
+    tambien caiga en la misma forma que el nombre guardado."""
+    palabras = []
+    for p in t.split():
+        if p.endswith("ES") and len(p) > 4:
+            palabras.append(p[:-2])
+        elif p.endswith("S") and len(p) > 3:
+            palabras.append(p[:-1])
+        else:
+            palabras.append(p)
+    return " ".join(palabras)
+
+
 def _buscar_receta(s, preparacion: str):
     objetivo = _sin_tildes(preparacion)
     # menos de 3 letras no alcanza a identificar un plato - una transcripcion
@@ -24,8 +42,10 @@ def _buscar_receta(s, preparacion: str):
     # si el chef de verdad hubiera dictado ese plato.
     if len(objetivo) < 3:
         return None
+    objetivo_sin_plural = _sin_plural(objetivo)
     for r in s.query(Receta).all():
-        if objetivo in _sin_tildes(r.nombre):
+        nombre = _sin_tildes(r.nombre)
+        if objetivo in nombre or objetivo_sin_plural in _sin_plural(nombre):
             return r
     return None
 
