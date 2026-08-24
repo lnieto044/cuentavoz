@@ -259,10 +259,18 @@
 
   <h3>Crear una cuenta</h3>
   <ol class="pasos">
-    <li><b>Toque «Crear una cuenta»</b>en la parte inferior de la pantalla de ingreso.</li>
-    <li><b>Complete sus datos</b>nombre completo, correo corporativo, usuario y clave. El código de empleado es opcional. Los requisitos de la clave se marcan en verde a medida que escribe.</li>
-    <li><b>Confirme el código de su correo</b>CuentaVoz le envía un código de seis dígitos. Ingréselo para verificar que el correo es suyo.</li>
+    <li><b>Toque «Crear una cuenta»</b>en la parte inferior de la pantalla de ingreso, al lado de «Olvidé mi clave».</li>
+    <li><b>Llene sus datos</b>nombre completo, correo corporativo, usuario, y la clave dos veces. El <b>código de empleado es opcional</b>: puede dejarlo vacío y completarlo después desde Mi perfil.</li>
+    <li><b>Mire el marcador de la clave</b>debajo del campo hay cuatro requisitos que se ponen en verde a medida que escribe. Mientras alguno siga en gris, el formulario no deja continuar.</li>
+    <li><b>Toque «Crear cuenta»</b>CuentaVoz envía un código de seis dígitos al correo que escribió. Puede tardar un momento; revise también la carpeta de correo no deseado.</li>
+    <li><b>Escriba el código</b>en la pantalla «Confirmar correo». Esto verifica que la dirección es suya de verdad.</li>
+    <li><b>Decida sobre la verificación en dos pasos</b>al terminar se le ofrece activarla. Puede responder «Ahora no» y activarla más adelante desde Mi perfil.</li>
   </ol>
+
+  <div class="aviso dato">
+    <span class="rotulo">Los cuatro requisitos de la clave</span>
+    <p>Al menos <b>8 caracteres</b>, una <b>letra mayúscula</b>, una <b>letra minúscula</b> y un <b>número</b>. No se exige ningún símbolo. Son exactamente los cuatro que se ven en pantalla: no hay requisitos ocultos que aparezcan solo al enviar el formulario.</p>
+  </div>
 
   <figure>
     <img src="02-crear-cuenta.png" alt="Formulario de creación de cuenta">
@@ -271,7 +279,19 @@
 
 
   <h3>Olvidé mi clave</h3>
-  <p>Toque <span class="ui">Olvidé mi clave</span>, escriba su usuario y recibirá un código en el correo registrado. Con ese código define una clave nueva, sin necesidad de llamar a soporte.</p>
+  <p>Se resuelve sola, sin llamar a soporte y sin que nadie más tenga que ver su clave.</p>
+  <ol class="pasos">
+    <li><b>Toque «Olvidé mi clave»</b>debajo del botón Entrar.</li>
+    <li><b>Escriba su usuario</b>no el correo: el mismo usuario con el que entra. El código se manda a la dirección que ya estaba registrada, así que nadie puede desviarlo a otro correo.</li>
+    <li><b>Espere el código</b>son seis dígitos y llegan al correo registrado. Si el servidor estaba en reposo, la pantalla se lo avisa y puede tardar hasta un minuto.</li>
+    <li><b>Escriba el código y la clave nueva</b>dos veces, con los mismos cuatro requisitos del registro.</li>
+    <li><b>Vuelva a entrar</b>al confirmar, CuentaVoz lo devuelve a la pantalla de ingreso para que entre con la clave nueva.</li>
+  </ol>
+
+  <div class="aviso dato">
+    <span class="rotulo">Si no le llega el código</span>
+    <p>Revise el correo no deseado. Si su usuario no tiene correo registrado, o está mal escrito, el código no puede llegar a ninguna parte: escríbale entonces a su administrador de bodega, que puede corregirle la dirección desde <span class="ui">Ajustes › Gestión de usuarios</span>.</p>
+  </div>
 
   <figure>
     <img src="03-olvide-clave.png" alt="Pantalla de recuperación de clave">
@@ -279,7 +299,17 @@
   </figure>
 
   <h3>Verificación en dos pasos</h3>
-  <p>Es opcional y se recomienda para los administradores. Al activarla, además de la clave se pide un código de seis dígitos generado en una aplicación de autenticación del celular. Se ofrece al terminar el registro y se puede activar o desactivar en cualquier momento desde <span class="ui">Mi perfil</span>.</p>
+  <p>Es opcional, y muy recomendable para los administradores de bodega. Al activarla, además de la clave se pide un código de seis dígitos que genera una aplicación de autenticación en su celular (Google Authenticator, Microsoft Authenticator o similar). Se ofrece al terminar el registro y se puede activar o desactivar cuando quiera desde <span class="ui">Mi perfil › Seguridad de la cuenta</span>.</p>
+  <ol class="pasos">
+    <li><b>Instale una aplicación de autenticación</b>en su celular, si no la tiene.</li>
+    <li><b>Escanee el código QR</b>que CuentaVoz muestra en pantalla. Si el celular no puede escanear, toque <span class="ui">Mostrar llave secreta</span> y escriba esa llave a mano en la aplicación.</li>
+    <li><b>Escriba el código de seis dígitos</b>que aparece en la aplicación y confirme. Desde ese momento se le pedirá al ingresar.</li>
+  </ol>
+
+  <div class="aviso dato">
+    <span class="rotulo">Si cambia de celular</span>
+    <p>Desactive la verificación en dos pasos desde <span class="ui">Mi perfil</span> <b>antes</b> de dejar el equipo anterior, y vuelva a activarla en el nuevo. El código lo genera la aplicación del celular, no CuentaVoz: si pierde el acceso a esa aplicación sin desactivarla antes, necesitará que un administrador le ayude a recuperar la cuenta.</p>
+  </div>
 </section>
 
 <!-- ══════════ 3 ══════════ -->
@@ -414,6 +444,19 @@
     <figcaption><b>Figura 10</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
   </figure>
 
+  <h3>Cerrar sesión</h3>
+  <p>Es la última opción del menú. Antes de dejarlo salir, CuentaVoz <b>revisa si dejó una bodega abierta</b> y se lo dice con cuántas referencias lleva contadas, para que nadie se vaya con la duda de si perdió el trabajo. Lo registrado ya está guardado y la próxima vez que entre continúa donde iba.</p>
+  <ol class="pasos">
+    <li><b>Toque «Cerrar sesión»</b>al final del menú de la izquierda.</li>
+    <li><b>Lea el aviso</b>si tiene una bodega abierta, ahí lo dice. Puede tocar <span class="ui">Seguir trabajando</span> y no pasa nada.</li>
+    <li><b>Confirme</b>la sesión se cierra también <b>del lado del servidor</b>, no solo en ese navegador: en una tableta que se pasan entre turnos, eso evita que alguien siga usando la sesión de otro.</li>
+  </ol>
+
+  <figure>
+    <img src="25-cerrar-sesion.png" alt="Aviso al cerrar sesión con una bodega abierta">
+    <figcaption><b>Figura 21</b>Cerrar sesión avisa si quedó trabajo abierto antes de salir.</figcaption>
+  </figure>
+
   <h3>Accesibilidad</h3>
   <p>Al final de <span class="ui">Mi perfil</span> encontrará dos ajustes que se aplican de inmediato, sin necesidad de guardar:</p>
   <ul class="vinetas">
@@ -453,6 +496,11 @@
   <p>Los pedidos de los auxiliares esperan aquí su aprobación antes de salir del almacén. La bandeja de alertas reúne las diferencias que quedaron marcadas durante el conteo, con el detalle de cada una.</p>
 
   <figure>
+    <img src="18-auditoria-pedidos.png" alt="Pedidos pendientes de aprobación">
+    <figcaption><b>Figura 14</b>Pedidos pendientes. Se autoriza antes de que salga del almacén.</figcaption>
+  </figure>
+
+  <figure>
     <img src="19-auditoria-alertas.png" alt="Bandeja de alertas de la auditoría">
     <figcaption><b>Figura 15</b>Bandeja de alertas, agrupada por tipo de diferencia.</figcaption>
   </figure>
@@ -464,15 +512,28 @@
   <p class="seccion-intro">La vista gerencial de la toma y la salida hacia My Inventory.</p>
 
   <h3>Panel</h3>
-  <p>Resumen ejecutivo de la operación: diferencias absolutas, alertas por tipo, avance por bodega y exactitud del período.</p>
+  <p>La vista gerencial, y tiene <b>dos pestañas</b>:</p>
+  <table>
+    <thead><tr><th>Pestaña</th><th>Qué muestra</th></tr></thead>
+    <tbody>
+      <tr><td>Resumen ejecutivo</td><td>Exactitud de primera pasada, referencias contadas, alertas gestionadas y la gráfica de diferencia absoluta por bodega.</td></tr>
+      <tr><td>Bodegas y alertas</td><td>Los saldos negativos y las alertas agrupadas por tipo, para decidir con datos qué zona revisar primero.</td></tr>
+    </tbody>
+  </table>
 
   <figure>
     <img src="20-panel.png" alt="Panel gerencial con indicadores de la toma">
-    <figcaption><b>Figura 16</b>Panel. Sirve para decidir qué bodega revisar primero.</figcaption>
+    <figcaption><b>Figura 16</b>Panel · Resumen ejecutivo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="27-panel-bodegas-alertas.png" alt="Segunda pestaña del panel, con bodegas y alertas">
+    <figcaption><b>Figura 22</b>Panel · Bodegas y alertas, la segunda pestaña.</figcaption>
   </figure>
 
   <h3>Reportes</h3>
-  <p>Cada reporte se puede previsualizar antes de descargarlo: consolidado para My Inventory, detalle por bodega, diferencias, análisis de consumo, estado del tablero y el registro completo de trazabilidad.</p>
+  <p>La pantalla de Reportes tiene <b>dos pestañas</b>: <span class="ui">Consolidado de la toma</span>, donde se generan el archivo para My Inventory y el de diferencias, y <span class="ui">Análisis de consumo</span>, con el sobrepedido frente a la receta y la recomendación del agente. Dele clic a un archivo ya generado para <b>verlo en pantalla antes de descargarlo</b> y no bajar el equivocado.</p>
+  <p>Hay otras tres salidas que no viven aquí sino en la pantalla a la que pertenecen: el <b>estado del tablero</b> y el <b>detalle de una bodega</b> se exportan desde <span class="ui">Bodegas</span>, y el <b>registro de trazabilidad</b> desde <span class="ui">Ajustes › Registro de trazabilidad</span>.</p>
 
   <figure>
     <img src="21-reportes.png" alt="Pantalla de generación de reportes">
@@ -507,20 +568,90 @@
   <p class="seccion-intro">Dónde resolver una duda sin salir de la aplicación.</p>
 
   <h3>Ayuda</h3>
-  <p>Preguntas frecuentes, la guía de frases que el agente entiende y un cuadro para preguntarle directamente. Desde aquí también se reporta un problema y se vuelve a ver el recorrido en video.</p>
+  <p>Reúne las preguntas frecuentes, la guía de frases que el agente entiende, un cuadro para preguntarle cualquier cosa por escrito o por voz, y el <b>estado del sistema en vivo</b> (API, datos de inventario y agente). Arriba a la derecha está <span class="ui">Ver el recorrido en video</span>, que vuelve a abrir el recorrido narrado de su perfil cuando quiera.</p>
 
   <figure>
     <img src="11-ayuda.png" alt="Pantalla de ayuda con preguntas frecuentes">
     <figcaption><b>Figura 19</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
   </figure>
 
+  <p>A la derecha, en <b>Soporte en vivo</b>, hay tres botones que hacen cosas distintas y conviene no confundir:</p>
+  <table>
+    <thead><tr><th>Botón</th><th>Cuándo usarlo</th></tr></thead>
+    <tbody>
+      <tr><td>Escribirle al administrador</td><td>Cuando necesita algo <b>de la operación</b>: que le asignen una bodega, autorizar un pedido, resolver una diferencia.</td></tr>
+      <tr><td>Reportar un problema</td><td>Cuando lo que falla es <b>la aplicación</b>: el micrófono no responde, una pantalla no carga, un número sale mal.</td></tr>
+      <tr><td>Ver mensajes</td><td>Lo lleva directo a su bandeja, para ver si ya le respondieron.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Escribirle al administrador</h3>
+  <ol class="pasos">
+    <li><b>Toque «Escribirle al administrador»</b>el nombre de quien está de turno aparece arriba del botón.</li>
+    <li><b>Cuente qué necesita</b>puede dictarlo con el micrófono del cuadro o escribirlo.</li>
+    <li><b>Toque «Enviar»</b>el mensaje queda en su bandeja y en el registro de trazabilidad, y CuentaVoz intenta además mandarle un correo al administrador.</li>
+  </ol>
+
+  <figure>
+    <img src="23-escribir-administrador.png" alt="Cuadro para escribirle al administrador de bodega">
+    <figcaption><b>Figura 23</b>Escribirle al administrador. El cuadro admite dictado por voz.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Qué pasa de verdad con el correo</span>
+    <p>Lo que <b>siempre</b> ocurre es que el mensaje queda guardado en la bandeja de los dos y en el registro de trazabilidad. El correo depende de cómo esté configurado el servidor: si tiene el servicio de envío activo, sale un correo automático y la pantalla dice «Correo enviado a…»; si no, CuentaVoz abre el correo del propio dispositivo con el mensaje listo y dice «Mensaje registrado. Se abrió su correo para enviarlo a…». En cualquiera de los dos casos, el administrador lo ve al entrar a Mensajes.</p>
+  </div>
+
+  <h3>Reportar un problema</h3>
+  <ol class="pasos">
+    <li><b>Toque «Reportar un problema»</b>en el recuadro de Soporte en vivo.</li>
+    <li><b>Describa qué pasó</b>con sus palabras. Entre más concreto (en qué pantalla, qué estaba haciendo), más fácil es resolverlo.</li>
+    <li><b>Toque «Enviar»</b>el reporte queda registrado con su nombre y la hora.</li>
+  </ol>
+
+  <figure>
+    <img src="24-reportar-problema.png" alt="Cuadro para reportar un problema a soporte">
+    <figcaption><b>Figura 24</b>Reportar un problema. Queda en el registro de trazabilidad con su nombre y la hora.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Dónde queda el reporte</span>
+    <p>En el <b>registro de trazabilidad</b>, marcado como alerta. El administrador lo consulta desde <span class="ui">Ajustes › Registro de trazabilidad</span>, filtrando por la acción <span class="dicho">SOPORTE</span>. El reporte guarda exactamente el texto que usted escriba: no adjunta la pantalla ni captura nada por su cuenta, así que vale la pena decir dónde estaba.</p>
+  </div>
+
   <h3>Mensajes</h3>
-  <p>Bandeja interna para escribirle al administrador de bodega — por ejemplo, para solicitar la asignación de una bodega. El administrador responde desde la misma bandeja y le llega copia al correo.</p>
+  <p>Su bandeja con el equipo. Arriba hay tres contadores, y dicen cosas distintas según quién mire:</p>
+  <table>
+    <thead><tr><th>Contador</th><th>Auxiliar de inventarios</th><th>Administrador de bodega</th></tr></thead>
+    <tbody>
+      <tr><td>Primero</td><td>Mensajes enviados</td><td>Mensajes recibidos</td></tr>
+      <tr><td>Segundo</td><td>Esperando al administrador</td><td>Por responder</td></tr>
+      <tr><td>Tercero</td><td>Ya le respondieron</td><td>Ya resueltos</td></tr>
+    </tbody>
+  </table>
 
   <figure>
     <img src="10-mensajes.png" alt="Bandeja de mensajes internos">
-    <figcaption><b>Figura 20</b>Mensajes internos entre el equipo de bodega.</figcaption>
+    <figcaption><b>Figura 20</b>Mensajes. Para el auxiliar: lo que escribió y si ya le contestaron.</figcaption>
   </figure>
+
+  <h3>Responder un mensaje<span class="rol-tag adm">Administrador</span></h3>
+  <ol class="pasos">
+    <li><b>Entre a Mensajes</b>los pendientes salen marcados en amarillo como <span class="dicho">pendiente</span>.</li>
+    <li><b>Toque «Responder»</b>debajo del mensaje. Se abre un cuadro con el mensaje original a la vista, para no responder de memoria.</li>
+    <li><b>Conteste dictando o escribiendo</b>y toque <span class="ui">Enviar</span>.</li>
+  </ol>
+  <p>Si hay <b>un solo</b> mensaje pendiente, arriba aparece además <span class="ui">Responder por voz</span>: lo que dicte ahí se usa directo como respuesta, sin abrir el cuadro.</p>
+
+  <figure>
+    <img src="26-mensajes-administrador.png" alt="Bandeja del administrador con mensajes por responder">
+    <figcaption><b>Figura 25</b>La misma bandeja vista por el administrador, con el botón Responder.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Un mensaje se responde una sola vez</span>
+    <p>Si dos personas (o dos pestañas abiertas) intentan responder el mismo mensaje, la segunda recibe un aviso de que ya fue respondido en vez de pisar la respuesta anterior en silencio. Quien preguntó ve la respuesta en su propia bandeja.</p>
+  </div>
 
   <h3>Preguntas frecuentes</h3>
   <table>
@@ -532,6 +663,9 @@
       <tr><td>Contar dos bodegas a la vez</td><td>No es posible en el mismo dispositivo. El candado de sesión evita conteos duplicados.</td></tr>
       <tr><td>No veo el menú de Auditoría</td><td>Esa sección es exclusiva del perfil de administrador de bodega.</td></tr>
       <tr><td>Corregir un conteo ya confirmado</td><td>Diga <span class="dicho">corregir</span> y el valor correcto. El anterior se conserva.</td></tr>
+    <tr><td>Olvidé mi clave</td><td><span class="ui">Olvidé mi clave</span> en la pantalla de ingreso. Llega un código de seis dígitos al correo registrado (sección 2).</td></tr>
+    <tr><td>Le escribí al administrador y no responde</td><td>Revise Mensajes: si sigue en <span class="dicho">pendiente</span>, aún no lo ha contestado. Para algo urgente, la mesa de ayuda de Colsubsidio, ext. 4040.</td></tr>
+    <tr><td>Quiero volver a ver el recorrido en video</td><td><span class="ui">Ayuda › Ver el recorrido en video</span>, arriba a la derecha.</td></tr>
     </tbody>
   </table>
 
@@ -542,7 +676,7 @@
     </div>
     <div class="col">
       <b>Soporte</b>
-      <p>Use <span class="ui">Ayuda › Reportar un problema</span> dentro de la aplicación: el reporte llega con el contexto de la pantalla en la que estaba.</p>
+      <p>Use <span class="ui">Ayuda › Reportar un problema</span> dentro de la aplicación: queda registrado con su nombre y la hora, y el administrador lo ve en el registro de trazabilidad. Para algo que se salga del alcance del equipo, la mesa de ayuda de Colsubsidio atiende en la ext. 4040, 7 por 24.</p>
     </div>
   </div>
 </section>
