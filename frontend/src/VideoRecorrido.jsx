@@ -6,20 +6,14 @@ import { useEffect, useRef } from "react";
    con el resto de la aplicación. Están fuera del precacheo del service
    worker (ver vite.config.js) para no obligar a bajar varios megas la
    primera vez que alguien abre el login. */
-/* PROVISIONAL: los dos roles comparten por ahora el recorrido general.
-   Los videos por rol (uno de 8 pantallas para el auxiliar, otro de 12 con
-   el detalle de auditoria para el administrador) estan escritos y a medio
-   locutar - se agoto la cuota diaria de voz neuronal. Cuando esten, basta
-   con dejar aqui "/recorrido-auxiliar.mp4" y "/recorrido-administrador.mp4"
-   y poner esos dos archivos en public/. El titulo ya distingue el rol. */
 const VIDEOS = {
   auxiliar: {
-    src: "/recorrido.mp4",
-    titulo: "Recorrido por CuentaVoz",
+    src: "/recorrido-auxiliar.mp4",
+    titulo: "Recorrido para auxiliares de inventarios",
   },
   auditor: {
-    src: "/recorrido.mp4",
-    titulo: "Recorrido por CuentaVoz",
+    src: "/recorrido-administrador.mp4",
+    titulo: "Recorrido para administradores de bodega",
   },
 };
 
