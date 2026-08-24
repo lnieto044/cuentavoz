@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { pedir, preguntarAsistente } from "../api";
-import { EVENTO_ABRIR_TUTORIAL } from "../tutorial";
+import { EVENTO_ABRIR_TUTORIAL, EVENTO_ABRIR_VIDEO } from "../tutorial";
 import { escuchar, hablar, quitarTildes } from "../voz";
 import { enviarPorEmailJS, capitalizar, rolDe } from "../correoAdmin";
 import Marco from "../Marco";
@@ -210,6 +210,10 @@ export default function Ayuda({ token, usuario, ir }) {
           <button className="btn borde"
                   onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_TUTORIAL))}>
             Ver el recorrido guiado
+          </button>
+          <button className="btn borde"
+                  onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_VIDEO))}>
+            Ver el recorrido en video
           </button>
         </div>
         <p className="rotulo">Pregúntele al agente</p>
