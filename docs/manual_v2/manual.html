@@ -183,6 +183,8 @@
   }
   .cierre .col p{ font-size:9.4pt; color:var(--pizarra); max-width:44ch; }
   .cierre .col b{ font-family:var(--display); color:var(--navy); font-size:10.4pt; display:block; margin-bottom:1.5mm; }
+  .indice em.menu-ref{ font-style:normal; font-size:7.6pt; letter-spacing:.04em;
+    text-transform:uppercase; color:#8A99AC; margin-left:3mm; }
 </style>
 </head>
 <body>
@@ -193,20 +195,21 @@
 <!-- ══════════ ÍNDICE ══════════ -->
 <div class="indice">
   <h2 class="seccion">Contenido</h2>
-  <p class="seccion-intro">Las secciones 1 a 8 aplican a todo el personal. Las secciones 9 y 10 son exclusivas del perfil de administrador de bodega.</p>
+  <p class="seccion-intro">Las secciones 1 a 8 aplican a todo el personal. Las secciones 9 y 10 son exclusivas del perfil de administrador de bodega. En gris, a la derecha de cada tema, la opción del menú que le corresponde.</p>
   <ol>
     <li><span class="n">1</span><span class="t">Antes de empezar</span><span class="rol">Todos</span></li>
     <li><span class="n">2</span><span class="t">Ingreso a la plataforma</span><span class="rol">Todos</span></li>
-    <li><span class="n">3</span><span class="t">La pantalla de inicio</span><span class="rol">Todos</span></li>
-    <li><span class="n">4</span><span class="t">Contar inventario por voz</span><span class="rol">Todos</span></li>
-    <li><span class="n">5</span><span class="t">Trabajar sin conexión</span><span class="rol">Todos</span></li>
-    <li><span class="n">6</span><span class="t">Pedidos al almacén</span><span class="rol">Todos</span></li>
-    <li><span class="n">7</span><span class="t">Bodegas y legalización</span><span class="rol">Todos</span></li>
-    <li><span class="n">8</span><span class="t">Mi perfil y accesibilidad</span><span class="rol">Todos</span></li>
-    <li><span class="n">9</span><span class="t">Auditoría y aprobaciones</span><span class="rol">Administrador</span></li>
-    <li><span class="n">10</span><span class="t">Panel, reportes y ajustes</span><span class="rol">Administrador</span></li>
-    <li><span class="n">11</span><span class="t">Ayuda, mensajes y soporte</span><span class="rol">Todos</span></li>
+    <li><span class="n">3</span><span class="t">La pantalla de inicio <em class="menu-ref">Inicio</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">4</span><span class="t">Contar inventario por voz <em class="menu-ref">Conteo</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">5</span><span class="t">Trabajar sin conexión <em class="menu-ref">Conteo</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">6</span><span class="t">Pedidos al almacén <em class="menu-ref">Pedidos</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">7</span><span class="t">Bodegas y legalización <em class="menu-ref">Bodegas · Legalización</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">8</span><span class="t">Mi perfil y accesibilidad <em class="menu-ref">Mi perfil · Cerrar sesión</em></span><span class="rol">Todos</span></li>
+    <li><span class="n">9</span><span class="t">Auditoría y aprobaciones <em class="menu-ref">Auditoría</em></span><span class="rol">Administrador</span></li>
+    <li><span class="n">10</span><span class="t">Panel, reportes y ajustes <em class="menu-ref">Panel · Reportes · Ajustes</em></span><span class="rol">Administrador</span></li>
+    <li><span class="n">11</span><span class="t">Ayuda, mensajes y soporte <em class="menu-ref">Ayuda · Mensajes</em></span><span class="rol">Todos</span></li>
   </ol>
+
 </div>
 
 <!-- ══════════ 1 ══════════ -->
@@ -278,6 +281,25 @@
   </figure>
 
 
+  <h3>Verificación en dos pasos</h3>
+  <p>Es opcional, y muy recomendable para los administradores de bodega. CuentaVoz se la ofrece <b>al terminar el registro</b>, y puede activarla o quitarla después desde <span class="ui">Mi perfil › Seguridad de la cuenta</span>. Al activarla, además de la clave se le pedirá un código de seis dígitos que genera una aplicación autenticadora en su celular.</p>
+  <ol class="pasos">
+    <li><b>Instale una app autenticadora</b>Google Authenticator, Microsoft Authenticator o similar, en su celular.</li>
+    <li><b>Escanee el código QR</b>que aparece en pantalla. Si el celular no puede escanear, toque <span class="ui">Mostrar llave secreta</span> y escriba esa llave a mano en la aplicación.</li>
+    <li><b>Ingrese el código</b>los seis dígitos que muestra la aplicación en ese momento, y toque <span class="ui">Activar</span>.</li>
+  </ol>
+  <p>Si prefiere dejarlo para después, responda <span class="ui">Ahora no</span>: la cuenta queda igual de funcional.</p>
+
+  <figure>
+    <img src="28-autenticador.png" alt="Pantalla de verificación en dos pasos con el código QR">
+    <figcaption><b>Figura 3</b>Verificación en dos pasos. La misma pantalla sale al terminar el registro y en Mi perfil.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Si cambia de celular</span>
+    <p>Desactive la verificación en dos pasos desde <span class="ui">Mi perfil</span> <b>antes</b> de dejar el equipo anterior, y vuelva a activarla en el nuevo. El código lo genera la aplicación del celular, no CuentaVoz: si pierde el acceso a esa aplicación sin desactivarla antes, necesitará que un administrador le ayude a recuperar la cuenta.</p>
+  </div>
+
   <h3>Olvidé mi clave</h3>
   <p>Se resuelve sola, sin llamar a soporte y sin que nadie más tenga que ver su clave.</p>
   <ol class="pasos">
@@ -295,21 +317,9 @@
 
   <figure>
     <img src="03-olvide-clave.png" alt="Pantalla de recuperación de clave">
-    <figcaption><b>Figura 3</b>Recuperación de clave por correo.</figcaption>
+    <figcaption><b>Figura 4</b>Recuperación de clave por correo.</figcaption>
   </figure>
 
-  <h3>Verificación en dos pasos</h3>
-  <p>Es opcional, y muy recomendable para los administradores de bodega. Al activarla, además de la clave se pide un código de seis dígitos que genera una aplicación de autenticación en su celular (Google Authenticator, Microsoft Authenticator o similar). Se ofrece al terminar el registro y se puede activar o desactivar cuando quiera desde <span class="ui">Mi perfil › Seguridad de la cuenta</span>.</p>
-  <ol class="pasos">
-    <li><b>Instale una aplicación de autenticación</b>en su celular, si no la tiene.</li>
-    <li><b>Escanee el código QR</b>que CuentaVoz muestra en pantalla. Si el celular no puede escanear, toque <span class="ui">Mostrar llave secreta</span> y escriba esa llave a mano en la aplicación.</li>
-    <li><b>Escriba el código de seis dígitos</b>que aparece en la aplicación y confirme. Desde ese momento se le pedirá al ingresar.</li>
-  </ol>
-
-  <div class="aviso dato">
-    <span class="rotulo">Si cambia de celular</span>
-    <p>Desactive la verificación en dos pasos desde <span class="ui">Mi perfil</span> <b>antes</b> de dejar el equipo anterior, y vuelva a activarla en el nuevo. El código lo genera la aplicación del celular, no CuentaVoz: si pierde el acceso a esa aplicación sin desactivarla antes, necesitará que un administrador le ayude a recuperar la cuenta.</p>
-  </div>
 </section>
 
 <!-- ══════════ 3 ══════════ -->
@@ -321,14 +331,14 @@
 
   <figure>
     <img src="04-recorrido-video.png" alt="El recorrido en video que se abre al ingresar">
-    <figcaption><b>Figura 4</b>El recorrido en video de su perfil, al ingresar.</figcaption>
+    <figcaption><b>Figura 5</b>El recorrido en video de su perfil, al ingresar.</figcaption>
   </figure>
 
   <p>Ya en Inicio verá cuatro indicadores del día — bodegas asignadas, referencias contadas, alertas por revisar y su exactitud del mes — y accesos directos a las tareas más frecuentes. Abajo, la actividad reciente de la operación.</p>
 
   <figure>
     <img src="05-inicio-auxiliar.png" alt="Pantalla de inicio con indicadores del día">
-    <figcaption><b>Figura 5</b>Inicio. El cuadro superior permite preguntarle al agente por voz o por escrito desde cualquier pantalla.</figcaption>
+    <figcaption><b>Figura 6</b>Inicio. El cuadro superior permite preguntarle al agente por voz o por escrito desde cualquier pantalla.</figcaption>
   </figure>
 </section>
 
@@ -347,7 +357,7 @@
 
   <figure>
     <img src="06-conteo.png" alt="Pantalla de conteo por voz">
-    <figcaption><b>Figura 6</b>Conteo. El botón <span class="ui">Teclado</span> permite escribir en vez de hablar, sin salir del flujo.</figcaption>
+    <figcaption><b>Figura 7</b>Conteo. El botón <span class="ui">Teclado</span> permite escribir en vez de hablar, sin salir del flujo.</figcaption>
   </figure>
 
   <h3>Cuando el sistema le pregunta algo</h3>
@@ -400,7 +410,7 @@
 
   <figure>
     <img src="07-pedidos.png" alt="Pantalla de pedidos por voz">
-    <figcaption><b>Figura 7</b>Pedidos. El cálculo se hace contra el stock en vivo de la bodega.</figcaption>
+    <figcaption><b>Figura 8</b>Pedidos. El cálculo se hace contra el stock en vivo de la bodega.</figcaption>
   </figure>
 </section>
 
@@ -414,7 +424,7 @@
 
   <figure>
     <img src="08-bodegas.png" alt="Estado en vivo de las bodegas">
-    <figcaption><b>Figura 8</b>Bodegas. Desde aquí también se solicita una bodega nueva que no esté en el catálogo.</figcaption>
+    <figcaption><b>Figura 9</b>Bodegas. Desde aquí también se solicita una bodega nueva que no esté en el catálogo.</figcaption>
   </figure>
 
   <h3>Legalización</h3>
@@ -422,7 +432,7 @@
 
   <figure>
     <img src="09-legalizacion.png" alt="Pantalla de legalización del servicio">
-    <figcaption><b>Figura 9</b>Legalización del servicio, con sobrante y merma del turno.</figcaption>
+    <figcaption><b>Figura 10</b>Legalización del servicio, con sobrante y merma del turno.</figcaption>
   </figure>
 </section>
 
@@ -441,7 +451,7 @@
 
   <figure>
     <img src="12-mi-perfil.png" alt="Pantalla de Mi perfil">
-    <figcaption><b>Figura 10</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
+    <figcaption><b>Figura 11</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
   </figure>
 
   <h3>Cerrar sesión</h3>
@@ -454,7 +464,7 @@
 
   <figure>
     <img src="25-cerrar-sesion.png" alt="Aviso al cerrar sesión con una bodega abierta">
-    <figcaption><b>Figura 21</b>Cerrar sesión avisa si quedó trabajo abierto antes de salir.</figcaption>
+    <figcaption><b>Figura 12</b>Cerrar sesión avisa si quedó trabajo abierto antes de salir.</figcaption>
   </figure>
 
   <h3>Accesibilidad</h3>
@@ -467,7 +477,7 @@
 
   <figure>
     <img src="13-accesibilidad.png" alt="Ajustes de accesibilidad en Mi perfil">
-    <figcaption><b>Figura 11</b>Accesibilidad. Disponible para todos los perfiles.</figcaption>
+    <figcaption><b>Figura 13</b>Accesibilidad. Disponible para todos los perfiles.</figcaption>
   </figure>
 </section>
 
@@ -481,7 +491,7 @@
 
   <figure>
     <img src="15-auditoria-recuento.png" alt="Pestaña de recuento ciego y cierre">
-    <figcaption><b>Figura 12</b>Recuento ciego. La comparación solo se revela al finalizar.</figcaption>
+    <figcaption><b>Figura 14</b>Recuento ciego. La comparación solo se revela al finalizar.</figcaption>
   </figure>
 
   <h3>Aprobaciones</h3>
@@ -489,7 +499,7 @@
 
   <figure>
     <img src="16-auditoria-aprobaciones.png" alt="Bandeja de aprobaciones de productos y bodegas">
-    <figcaption><b>Figura 13</b>Aprobaciones. El conteo en bodega nunca se detiene esperando esta firma.</figcaption>
+    <figcaption><b>Figura 15</b>Aprobaciones. El conteo en bodega nunca se detiene esperando esta firma.</figcaption>
   </figure>
 
   <h3>Pedidos pendientes y bandeja de alertas</h3>
@@ -497,12 +507,12 @@
 
   <figure>
     <img src="18-auditoria-pedidos.png" alt="Pedidos pendientes de aprobación">
-    <figcaption><b>Figura 14</b>Pedidos pendientes. Se autoriza antes de que salga del almacén.</figcaption>
+    <figcaption><b>Figura 16</b>Pedidos pendientes. Se autoriza antes de que salga del almacén.</figcaption>
   </figure>
 
   <figure>
     <img src="19-auditoria-alertas.png" alt="Bandeja de alertas de la auditoría">
-    <figcaption><b>Figura 15</b>Bandeja de alertas, agrupada por tipo de diferencia.</figcaption>
+    <figcaption><b>Figura 17</b>Bandeja de alertas, agrupada por tipo de diferencia.</figcaption>
   </figure>
 </section>
 
@@ -523,12 +533,12 @@
 
   <figure>
     <img src="20-panel.png" alt="Panel gerencial con indicadores de la toma">
-    <figcaption><b>Figura 16</b>Panel · Resumen ejecutivo.</figcaption>
+    <figcaption><b>Figura 18</b>Panel · Resumen ejecutivo.</figcaption>
   </figure>
 
   <figure>
     <img src="27-panel-bodegas-alertas.png" alt="Segunda pestaña del panel, con bodegas y alertas">
-    <figcaption><b>Figura 22</b>Panel · Bodegas y alertas, la segunda pestaña.</figcaption>
+    <figcaption><b>Figura 19</b>Panel · Bodegas y alertas, la segunda pestaña.</figcaption>
   </figure>
 
   <h3>Reportes</h3>
@@ -537,7 +547,7 @@
 
   <figure>
     <img src="21-reportes.png" alt="Pantalla de generación de reportes">
-    <figcaption><b>Figura 17</b>Reportes. La previsualización evita descargar un archivo equivocado.</figcaption>
+    <figcaption><b>Figura 20</b>Reportes. La previsualización evita descargar un archivo equivocado.</figcaption>
   </figure>
 
   <h3>Ajustes</h3>
@@ -553,7 +563,7 @@
 
   <figure>
     <img src="22-ajustes.png" alt="Pantalla de ajustes del sistema">
-    <figcaption><b>Figura 18</b>Ajustes. Solo visible para el perfil de administrador.</figcaption>
+    <figcaption><b>Figura 21</b>Ajustes. Solo visible para el perfil de administrador.</figcaption>
   </figure>
 
   <div class="aviso dato">
@@ -572,7 +582,7 @@
 
   <figure>
     <img src="11-ayuda.png" alt="Pantalla de ayuda con preguntas frecuentes">
-    <figcaption><b>Figura 19</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
+    <figcaption><b>Figura 22</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
   </figure>
 
   <p>A la derecha, en <b>Soporte en vivo</b>, hay tres botones que hacen cosas distintas y conviene no confundir:</p>
@@ -632,7 +642,7 @@
 
   <figure>
     <img src="10-mensajes.png" alt="Bandeja de mensajes internos">
-    <figcaption><b>Figura 20</b>Mensajes. Para el auxiliar: lo que escribió y si ya le contestaron.</figcaption>
+    <figcaption><b>Figura 25</b>Mensajes. Para el auxiliar: lo que escribió y si ya le contestaron.</figcaption>
   </figure>
 
   <h3>Responder un mensaje<span class="rol-tag adm">Administrador</span></h3>
@@ -645,7 +655,7 @@
 
   <figure>
     <img src="26-mensajes-administrador.png" alt="Bandeja del administrador con mensajes por responder">
-    <figcaption><b>Figura 25</b>La misma bandeja vista por el administrador, con el botón Responder.</figcaption>
+    <figcaption><b>Figura 26</b>La misma bandeja vista por el administrador, con el botón Responder.</figcaption>
   </figure>
 
   <div class="aviso dato">
