@@ -7,7 +7,12 @@
 // "boton" a secas, un dialogo del que no se puede salir con teclado, o
 // una respuesta del agente que nunca se anuncia.
 const { chromium } = require('playwright');
-const APP = 'http://localhost:5183';
+// Sobre una COPIA de la base: estos recorridos abren bodegas y cuentan
+// de verdad. La primera version corria contra la base de la demo y le
+// dejaba sesiones a medias y bodegas en estados raros.
+const { levantar } = require('../../frontend/pruebas-flujo/entorno.cjs');
+let APP = null;
+let entorno = null;
 
 let fallos = 0;
 const problemas = [];
@@ -49,6 +54,8 @@ async function entrar(p, usuario) {
 }
 
 (async () => {
+  entorno = await levantar({ puertoApi: 8012, puertoWeb: 5194 });
+  APP = entorno.WEB;
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   const cdp = await p.context().newCDPSession(p);
@@ -197,8 +204,11 @@ async function entrar(p, usuario) {
      `(outline ${anillo.contorno} ${anillo.ancho})`);
 
   await b.close();
+  entorno.bajar();
   console.log('\n══ RESULTADO ══');
   if (!fallos) console.log('  sin hallazgos');
   else problemas.forEach((x) => console.log('  · ' + x));
   process.exit(fallos ? 1 : 0);
-})().catch((e) => { console.error('EXPLOTO', e.message); process.exit(1); });
+})().catch((e) => { console.error('EXPLOTO', e.message);
+               if (entorno) entorno.bajar();
+               process.exit(1); });

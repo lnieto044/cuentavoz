@@ -25,29 +25,23 @@ para correr esto, igual que para las capturas de `docs/capturas/`.
 
 ## Cómo se corre
 
-Con el backend y el frontend levantados:
-
-```
-# backend
-cd backend
-ORIGEN_PERMITIDO="http://localhost:5183,http://127.0.0.1:5183" \
-  python -m uvicorn main:app --port 8001
-
-# frontend, en otra terminal
-cd frontend
-VITE_API_URL=http://127.0.0.1:8001 npx vite --port 5183 --strictPort
-```
-
-Y entonces:
-
 ```
 node docs/accesibilidad/auditar-wcag.js
 node docs/accesibilidad/auditar-lector.js
 ```
 
-Las dos salen con código 0 si no hay hallazgos. Usan las cuentas de prueba
-(`stephanie` y `diana`) y desactivan el tutorial de bienvenida para poder
-recorrer las pantallas sin interrupciones.
+No hay que levantar nada a mano: cada una arranca el backend y vite en
+puertos propios (8012 y 5194) **sobre una copia** de `backend/cuentavoz.db`,
+y la borra al terminar. Las dos salen con código 0 si no hay hallazgos.
+
+Ese aislamiento no estuvo desde el principio: la primera versión corría
+contra la base de la demo y, como el recorrido abre una bodega para
+comprobar las regiones que se anuncian solas, le dejaba sesiones a medias.
+Se descubrió comparando la base antes y después. El arranque aislado vive en
+`frontend/pruebas-flujo/entorno.cjs` y lo comparten los dos recorridos.
+
+Usan las cuentas de prueba (`stephanie` y `diana`) y desactivan el tutorial
+de bienvenida para poder recorrer las pantallas sin interrupciones.
 
 ## Estado a 2026-08-25
 

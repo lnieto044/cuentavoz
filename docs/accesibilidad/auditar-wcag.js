@@ -5,7 +5,12 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
-const APP = 'http://localhost:5183';
+// Sobre una COPIA de la base: estos recorridos abren bodegas y cuentan
+// de verdad. La primera version corria contra la base de la demo y le
+// dejaba sesiones a medias y bodegas en estados raros.
+const { levantar } = require('../../frontend/pruebas-flujo/entorno.cjs');
+let APP = null;
+let entorno = null;
 
 const VISTAS_AUX = ['inicio', 'conteo', 'pedido', 'legalizacion', 'bodegas',
                     'mensajes', 'ayuda', 'perfil'];
@@ -46,6 +51,8 @@ async function entrar(page, usuario) {
 }
 
 (async () => {
+  entorno = await levantar({ puertoApi: 8012, puertoWeb: 5194 });
+  APP = entorno.WEB;
   const b = await chromium.launch();
   const acumulado = [];
 
@@ -74,6 +81,7 @@ async function entrar(page, usuario) {
     await ctx.close();
   }
   await b.close();
+  entorno.bajar();
 
   console.log('\n══ RESUMEN ══');
   const porId = {};
@@ -88,4 +96,9 @@ async function entrar(page, usuario) {
     console.log(`  [${(d.impacto || '?').padEnd(8)}] ${id}  (${d.nodos} elementos, ${d.vistas.size} vistas)`);
     console.log(`             ${d.desc}`);
   }
-})().catch((e) => { console.error('EXPLOTO', e.message); process.exit(1); });
+  // sin esto node no termina: los servidores hijos mantienen vivo el
+  // bucle de eventos aunque ya se hayan matado sus procesos
+  process.exit(filas.length ? 1 : 0);
+})().catch((e) => { console.error('EXPLOTO', e.message);
+               if (entorno) entorno.bajar();
+               process.exit(1); });
