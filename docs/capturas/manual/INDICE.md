@@ -13,7 +13,7 @@ de contenido (sin recortes a mitad de pantalla).
 >
 > Última pasada automática: **24 de agosto de 2026**.
 
-Son 73 capturas en total (14 vistas de menú + 59 sub-pantallas, pestañas
+Son 74 capturas en total (14 vistas de menú + 60 sub-pantallas, pestañas
 y modales), repartidas en dos carpetas para no duplicar fotos iguales:
 
 - **`docs/capturas/tablet/`** — las 14 pantallas de nivel de menú (una por
