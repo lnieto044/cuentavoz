@@ -85,7 +85,15 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
 }
 
 /* ── Estructura ── */
-.app-root { display: grid; grid-template-columns: 232px 1fr; height: 100dvh; }
+/* Las dos alturas no sobran: `dvh` solo lo entienden Chrome 108+ y Safari
+   15.4+, y un navegador mas viejo DESCARTA la declaracion entera. Sin el
+   `vh` de respaldo, en una tableta con navegador antiguo la rejilla se
+   queda sin alto: la barra lateral no llega abajo y .contenido no tiene
+   contra que desplazarse. El `vh` va primero para que el navegador
+   moderno lo pise con `dvh`, que ademas maneja bien la barra del
+   navegador cuando aparece y desaparece. */
+.app-root { display: grid; grid-template-columns: 232px 1fr;
+  height: 100vh; height: 100dvh; }
 .contenido { overflow-y: auto; overflow-x: hidden; padding: 0; display: flex; flex-direction: column; }
 
 .barra-sup {
@@ -332,7 +340,11 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
    difuminadas (en vez del panel azul de antes), mismo lenguaje visual
    que las pantallas propias de AWS Cognito - la marca de CuentaVoz vive
    ahora dentro de la tarjeta, compacta, arriba del formulario. */
-.ingreso-fondo { min-height: 100dvh; display: flex; align-items: center;
+/* Mismo respaldo que en .app-root: sin el `vh`, en una tableta con
+   navegador antiguo el fondo se encoge al alto de la tarjeta y la
+   pantalla de ingreso queda cortada, con una franja gris debajo. */
+.ingreso-fondo { min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center;
   justify-content: center; padding: 24px; position: relative;
   overflow: hidden; background: var(--fondo); }
 .ingreso-fondo::before, .ingreso-fondo::after { content: ""; position: absolute;
