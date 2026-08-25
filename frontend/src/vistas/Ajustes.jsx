@@ -730,14 +730,23 @@ function TabUsuarios({ token, usuario }) {
                onClick={(e) => e.stopPropagation()}
                role="dialog" aria-modal="true" aria-labelledby="titulo-sede-nueva">
             <h2 id="titulo-sede-nueva">Nueva sede</h2>
-            <label htmlFor="sede-nombre">Nombre</label>
+            {/* label.pista y el campo con su ancho: igual que los otros
+                dialogos de esta pantalla. Sin la clase, el <label> va en
+                linea y la etiqueta se pega al campo. */}
+            <label className="pista" htmlFor="sede-nombre">Nombre</label>
             <input id="sede-nombre" autoFocus value={sedeNueva.nombre}
                    placeholder="Piscilago"
-                   onChange={(e) => setSedeNueva({ ...sedeNueva, nombre: e.target.value })} />
-            <label htmlFor="sede-ciudad" style={{ marginTop: 8 }}>Ciudad (opcional)</label>
+                   onKeyDown={(e) => e.key === "Enter" && crearSede()}
+                   onChange={(e) => setSedeNueva({ ...sedeNueva, nombre: e.target.value })}
+                   style={{ width: "100%", padding: "10px 12px", marginTop: 6, marginBottom: 14,
+                            border: "1px solid var(--borde)", borderRadius: 10 }} />
+            <label className="pista" htmlFor="sede-ciudad">Ciudad (opcional)</label>
             <input id="sede-ciudad" value={sedeNueva.ciudad}
                    placeholder="Girardot"
-                   onChange={(e) => setSedeNueva({ ...sedeNueva, ciudad: e.target.value })} />
+                   onKeyDown={(e) => e.key === "Enter" && crearSede()}
+                   onChange={(e) => setSedeNueva({ ...sedeNueva, ciudad: e.target.value })}
+                   style={{ width: "100%", padding: "10px 12px", marginTop: 6,
+                            border: "1px solid var(--borde)", borderRadius: 10 }} />
             <div className="botones" style={{ marginTop: 14 }}>
               <button className="btn borde" onClick={() => setSedeNueva(null)}>Cancelar</button>
               <button className="btn" onClick={crearSede}>Crear</button>
