@@ -54,6 +54,27 @@ def restaurar_huecos():
     return n
 
 
+def renumerar_figuras():
+    """Las figuras se numeran solas, por orden de aparicion.
+
+    Antes iban a mano (<b>Figura 8</b>), y eso hacia que agregar una
+    captura en la seccion 4 obligara a renumerar las veinte siguientes -
+    con el riesgo de saltarse una y que el texto llame "Figura 12" a lo que
+    la imagen dice "Figura 13". Se escribe `<b>Figura</b>` y este paso pone
+    el numero."""
+    t = io.open(HTML, encoding="utf-8").read()
+    cuenta = [0]
+
+    def poner(m):
+        cuenta[0] += 1
+        return "<b>Figura %d</b>" % cuenta[0]
+
+    nuevo = re.sub(r"<b>Figura[^<]*</b>", poner, t)
+    if nuevo != t:
+        io.open(HTML, "w", encoding="utf-8").write(nuevo)
+    return cuenta[0]
+
+
 def imprimir():
     subprocess.run(["node", IMPRESOR], cwd=RAIZ, check=True)
     partes = [os.path.join(BUILD, f) for f in ("_portada.pdf", "_cuerpo.pdf")]
@@ -73,6 +94,7 @@ def imprimir():
 
 huecos = restaurar_huecos()
 print("  indice: %d huecos listos" % huecos)
+print("  figuras: %d numeradas" % renumerar_figuras())
 
 print("  pasada 1 (medir)...")
 imprimir()
