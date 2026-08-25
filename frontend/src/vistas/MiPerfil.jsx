@@ -226,7 +226,7 @@ export default function MiPerfil({ token, ir }) {
         </div>
 
         <div className="card">
-          <h3>Datos personales</h3>
+          <h2>Datos personales</h2>
           <div className="campos-2col">
             {[["Nombre completo", "nombre"], ["Correo corporativo", "correo"],
               ["Teléfono de contacto", "telefono"], ["Código de empleado", "codigo"]].map(([l, k]) => (
@@ -250,7 +250,7 @@ export default function MiPerfil({ token, ir }) {
 
       <div className="dos-columnas">
         <div className="card">
-          <h3>Seguridad de la cuenta</h3>
+          <h2>Seguridad de la cuenta</h2>
           <p style={{ fontSize: ".87rem", marginBottom: 4 }}>
             Último acceso: <b>{formatoAcceso(datos.ultimo_acceso)}</b>
           </p>
@@ -331,7 +331,7 @@ export default function MiPerfil({ token, ir }) {
         </div>
 
         <div className="card">
-          <h3>Preferencias de voz</h3>
+          <h2>Preferencias de voz</h2>
           <label className="pista" htmlFor="campo-voz">Voz de CuentaVoz</label>
           <select id="campo-voz" value={datos.idioma_voz}
                   onChange={(e) => elegirPreferencia({ idioma_voz: e.target.value })}
@@ -387,7 +387,7 @@ export default function MiPerfil({ token, ir }) {
       </div>
 
       <div className="card">
-        <h3>Accesibilidad</h3>
+        <h2>Accesibilidad</h2>
         <div className="grilla-botones" style={{ alignItems: "center", justifyContent: "flex-start", gap: 10 }}>
           <Interruptor activo={!!accesibilidad.contraste} etiqueta="Alto contraste"
                        onChange={(v) => cambiarAccesibilidad({ contraste: v })} />

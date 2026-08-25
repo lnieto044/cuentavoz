@@ -147,7 +147,7 @@ export default function Mensajes({ token, usuario }) {
 
       {esAdmin && pendientes > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <h3>Responder por voz</h3>
+          <h2>Responder por voz</h2>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input value={ordenVoz} onChange={(e) => setOrdenVoz(e.target.value)}
                    onKeyDown={(e) => e.key === "Enter" && alTextoOrdenVoz(ordenVoz, idEscuchaOrden.current)}

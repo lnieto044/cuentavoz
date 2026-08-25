@@ -606,7 +606,7 @@ export default function Bodegas({ token, usuario, ir }) {
 
           <div className="dos-columnas" style={{ gap: 16, marginTop: 4 }}>
             <div>
-              <h3>Referencias con diferencia</h3>
+              <h2>Referencias con diferencia</h2>
               {detalle.diferencias.length > 0 ? (
                 <table>
                   <thead><tr><th>Artículo</th><th>Contado</th><th>Sistema</th><th>Dif.</th></tr></thead>

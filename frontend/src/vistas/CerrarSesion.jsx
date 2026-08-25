@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { pedir } from "../api";
+import { useDevolverFoco } from "../foco";
 
 export default function CerrarSesion({ token, sesionId, onCancelar, onSalir }) {
   const [pend, setPend] = useState(null);
   const [noSePudoVerificar, setNoSePudoVerificar] = useState(false);
   const modalRef = useRef(null);
+  useDevolverFoco();
 
   // Igual que Dialogo.jsx: Escape cierra (aquí, "seguir trabajando" - la
   // opción que no pierde nada), y el modal recibe el foco al aparecer. Sin

@@ -138,7 +138,7 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
         </div>
         <div className="kpis">
           <div className="card" style={{ borderTop: "4px solid var(--verde)", marginBottom: 0 }}>
-            <h3 style={{ color: "var(--verde)" }}>Devuelto a bodega</h3>
+            <h2 style={{ color: "var(--verde)" }}>Devuelto a bodega</h2>
             {sobrante.length ? sobrante.map((l, i) => (
               <p key={i} style={{ fontSize: ".9rem" }}>
                 {fmt(Math.abs(l.diferencia))} {l.unidad} de {l.nombre.toLowerCase()}
@@ -146,7 +146,7 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
             )) : <p className="vacio">Nada por devolver.</p>}
           </div>
           <div className="card" style={{ borderTop: "4px solid var(--amarillo)", marginBottom: 0 }}>
-            <h3 style={{ color: "var(--amarillo-tx)" }}>Merma registrada</h3>
+            <h2 style={{ color: "var(--amarillo-tx)" }}>Merma registrada</h2>
             {merma.length ? merma.map((l, i) => (
               <p key={i} style={{ fontSize: ".9rem" }}>
                 {fmt(l.diferencia)} {l.unidad} de {l.nombre.toLowerCase()} — con nota del chef
@@ -154,14 +154,14 @@ export default function Legalizacion({ token, servicioId = 1, ir, usuario }) {
             )) : <p className="vacio">Sin merma en este servicio.</p>}
           </div>
           <div className="card" style={{ borderTop: "4px solid var(--azul)", marginBottom: 0 }}>
-            <h3 style={{ color: "var(--azul)" }}>Histórico actualizado</h3>
+            <h2 style={{ color: "var(--azul)" }}>Histórico actualizado</h2>
             <p style={{ fontSize: ".9rem" }}>
               Consumo real por porción, para afinar la próxima receta.
             </p>
           </div>
         </div>
         <div className="card">
-          <h3>Qué pasa ahora con esta información</h3>
+          <h2>Qué pasa ahora con esta información</h2>
           <div className="registro"><span className="ok">✓</span>
             <span>El archivo de ajuste queda listo para cargarse a My Inventory con los nombres y códigos oficiales.</span></div>
           <div className="registro"><span className="ok">✓</span>

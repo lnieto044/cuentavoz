@@ -4,6 +4,7 @@ import { escuchar, hablar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 import Icono from "../Iconos";
+import { useDevolverFoco } from "../foco";
 
 const _EJEMPLOS_POR_PESTANA = {
   config: [
@@ -168,7 +169,7 @@ function TabConfig({ token, esAuditor }) {
 
       <div className="dos-columnas" style={{ gap: 16 }}>
         <div className="card">
-          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🔒</span>Validación de datos</h3>
+          <h2><span className="icono-kpi" style={{ marginRight: 8 }}>🔒</span>Validación de datos</h2>
           <table>
             <tbody>
               <tr>
@@ -202,7 +203,7 @@ function TabConfig({ token, esAuditor }) {
         </div>
 
         <div className="card">
-          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🌐</span>Conexión y sincronización</h3>
+          <h2><span className="icono-kpi" style={{ marginRight: 8 }}>🌐</span>Conexión y sincronización</h2>
           <table>
             <tbody>
               <tr><td>Modo sin conexión</td>
@@ -251,10 +252,12 @@ function TabUsuarios({ token, usuario }) {
   const [msg, setMsg] = useState("");
   const [nuevo, setNuevo] = useState(null);
   const [asignando, setAsignando] = useState(null);   // usuario al que se le estan marcando bodegas
+  useDevolverFoco(Boolean(asignando));
   const [marcadas, setMarcadas] = useState(new Set());
   const [cobertura, setCobertura] = useState(null);
   const [verCobertura, setVerCobertura] = useState(false);
   const [editando, setEditando] = useState(null);     // usuario que se esta editando (correo/rol)
+  useDevolverFoco(Boolean(editando));
   const [filtro, setFiltro] = useState("todos");
 
   function cargar() {
@@ -377,8 +380,8 @@ function TabUsuarios({ token, usuario }) {
 
   return (
     <div className="card">
-      <h3><span className="icono-kpi" style={{ marginRight: 8 }}>👥</span>
-        Gestión de usuarios ({usuarios.length})</h3>
+      <h2><span className="icono-kpi" style={{ marginRight: 8 }}>👥</span>
+        Gestión de usuarios ({usuarios.length})</h2>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div className="chips" style={{ marginBottom: 0 }}>
@@ -515,7 +518,7 @@ function TabUsuarios({ token, usuario }) {
       )}
 
       <div className="card" style={{ background: "var(--fondo)", marginTop: 14 }}>
-        <h3>Qué puede hacer cada perfil</h3>
+        <h2>Qué puede hacer cada perfil</h2>
         <table>
           <tbody>
             <tr>
@@ -622,6 +625,7 @@ function TabRecetas({ token, recetaInicial }) {
   const [catalogo, setCatalogo] = useState([]);
   const [msg, setMsg] = useState("");
   const [editando, setEditando] = useState(null);
+  useDevolverFoco(Boolean(editando));
   // { id: null|number, nombre, rendimiento, lineas: [{articulo_codigo, cantidad_por_porcion}] }
   const abrioInicial = useState(false);
 
@@ -718,10 +722,10 @@ function TabRecetas({ token, recetaInicial }) {
 
   return (
     <div className="card">
-      <h3>
+      <h2>
         <span className="icono-kpi" style={{ marginRight: 8 }}>🍲</span>
         Recetas ({recetas.length})
-      </h3>
+      </h2>
       <p className="pista">
         Las porciones que dicte el chef se calculan sobre estas recetas: cantidad por
         porción × porciones, menos lo que ya haya en la bodega. Aquí se crean, editan
@@ -998,8 +1002,8 @@ function TabTraza({ token }) {
 
   return (
     <div className="card">
-      <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🕘</span>
-        Registro de trazabilidad ({traza.length} acciones)</h3>
+      <h2><span className="icono-kpi" style={{ marginRight: 8 }}>🕘</span>
+        Registro de trazabilidad ({traza.length} acciones)</h2>
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <select value={rango} onChange={(e) => setRango(e.target.value)}
                 aria-label="Rango de fechas del registro de trazabilidad"
@@ -1064,7 +1068,7 @@ function TabTraza({ token }) {
         El registro no se puede editar ni borrar.
       </p>
       <div className="card" style={{ marginTop: 14, background: "var(--azul-claro)" }}>
-        <h3>Por qué el registro es inmutable</h3>
+        <h2>Por qué el registro es inmutable</h2>
         <p style={{ fontSize: ".87rem" }}>
           Una corrección no borra el valor anterior: crea un registro nuevo que apunta
           al original (campo <code>corrige_a</code> de la tabla Conteo). Así, si alguien

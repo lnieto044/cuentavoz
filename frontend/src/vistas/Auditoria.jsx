@@ -254,7 +254,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
 
       {!bodegaId ? (
         <div className="card">
-          <h3>Bodegas listas para recuento ciego o cierre</h3>
+          <h2>Bodegas listas para recuento ciego o cierre</h2>
           {saludoLista && (
             <>
               <p className="rotulo">CuentaVoz responde</p>
@@ -292,8 +292,8 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
       ) : !sesion && (bodegas || []).find((b) => b.id === bodegaId)?.estado === "cerrada" ? (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <h3 style={{ margin: 0 }}>{detalle?.bodega
-              || (bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
+            <h2 style={{ margin: 0 }}>{detalle?.bodega
+              || (bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h2>
             <span className="chip verde" style={{ marginLeft: "auto" }}>CERRADA</span>
           </div>
           {!detalle ? (
@@ -344,7 +344,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
         </div>
       ) : !sesion ? (
         <div className="card">
-          <h3>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
+          <h2>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h2>
           <button className="btn" onClick={() => iniciar(bodegaId)}
                   style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <Icono nombre="auditoria" tam={18} />
@@ -356,7 +356,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
         </div>
       ) : !comparar ? (
         <div className="card">
-          <h3>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h3>
+          <h2>{(bodegas || []).find((b) => b.id === bodegaId)?.bodega}</h2>
           <div className="conteo-cols">
             <div>
               <p className="rotulo">{dicho ? `Usted dijo: «${dicho}»` : "CuentaVoz responde"}</p>
@@ -432,7 +432,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
           {comparar.diagnosticos?.length > 0 && (
             <div style={{ background: "#FAFBFD", border: "1px solid var(--borde)",
                          borderRadius: "var(--radio)", padding: 14, marginTop: 14 }}>
-              <h3 style={{ marginTop: 0 }}>Diagnóstico automático</h3>
+              <h2 style={{ marginTop: 0 }}>Diagnóstico automático</h2>
               {comparar.diagnosticos.map((d, i) => (
                 <p key={i} style={{ fontSize: ".88rem", marginTop: i ? 8 : 0 }}>{d}</p>
               ))}

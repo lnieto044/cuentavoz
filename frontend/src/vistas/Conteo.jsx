@@ -529,7 +529,7 @@ export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, a
     >
       {!bodega ? (
         <div className="card">
-          <h3>¿Qué bodega va a contar?</h3>
+          <h2>¿Qué bodega va a contar?</h2>
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6 }}>
             <button
               className={`mic-btn ${estado === "escuchando" ? "escuchando" : ""}`}
@@ -782,7 +782,7 @@ export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, a
                   </p>
                 )}
 
-                <h3 style={{ marginTop: 18 }}>Últimos registros confirmados</h3>
+                <h2 style={{ marginTop: 18 }}>Últimos registros confirmados</h2>
                 {avance.ultimos?.length ? (
                   avance.ultimos.map((u, i) => (
                     <div className="registro" key={i}>
@@ -927,7 +927,7 @@ function AlertaDesviacion({ contexto, respuesta, onRecontar, onConfirmar }) {
       <div className="conteo-cols">
         {contexto ? (
           <div className="card">
-            <h3>Contexto de la validación</h3>
+            <h2>Contexto de la validación</h2>
             <table>
               <tbody>
                 <tr><td>Stock del sistema</td><td><b style={{ color: "var(--azul)" }}>
@@ -1201,7 +1201,7 @@ function FormularioOffline({ cola, onGuardar, onReintentar }) {
       </div>
 
       <div className="card">
-        <h3>Guardados en este equipo</h3>
+        <h2>Guardados en este equipo</h2>
         {cola.length === 0 ? (
           <p className="vacio">Nada por sincronizar todavía.</p>
         ) : (

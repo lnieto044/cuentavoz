@@ -236,7 +236,7 @@ export default function Ayuda({ token, usuario, ir }) {
       </div>
       <div className="conteo-cols">
         <div className="card">
-          <h3><span className="icono-kpi" style={{ marginRight: 8 }}>❓</span>Preguntas frecuentes</h3>
+          <h2><span className="icono-kpi" style={{ marginRight: 8 }}>❓</span>Preguntas frecuentes</h2>
           {faqFiltrado.length === 0 && <p className="vacio">Sin resultados para «{busca}».</p>}
           {faqFiltrado.map(([p, r], i) => (
             <div key={i} style={{ marginBottom: 12, paddingBottom: 12,
@@ -261,7 +261,7 @@ export default function Ayuda({ token, usuario, ir }) {
 
         <div>
           <div className="card">
-            <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🤝</span>Soporte en vivo</h3>
+            <h2><span className="icono-kpi" style={{ marginRight: 8 }}>🤝</span>Soporte en vivo</h2>
             {admin?.nombre ? (
               <>
                 <p style={{ fontSize: ".88rem" }}>
@@ -310,7 +310,7 @@ export default function Ayuda({ token, usuario, ir }) {
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3><span className="icono-kpi" style={{ marginRight: 8 }}>🩺</span>Estado del sistema</h3>
+            <h2><span className="icono-kpi" style={{ marginRight: 8 }}>🩺</span>Estado del sistema</h2>
             <div className="kpis" style={{ gridTemplateColumns: "1fr" }}>
               {servicios.map(([t, ok], i) => (
                 <div className={ok ? "kpi verde" : "kpi"} key={i}

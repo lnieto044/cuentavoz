@@ -132,7 +132,7 @@ export default function Inicio({ token, usuario, ir }) {
       </div>
 
       <div className="card">
-        <h3>¿Qué desea hacer?</h3>
+        <h2>¿Qué desea hacer?</h2>
         <div className="accesos-grid">
           {accesos.map((a) => (
             <button key={a.d} className="acceso-rapido"
@@ -146,7 +146,7 @@ export default function Inicio({ token, usuario, ir }) {
       </div>
 
       <div className="card">
-        <h3>Actividad reciente</h3>
+        <h2>Actividad reciente</h2>
         {actividad.length === 0 ? (
           <p className="vacio">Todavía no hay actividad registrada hoy.</p>
         ) : (

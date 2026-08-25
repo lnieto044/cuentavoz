@@ -230,7 +230,7 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
   return (
     <div className="reportes-cols">
       <div className="card">
-        <h3>Archivos generados con los códigos oficiales de la base</h3>
+        <h2>Archivos generados con los códigos oficiales de la base</h2>
         {/* Arriba, junto al título, y no al final de la lista - con muchos
             archivos generados en el día, quedaban fuera de la vista sin
             bajar todo el scroll, y nada indicaba que seguían ahí. */}
@@ -293,7 +293,7 @@ function TabConsolidado({ token, navSeq, archivoPrevisualizar }) {
       </div>
 
       <div className="card">
-        <h3>{archivoActivo ? `Vista previa · ${archivoActivo.titulo}` : "Vista previa del consolidado"}</h3>
+        <h2>{archivoActivo ? `Vista previa · ${archivoActivo.titulo}` : "Vista previa del consolidado"}</h2>
         {filasPrevia === null ? (
           <p className="vacio">Genere un archivo o dele clic a uno ya generado para ver una muestra aquí.</p>
         ) : (
@@ -400,7 +400,7 @@ function TabAnalisis({ token }) {
       ) : (
         <div className="reportes-cols">
           <div className="card">
-            <h3>📉 Sobrepedido frente a la receta</h3>
+            <h2>📉 Sobrepedido frente a la receta</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {analisis.subutilizados.slice(0, 6).map((s) => (
                 <div key={s.nombre} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -418,7 +418,7 @@ function TabAnalisis({ token }) {
           </div>
 
           <div className="card">
-            <h3>🧺 Insumos subutilizados: se piden y sobran</h3>
+            <h2>🧺 Insumos subutilizados: se piden y sobran</h2>
             {analisis.subutilizados.slice(0, 6).map((s) => (
               <div key={s.nombre} className="registro">
                 <span style={{ textTransform: "capitalize" }}>{s.nombre.toLowerCase()}</span>
@@ -432,7 +432,7 @@ function TabAnalisis({ token }) {
 
       {recomendacion && (
         <div className="card">
-          <h3>🤖 Recomendación automática del agente</h3>
+          <h2>🤖 Recomendación automática del agente</h2>
           <p className="burbuja">
             {recomendacion.nombre.toLowerCase()} sobra en {recomendacion.veces} de los servicios
             legalizados: la receta pide {recomendacion.sobrepedido_pct}% más de lo que en promedio

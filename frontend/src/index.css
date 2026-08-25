@@ -160,7 +160,10 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
      toda la pantalla en móviles y tablets angostos. */
   max-width: 100%; overflow-x: auto;
 }
-.card h3 { font-size: .98rem; margin-bottom: 12px; color: var(--txt); }
+/* h2 y h3 se ven igual a proposito: el nivel dice la jerarquia a un
+   lector de pantalla, no el tamano de letra. El titulo de la tarjeta
+   es h2 y sus subsecciones h3 (ver Marco.jsx, que pone el h1). */
+.card h2, .card h3 { font-size: .98rem; margin-bottom: 12px; color: var(--txt); }
 .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .chip {
   background: var(--azul-claro); color: var(--azul); font-weight: 700;

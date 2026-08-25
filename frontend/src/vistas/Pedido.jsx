@@ -493,7 +493,7 @@ export default function Pedido({ token, usuario, ir }) {
 
       <div className="conteo-cols">
         <div className="card">
-          <h3>Lo que dijo el chef</h3>
+          <h2>Lo que dijo el chef</h2>
           <p className="cita">
             {dicho || "Aún no ha dictado nada: pulse el micrófono y diga, por "
                       + "ejemplo, «hoy preparamos cincuenta ajiacos»."}
@@ -562,7 +562,7 @@ export default function Pedido({ token, usuario, ir }) {
 
       {platos.length > 0 && (
         <div className="card">
-          <h3>🍲 Platos con receta registrada</h3>
+          <h2>🍲 Platos con receta registrada</h2>
           <p className="pista" style={{ marginBottom: 10 }}>
             Estos son los únicos platos que CuentaVoz sabe calcular por ahora. Toque uno
             para armar el pedido sin dictarlo, o dígalo tal cual suena aquí.
@@ -658,7 +658,7 @@ export default function Pedido({ token, usuario, ir }) {
               {esAuditor ? "ADMINISTRA ESTA RECETA" : "SOLO CONSULTA"}
             </span>
           </div>
-          <h3>Catálogo de Colsubsidio</h3>
+          <h2>Catálogo de Colsubsidio</h2>
           <table>
             <thead>
               <tr><th>Ingrediente</th><th>Unidad</th><th>Por porción</th>
@@ -741,7 +741,7 @@ export default function Pedido({ token, usuario, ir }) {
           </div>
 
           <div className="card">
-            <h3>Insumos calculados para {porciones} {plato}</h3>
+            <h2>Insumos calculados para {porciones} {plato}</h2>
             <table>
               <thead>
                 <tr>
@@ -798,7 +798,7 @@ export default function Pedido({ token, usuario, ir }) {
             )}
             <span className="chip">{recibo.numero_pedido}</span>
           </div>
-          <h3 style={{ marginTop: 12 }}>Recibo de pedido</h3>
+          <h2 style={{ marginTop: 12 }}>Recibo de pedido</h2>
           <table>
             <tbody>
               <tr><td>Número de pedido</td><td><b style={{ color: "var(--verde)" }}>

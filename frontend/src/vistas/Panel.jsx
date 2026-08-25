@@ -135,7 +135,7 @@ function TabResumen({ r }) {
 
       <div className="conteo-cols">
         <div className="card">
-          <h3>Diferencia absoluta por bodega</h3>
+          <h2>Diferencia absoluta por bodega</h2>
           {r.diferencia_por_bodega.length === 0 ? (
             <p className="vacio">Sin diferencias registradas todavía.</p>
           ) : (
@@ -152,7 +152,7 @@ function TabResumen({ r }) {
           )}
         </div>
         <div className="card">
-          <h3>Stock por unidad de medida</h3>
+          <h2>Stock por unidad de medida</h2>
           <Dona datos={r.stock_por_unidad.map((u, i) => ({
             etq: u.unidad, valor: u.cantidad, pct: u.pct,
             color: COLOR_UNIDAD[u.unidad] || SERIE[i % SERIE.length],
@@ -161,7 +161,7 @@ function TabResumen({ r }) {
       </div>
 
       <div className="card">
-        <h3>Exactitud por toma de inventario</h3>
+        <h2>Exactitud por toma de inventario</h2>
         {r.historial_exactitud.length < 2 ? (
           <p className="vacio">Se necesitan al menos dos cierres para ver la tendencia.</p>
         ) : (
@@ -243,7 +243,7 @@ function TabAlertas({ a }) {
 
       <div className="dos-columnas">
         <div className="card">
-          <h3>Estado de las bodegas</h3>
+          <h2>Estado de las bodegas</h2>
           <div className="puntos-bodegas">
             {estados.flatMap(([estado, n]) =>
               Array.from({ length: n }, (_, i) => (
@@ -263,7 +263,7 @@ function TabAlertas({ a }) {
         </div>
 
         <div className="card">
-          <h3>Alertas por tipo</h3>
+          <h2>Alertas por tipo</h2>
           {a.alertas_por_tipo.length === 0 ? (
             <p className="vacio">Sin alertas registradas todavía.</p>
           ) : (
@@ -282,7 +282,7 @@ function TabAlertas({ a }) {
       </div>
 
       <div className="card">
-        <h3>Descuadres recurrentes: dónde está la causa raíz</h3>
+        <h2>Descuadres recurrentes: dónde está la causa raíz</h2>
         {a.descuadres_recurrentes.length === 0 ? (
           <p className="vacio">Sin descuadres repetidos todavía.</p>
         ) : (

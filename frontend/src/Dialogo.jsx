@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useDevolverFoco } from "./foco";
 import { escuchar, hablar, esAfirmacion, esNegacion } from "./voz";
 import { interpretarLocal } from "./interpreteLocal";
 import Icono from "./Iconos";
@@ -51,6 +52,8 @@ export default function Dialogo({
     window.addEventListener("keydown", alTecla);
     return () => window.removeEventListener("keydown", alTecla);
   }, [onCancelar]);
+
+  useDevolverFoco();
 
   useEffect(() => {
     if (!conCampo) modalRef.current?.focus();

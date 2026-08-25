@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { debeAbrirTutorial, deshabilitarTutorial, habilitarTutorial } from "./tutorial";
+import { useDevolverFoco } from "./foco";
 
 /* El video se sirve desde /public, no desde un servicio externo: la app se
    usa en bodegas con señal irregular y un video en YouTube que no carga es
@@ -30,6 +31,7 @@ export default function VideoRecorrido({ perfil, usuarioId, onCerrar }) {
   const fuente = `${video.src}?v=${video.version}`;
   const modalRef = useRef(null);
   const videoRef = useRef(null);
+  useDevolverFoco();
   // Refleja lo que ya hay guardado para este usuario, no un estado nuevo
   // en false: si ya lo habia desactivado antes y por lo que sea el video
   // se abrio igual (p. ej. "Ver el recorrido en video" desde Ayuda), el
