@@ -162,3 +162,20 @@ la app funciona exactamente igual). Para activarlo:
 
 Con eso, cualquier error real que ocurra en producción (backend o
 frontend) aparece en el dashboard de Sentry, con la traza completa.
+
+### Cómo comprobar que quedó bien
+
+Sin forzar nada, y sin esperar a que algo se rompa:
+
+- **Backend**: `curl https://cuentavoz-api.onrender.com/api/salud` debe traer
+  `"sentry": true`. Si dice `false`, la variable no llegó al servicio.
+- **Frontend**: el DSN queda dentro del JavaScript compilado. Abra el sitio,
+  mire el `<script src="/assets/index-*.js">` y busque `ingest.sentry.io`
+  dentro de ese archivo. Si no está, faltó reconstruir con caché limpia:
+  guardar la variable no basta, Vite la incrusta al compilar.
+
+Ojo con una trampa: **un 404 o un 403 NO generan evento en Sentry**, y está
+bien que así sea. El manejador de `main.py` captura excepciones *no
+manejadas*; un `HTTPException` lo responde FastAPI por su cuenta. Pedir una
+URL inventada para "probar Sentry" no prueba nada y hace concluir que falló
+cuando está perfecto.

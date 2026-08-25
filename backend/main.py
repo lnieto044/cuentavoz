@@ -299,6 +299,11 @@ def salud():
                 "articulos": s.query(Articulo).count(),
                 "stock": s.query(StockSistema).count(),
                 "gemini": bool(os.getenv("GOOGLE_API_KEY", "").strip()),
+                # Solo si esta configurado, nunca el DSN: mismo criterio que
+                # con gemini. Sirve para saber desde fuera si la variable de
+                # Render quedo puesta, que si no hay que adivinarlo esperando
+                # a que ocurra un error real para ver si llega o no.
+                "sentry": bool(_SENTRY_DSN),
                 "cognito": _estado_cognito()}
 
 
