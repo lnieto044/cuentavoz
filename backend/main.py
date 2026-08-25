@@ -37,7 +37,7 @@ from slowapi.errors import RateLimitExceeded
 from bd import Sesion, iniciar_bd
 from modelos import (Usuario, Bodega, Articulo, StockSistema, SesionConteo,
                      Conteo, Alerta, Traza, LineaServicio, AsignacionBodega,
-                     Aprobacion, HistorialCierre, ConfigClave,
+                     Aprobacion, HistorialCierre, ConfigClave, Sede,
                      Receta, RecetaIngrediente, MensajeSoporte)
 from seguridad import (usuario_actual, requiere_perfil, registrar, esquema,
                        COGNITO_REGION, COGNITO_USER_POOL_ID)
@@ -2646,7 +2646,8 @@ def listar_bodegas(propias: int = 0, u: Usuario = Depends(usuario_actual)):
         for b in bodegas:
             refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
             item = {"id": b.id, "bodega": b.nombre_oficial,
-                    "estado": b.estado, "referencias": refs}
+                    "estado": b.estado, "referencias": refs,
+                    "sede_id": b.sede_id, "sede": _nombre_sede(s, b.sede_id)}
             item.update(_contexto_bodega(s, b, refs))
             salida.append(item)
     return salida
@@ -2748,6 +2749,16 @@ def crear_bodega_pendiente(p: CrearBodegaIn, u: Usuario = Depends(usuario_actual
 def _ultima_sesion(s, bodega_id: int, tipo: str):
     return (s.query(SesionConteo).filter_by(bodega_id=bodega_id, tipo=tipo)
             .order_by(SesionConteo.id.desc()).first())
+
+
+def _nombre_sede(s, sede_id):
+    """None cuando la bodega no tiene sede, que es un estado normal: las 54
+    que ya existian quedaron asi y no hay ninguna obligacion de
+    clasificarlas."""
+    if sede_id is None:
+        return None
+    sede = s.get(Sede, sede_id)
+    return sede.nombre if sede else None
 
 
 def _requiere_acceso_bodega(s, u: Usuario, bodega_id: int):
@@ -4385,7 +4396,8 @@ def bodegas_asignadas(u: Usuario = Depends(usuario_actual)):
             if b:
                 refs = s.query(StockSistema).filter_by(bodega_id=b.id).count()
                 item = {"id": b.id, "bodega": b.nombre_oficial,
-                       "estado": b.estado, "referencias": refs}
+                       "estado": b.estado, "referencias": refs,
+                       "sede_id": b.sede_id, "sede": _nombre_sede(s, b.sede_id)}
                 item.update(_contexto_bodega(s, b, refs))
                 salida.append(item)
     return salida
@@ -4430,6 +4442,108 @@ def asignar_bodegas(usuario_id: int, body: dict,
         nombre = objetivo.nombre
     registrar(u, "ASIGNACION", f"Bodegas asignadas a {nombre}: {len(ids)}", "ok")
     return {"ok": True}
+
+
+
+# ─────────────────────── sedes ───────────────────────
+# Una sede agrupa bodegas. NO decide permisos: eso lo sigue decidiendo
+# AsignacionBodega, bodega por bodega (ver _requiere_acceso_bodega). Lo que
+# resuelve es lo practico: repartir doce bodegas de un clic en vez de doce,
+# y poder mirar la operacion por sitio.
+
+
+class SedeIn(BaseModel):
+    nombre: str
+    ciudad: str = ""
+
+
+@app.get("/api/sedes")
+def listar_sedes(u: Usuario = Depends(usuario_actual)):
+    """Con cuantas bodegas tiene cada una, que es el dato que se mira al
+    repartir. Lo puede ver cualquiera: son nombres de sitios, y el auxiliar
+    los necesita para entender de donde es su bodega."""
+    with Sesion() as s:
+        por_sede: dict[int, int] = {}
+        for (sid,) in s.query(Bodega.sede_id).filter(Bodega.sede_id.isnot(None)).all():
+            por_sede[sid] = por_sede.get(sid, 0) + 1
+        sedes = [{"id": x.id, "nombre": x.nombre, "ciudad": x.ciudad or "",
+                  "bodegas": por_sede.get(x.id, 0)}
+                 for x in s.query(Sede).order_by(Sede.nombre).all()]
+        sin_sede = s.query(Bodega).filter(Bodega.sede_id.is_(None)).count()
+    return {"sedes": sedes, "bodegas_sin_sede": sin_sede}
+
+
+@app.post("/api/sedes")
+def crear_sede(datos: SedeIn, u: Usuario = Depends(requiere_perfil("auditor"))):
+    nombre = (datos.nombre or "").strip().upper()
+    if not nombre:
+        raise HTTPException(400, "La sede necesita un nombre.")
+    with Sesion() as s:
+        if s.query(Sede).filter_by(nombre=nombre).first():
+            raise HTTPException(409, "Ya existe una sede con ese nombre.")
+        sede = Sede(nombre=nombre, ciudad=(datos.ciudad or "").strip())
+        s.add(sede)
+        s.commit()
+        s.refresh(sede)
+        sid = sede.id
+    registrar(u, "SEDE", f"Sede creada: {nombre}", "ok")
+    return {"ok": True, "id": sid}
+
+
+@app.delete("/api/sedes/{sede_id}")
+def borrar_sede(sede_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Las bodegas no se borran ni se tocan: vuelven a quedar sin sede,
+    que es un estado valido. Mismo principio que en el resto del sistema -
+    borrar una agrupacion no puede llevarse por delante lo agrupado."""
+    with Sesion() as s:
+        sede = s.get(Sede, sede_id)
+        if sede is None:
+            raise HTTPException(404, "Sede no encontrada.")
+        nombre = sede.nombre
+        sueltas = s.query(Bodega).filter_by(sede_id=sede_id).count()
+        for b in s.query(Bodega).filter_by(sede_id=sede_id).all():
+            b.sede_id = None
+        s.delete(sede)
+        s.commit()
+    registrar(u, "SEDE", f"Sede eliminada: {nombre} ({sueltas} bodegas quedaron sin sede)", "ok")
+    return {"ok": True, "bodegas_sin_sede": sueltas}
+
+
+@app.put("/api/bodegas/{bodega_id}/sede")
+def asignar_sede_a_bodega(bodega_id: int, body: dict,
+                          u: Usuario = Depends(requiere_perfil("auditor"))):
+    """sede_id = null saca la bodega de su sede sin borrarla de nada."""
+    sede_id = body.get("sede_id")
+    with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
+        b = s.get(Bodega, bodega_id)
+        if b is None:
+            raise HTTPException(404, "Bodega no encontrada.")
+        if sede_id is not None and s.get(Sede, sede_id) is None:
+            raise HTTPException(404, "Sede no encontrada.")
+        b.sede_id = sede_id
+        s.commit()
+        nombre_b = b.nombre_oficial
+        nombre_s = s.get(Sede, sede_id).nombre if sede_id is not None else "sin sede"
+    registrar(u, "SEDE", f"{nombre_b} -> {nombre_s}", "ok")
+    return {"ok": True}
+
+
+@app.get("/api/sedes/{sede_id}/bodegas")
+def bodegas_de_sede(sede_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
+    """Los ids de una sede, para poder marcarlos todos de una vez al
+    repartir. Solo devuelve los que quien pregunta puede repartir: a un
+    administrador de sede no le sirve -ni debe ver- una lista que incluya
+    bodegas que el PUT le va a filtrar despues."""
+    with Sesion() as s:
+        if s.get(Sede, sede_id) is None:
+            raise HTTPException(404, "Sede no encontrada.")
+        ids = [b.id for b in s.query(Bodega).filter_by(sede_id=sede_id).all()]
+        mias = {a.bodega_id for a in
+                s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
+        if mias:
+            ids = [x for x in ids if x in mias]
+    return ids
 
 
 @app.get("/api/bodegas/asignaciones")

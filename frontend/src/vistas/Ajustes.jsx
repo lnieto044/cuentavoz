@@ -4,6 +4,7 @@ import { escuchar, hablar, quitarTildes } from "../voz";
 import Marco from "../Marco";
 import AsistenteVoz from "../AsistenteVoz";
 import Icono from "../Iconos";
+import Dialogo from "../Dialogo";
 import { useDevolverFoco } from "../foco";
 
 const _EJEMPLOS_POR_PESTANA = {
@@ -254,6 +255,11 @@ function TabUsuarios({ token, usuario }) {
   const [asignando, setAsignando] = useState(null);   // usuario al que se le estan marcando bodegas
   useDevolverFoco(Boolean(asignando));
   const [marcadas, setMarcadas] = useState(new Set());
+  const [sedes, setSedes] = useState([]);
+  const [sinSede, setSinSede] = useState(0);
+  const [verSedes, setVerSedes] = useState(false);
+  const [sedeNueva, setSedeNueva] = useState(null);   // {nombre, ciudad}
+  const [borrarSede, setBorrarSede] = useState(null);
   const [cobertura, setCobertura] = useState(null);
   const [verCobertura, setVerCobertura] = useState(false);
   const [editando, setEditando] = useState(null);     // usuario que se esta editando (correo/rol)
@@ -266,6 +272,7 @@ function TabUsuarios({ token, usuario }) {
     // bodegas asignadas) sigue viendo el parque completo; uno de sede ve
     // solo la suya, que es justo lo que el backend le va a dejar guardar.
     pedir("/api/bodegas?propias=1", {}, token).then(setBodegas).catch(() => {});
+    cargarSedes();
     if (verCobertura) cargarCobertura();
   }
   useEffect(cargar, [token]);
@@ -331,6 +338,57 @@ function TabUsuarios({ token, usuario }) {
       nueva.has(id) ? nueva.delete(id) : nueva.add(id);
       return nueva;
     });
+  }
+
+  /* Repartir por sede es el motivo por el que la sede existe: quien
+     lleva doce bodegas de Piscilago no deberia marcarlas de a una. Los ids
+     los da el backend, que ademas ya filtra los que quien reparte no puede
+     repartir (ver /api/sedes/{id}/bodegas). */
+  function cargarSedes() {
+    pedir("/api/sedes", {}, token)
+      .then((r) => { setSedes(r.sedes || []); setSinSede(r.bodegas_sin_sede || 0); })
+      .catch(() => {});
+  }
+
+  async function crearSede() {
+    if (!sedeNueva?.nombre?.trim()) return;
+    try {
+      await pedir("/api/sedes", {
+        method: "POST",
+        body: JSON.stringify({ nombre: sedeNueva.nombre, ciudad: sedeNueva.ciudad || "" }),
+      }, token);
+      setMsg(`Sede ${sedeNueva.nombre.toUpperCase()} creada.`);
+      setSedeNueva(null);
+      cargarSedes();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function eliminarSede(sd) {
+    try {
+      const r = await pedir(`/api/sedes/${sd.id}`, { method: "DELETE" }, token);
+      setMsg(`Sede ${sd.nombre} eliminada. ${r.bodegas_sin_sede} bodegas quedaron sin sede.`);
+      setBorrarSede(null);
+      cargarSedes();
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function cambiarSedeDeBodega(bodegaId, sedeId) {
+    try {
+      await pedir(`/api/bodegas/${bodegaId}/sede`, {
+        method: "PUT",
+        body: JSON.stringify({ sede_id: sedeId === "" ? null : Number(sedeId) }),
+      }, token);
+      cargarSedes();
+      cargar();
+    } catch (e) { setMsg(e.message); }
+  }
+
+  async function marcarSedeEntera(sedeId) {
+    try {
+      const ids = await pedir(`/api/sedes/${sedeId}/bodegas`, {}, token);
+      setMarcadas((prev) => new Set([...prev, ...ids]));
+    } catch (e) { setMsg(e.message); }
   }
 
   async function guardarAsignacion() {
@@ -517,6 +575,88 @@ function TabUsuarios({ token, usuario }) {
         </div>
       )}
 
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <h2>Sedes</h2>
+        <p className="pista" style={{ marginBottom: 10 }}>
+          Agrupan bodegas por sitio para poder repartirlas de una vez, en vez de marcar
+          doce a mano. <b>No dan ni quitan permisos</b>: quién puede entrar a cada bodega
+          se sigue decidiendo bodega por bodega, arriba.
+        </p>
+        <div className="grilla-botones">
+          <button className="btn borde" onClick={() => setVerSedes((v) => !v)}>
+            {verSedes ? "Ocultar sedes" : `Ver sedes (${sedes.length})`}
+          </button>
+          <button className="btn" onClick={() => setSedeNueva({ nombre: "", ciudad: "" })}>
+            + Nueva sede
+          </button>
+        </div>
+
+        {verSedes && (
+          <div style={{ marginTop: 12 }}>
+            {sedes.length === 0 ? (
+              <p className="pista">
+                Todavía no hay sedes. Las {sinSede} bodegas funcionan igual sin ellas:
+                una sede solo hace falta el día que haya varias y convenga repartirlas
+                por sitio.
+              </p>
+            ) : (
+              <>
+                <table>
+                  <thead>
+                    <tr><th>Sede</th><th>Ciudad</th><th>Bodegas</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {sedes.map((sd) => (
+                      <tr key={sd.id}>
+                        <td><b>{sd.nombre}</b></td>
+                        <td>{sd.ciudad || "—"}</td>
+                        <td>{sd.bodegas}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <button className="btn gris" style={{ padding: "5px 10px", minHeight: 0 }}
+                                  onClick={() => setBorrarSede(sd)}>
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {sinSede > 0 && (
+                  <p className="pista" style={{ marginTop: 8 }}>
+                    {sinSede} bodegas sin sede. No es un problema: siguen funcionando igual.
+                  </p>
+                )}
+              </>
+            )}
+
+            <h3 style={{ marginTop: 18 }}>De qué sede es cada bodega</h3>
+            <div style={{ maxHeight: 320, overflowY: "auto", marginTop: 8 }}>
+              <table>
+                <thead><tr><th>Bodega</th><th>Sede</th></tr></thead>
+                <tbody>
+                  {bodegas.map((b) => (
+                    <tr key={b.id}>
+                      <td>{b.bodega}</td>
+                      <td>
+                        <select value={b.sede_id ?? ""}
+                                aria-label={`Sede de ${b.bodega}`}
+                                onChange={(e) => cambiarSedeDeBodega(b.id, e.target.value)}>
+                          <option value="">Sin sede</option>
+                          {sedes.map((sd) => (
+                            <option key={sd.id} value={sd.id}>{sd.nombre}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="card" style={{ background: "var(--fondo)", marginTop: 14 }}>
         <h2>Qué puede hacer cada perfil</h2>
         <table>
@@ -584,6 +724,38 @@ function TabUsuarios({ token, usuario }) {
         </div>
       )}
 
+      {sedeNueva && (
+        <div className="overlay" onClick={() => setSedeNueva(null)}>
+          <div className="modal" style={{ maxWidth: 380, textAlign: "left" }}
+               onClick={(e) => e.stopPropagation()}
+               role="dialog" aria-modal="true" aria-labelledby="titulo-sede-nueva">
+            <h2 id="titulo-sede-nueva">Nueva sede</h2>
+            <label htmlFor="sede-nombre">Nombre</label>
+            <input id="sede-nombre" autoFocus value={sedeNueva.nombre}
+                   placeholder="Piscilago"
+                   onChange={(e) => setSedeNueva({ ...sedeNueva, nombre: e.target.value })} />
+            <label htmlFor="sede-ciudad" style={{ marginTop: 8 }}>Ciudad (opcional)</label>
+            <input id="sede-ciudad" value={sedeNueva.ciudad}
+                   placeholder="Girardot"
+                   onChange={(e) => setSedeNueva({ ...sedeNueva, ciudad: e.target.value })} />
+            <div className="botones" style={{ marginTop: 14 }}>
+              <button className="btn borde" onClick={() => setSedeNueva(null)}>Cancelar</button>
+              <button className="btn" onClick={crearSede}>Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {borrarSede && (
+        <Dialogo titulo={`Eliminar la sede ${borrarSede.nombre}`}
+                 mensaje={`Sus ${borrarSede.bodegas} bodegas NO se borran: quedan sin sede, `
+                          + "que es un estado normal, y se pueden volver a agrupar cuando quiera."}
+                 textoAceptar="Eliminar"
+                 peligro
+                 onAceptar={() => eliminarSede(borrarSede)}
+                 onCancelar={() => setBorrarSede(null)} />
+      )}
+
       {asignando && (
         <div className="overlay" onClick={() => setAsignando(null)}>
           <div className="modal" style={{ maxWidth: 520, textAlign: "left" }}
@@ -597,6 +769,21 @@ function TabUsuarios({ token, usuario }) {
                 ? "Marque las bodegas de las que esta persona es responsable como administradora (recuento ciego, cierre)."
                 : "Marque las bodegas que va a poder contar esta persona."}
             </p>
+            {sedes.length > 0 && (
+              <div style={{ margin: "10px 0 0" }}>
+                <p className="pista" style={{ marginBottom: 6 }}>
+                  Marcar una sede entera:
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {sedes.filter((sd) => sd.bodegas > 0).map((sd) => (
+                    <button key={sd.id} type="button" className="chip"
+                            onClick={() => marcarSedeEntera(sd.id)}>
+                      + {sd.nombre} ({sd.bodegas})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ maxHeight: 320, overflowY: "auto", margin: "12px 0",
                           border: "1px solid var(--borde)", borderRadius: 10, padding: 8 }}>
               {bodegas.map((b) => (
@@ -604,7 +791,8 @@ function TabUsuarios({ token, usuario }) {
                                             padding: "7px 6px", fontSize: ".9rem" }}>
                   <input type="checkbox" checked={marcadas.has(b.id)}
                          onChange={() => alternarBodega(b.id)} />
-                  {b.bodega}
+                  <span style={{ flex: 1 }}>{b.bodega}</span>
+                  {b.sede && <span className="chip" style={{ fontSize: ".7rem" }}>{b.sede}</span>}
                 </label>
               ))}
             </div>

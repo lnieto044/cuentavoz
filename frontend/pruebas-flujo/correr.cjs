@@ -48,7 +48,8 @@ if (require.main === module) {
     const navegador = await chromium.launch({ headless: !VER, slowMo: VER ? 120 : 0 });
 
     for (const archivo of ['flujo-conteo.cjs', 'flujo-pedidos.cjs',
-                           'flujo-auditoria.cjs', 'flujo-permisos.cjs']) {
+                           'flujo-auditoria.cjs', 'flujo-permisos.cjs',
+                           'flujo-sedes.cjs']) {
       const grupo = require(path.join(__dirname, archivo));
       console.log(`\n── ${grupo.titulo} ──`);
       await grupo.correr({ navegador, WEB, API, prueba, afirmar });

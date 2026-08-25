@@ -57,7 +57,7 @@
     <tbody>
       <tr><td><b>Frontend</b><br><span class="ui">frontend/</span></td><td>React 18 + Vite, PWA</td><td>Las 14 vistas, el reconocimiento de voz del navegador, la cola sin conexión y el diálogo con Cognito.</td></tr>
       <tr><td><b>Backend</b><br><span class="ui">backend/</span></td><td>FastAPI + Uvicorn</td><td>90 endpoints, las reglas del negocio, la conversación con el agente y la generación de archivos.</td></tr>
-      <tr><td><b>Base de datos</b></td><td>SQLAlchemy 2 sobre SQLite (local) o PostgreSQL (producción)</td><td>18 tablas. El mismo código sirve para las dos: solo cambia <span class="ui">DB_URL</span>.</td></tr>
+      <tr><td><b>Base de datos</b></td><td>SQLAlchemy 2 sobre SQLite (local) o PostgreSQL (producción)</td><td>19 tablas. El mismo código sirve para las dos: solo cambia <span class="ui">DB_URL</span>.</td></tr>
       <tr><td><b>Servicios</b><br><span class="ui">backend/servicios/</span></td><td>Python puro</td><td>Intérprete local, recetas, conciliación, analítica, validación y archivos. Sin FastAPI adentro, por eso se pueden probar solos.</td></tr>
     </tbody>
   </table>
@@ -167,6 +167,15 @@
   <p>Manda la <b>asignación</b>, no el perfil. Un administrador <b>sin</b> bodegas asignadas es el administrador general: alcanza todo el parque, como siempre. Uno <b>con</b> bodegas asignadas es el administrador de esa sede y solo de esa — no puede iniciar, firmar ni cerrar la auditoría de otra, aunque su perfil sea el mismo.</p>
   <p>Esto es lo que deja crecer a varias sedes sin inventar perfiles nuevos: el eje fino ya no es «auxiliar sí, administrador no», sino la lista de bodegas de cada quien. Y quien reparte bodegas reparte solo las suyas, porque si no el límite sería decorativo: bastaría con asignarse las 54 para volver a ser general. Lo que una persona tenga asignado en otra sede no se toca al guardar, para que dos administradores de sedes distintas puedan repartirle bodegas al mismo auxiliar sin pisarse.</p>
 
+  <h3>La tabla <span class="ui">sede</span>: agrupa, no autoriza</h3>
+  <p>Una sede es un sitio físico —Piscilago, la Calle 26— y agrupa bodegas: <span class="ui">bodega.sede_id</span>, nulo por defecto. Existe por una razón práctica, no de seguridad: quien lleva doce bodegas de una sede no debería marcarlas de a una al repartir, y ver la operación por sitio es lo que se pide en cuanto hay más de uno.</p>
+  <p><b>La sede no decide permisos.</b> Meter dos bodegas en la misma sede no le da a nadie acceso a la que no tiene asignada: eso lo sigue resolviendo <span class="ui">asignacion_bodega</span>, bodega por bodega, con las pruebas de regresión que ya tenía. Son dos ejes a propósito, porque en la operación real una persona cubre tres bodegas de una sede y una de otra cuando le toca un turno, y un modelo que atara el permiso a la sede no sabría representar eso.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Sin sede es un estado válido, no un pendiente</span>
+    <p>Las 54 bodegas que ya existían quedaron con <span class="ui">sede_id</span> nulo y se comportan exactamente igual que antes. Nada obliga a clasificarlas, y borrar una sede tampoco borra sus bodegas: vuelven a quedar sin sede. Una migración que hubiera repartido las 54 en sedes inventadas habría sido peor que no tener sedes.</p>
+  </div>
+
   <h3>Cerrar sesión de verdad</h3>
   <p>«Cerrar sesión» no se limita a borrar el token de este navegador: llama a <span class="ui">/api/usuarios/yo/cerrar-todas</span>, que revoca la sesión en Cognito. Sin eso, el access token seguía siendo válido hasta vencer solo — hasta una hora. En una tableta que se pasan entre turnos, eso es una cuenta abierta para el siguiente.</p>
 </section>
@@ -218,7 +227,8 @@
     <thead><tr><th>Tabla</th><th>Guarda</th></tr></thead>
     <tbody>
       <tr><td><span class="ui">usuario</span></td><td>Las personas, su perfil y su estado. La clave no está aquí: la guarda Cognito.</td></tr>
-      <tr><td><span class="ui">asignacion_bodega</span></td><td>Qué bodegas puede contar cada auxiliar.</td></tr>
+      <tr><td><span class="ui">asignacion_bodega</span></td><td>Qué bodegas alcanza cada persona. <b>Es la que decide los permisos.</b></td></tr>
+      <tr><td><span class="ui">sede</span></td><td>Agrupa bodegas por sitio, para repartirlas de una vez. No decide permisos.</td></tr>
       <tr><td><span class="ui">bodega</span></td><td>Las zonas y su estado: pendiente, en conteo, en auditoría o cerrada.</td></tr>
       <tr><td><span class="ui">articulo</span></td><td>El catálogo oficial, con su código.</td></tr>
       <tr><td><span class="ui">stock_sistema</span></td><td>Lo que el sistema cree que hay, contra lo que se compara el conteo.</td></tr>

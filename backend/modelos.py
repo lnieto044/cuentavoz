@@ -50,11 +50,29 @@ class AsignacionBodega(Base):
     bodega_id = Column(Integer, ForeignKey("bodega.id"))
 
 
+class Sede(Base):
+    """Una sede fisica: Piscilago, Calle 26, el club de la 195...
+
+    Agrupa bodegas para poder repartirlas de una vez y para ver la
+    operacion por sitio. NO decide permisos: eso lo sigue decidiendo
+    AsignacionBodega, bodega por bodega. Son dos ejes distintos a
+    proposito - una persona puede tener tres bodegas de una sede y una de
+    otra, que es como ocurre de verdad cuando alguien cubre un turno."""
+    __tablename__ = "sede"
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String, unique=True, nullable=False)
+    ciudad = Column(String, default="")
+
+
 class Bodega(Base):
     __tablename__ = "bodega"
     id = Column(Integer, primary_key=True)
     nombre_oficial = Column(String, unique=True, nullable=False)
     estado = Column(String, default="pendiente")     # pendiente | en_conteo | en_auditoria | cerrada
+    # NULL = sin sede. Es el estado de las 54 bodegas que ya existian
+    # cuando se agrego esto, y sigue siendo valido: una bodega sin sede se
+    # comporta igual que siempre. Nada obliga a clasificarlas todas.
+    sede_id = Column(Integer, ForeignKey("sede.id"), nullable=True)
 
 
 class Articulo(Base):
