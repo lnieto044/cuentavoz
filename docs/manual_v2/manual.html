@@ -217,11 +217,11 @@
   <li><span class="n">9</span><span class="t">Reportes  <em class="menu-ref">menú: Reportes</em></span><span class="rol">Administrador</span><span class="pag">36</span></li>
   <li><span class="n">10</span><span class="t">Panel  <em class="menu-ref">menú: Panel</em></span><span class="rol">Administrador</span><span class="pag">40</span></li>
   <li><span class="n">11</span><span class="t">Ajustes  <em class="menu-ref">menú: Ajustes</em></span><span class="rol">Administrador</span><span class="pag">43</span></li>
-  <li><span class="n">12</span><span class="t">Ayuda  <em class="menu-ref">menú: Ayuda</em></span><span class="rol">Todos</span><span class="pag">48</span></li>
-  <li><span class="n">13</span><span class="t">Mensajes  <em class="menu-ref">menú: Mensajes</em></span><span class="rol">Todos</span><span class="pag">53</span></li>
-  <li><span class="n">14</span><span class="t">Mi perfil  <em class="menu-ref">menú: Mi perfil</em></span><span class="rol">Todos</span><span class="pag">56</span></li>
-  <li><span class="n">15</span><span class="t">Cerrar sesión  <em class="menu-ref">menú: Cerrar sesión</em></span><span class="rol">Todos</span><span class="pag">60</span></li>
-  <li><span class="n">16</span><span class="t">Preguntas frecuentes</span><span class="rol">Todos</span><span class="pag">61</span></li>
+  <li><span class="n">12</span><span class="t">Ayuda  <em class="menu-ref">menú: Ayuda</em></span><span class="rol">Todos</span><span class="pag">51</span></li>
+  <li><span class="n">13</span><span class="t">Mensajes  <em class="menu-ref">menú: Mensajes</em></span><span class="rol">Todos</span><span class="pag">56</span></li>
+  <li><span class="n">14</span><span class="t">Mi perfil  <em class="menu-ref">menú: Mi perfil</em></span><span class="rol">Todos</span><span class="pag">59</span></li>
+  <li><span class="n">15</span><span class="t">Cerrar sesión  <em class="menu-ref">menú: Cerrar sesión</em></span><span class="rol">Todos</span><span class="pag">63</span></li>
+  <li><span class="n">16</span><span class="t">Preguntas frecuentes</span><span class="rol">Todos</span><span class="pag">64</span></li>
 </ol>
 </div>
 
@@ -845,6 +845,47 @@
     <figcaption><b>Figura 51</b>Todo lo que ha pasado en el sistema, en orden y sin poder borrarse.</figcaption>
   </figure>
 
+  <h3>Agrupar bodegas en sedes</h3>
+  <p>Con más de un sitio —Piscilago, la Calle 26— repartir bodegas de a una se vuelve
+  lento: alguien que cubre una sede entera puede llevar doce. Las sedes existen para
+  eso. <b>No reparten permisos</b>: quién entra a cada bodega se sigue decidiendo bodega
+  por bodega, arriba en esta misma pantalla.</p>
+
+  <ol class="pasos">
+    <li><b>Cree la sede</b>en <span class="ui">Ajustes → Gestión de usuarios</span>, baje
+    hasta la tarjeta <span class="ui">Sedes</span> y toque <span class="ui">+ Nueva sede</span>.
+    El nombre es obligatorio; la ciudad, opcional.</li>
+    <li><b>Diga de qué sede es cada bodega</b>toque <span class="ui">Ver sedes</span>: abajo
+    aparece la lista completa de bodegas con un desplegable al lado. Elija la sede de cada una.</li>
+    <li><b>Reparta la sede de un solo toque</b>al asignarle bodegas a alguien, arriba del
+    listado aparece un botón por sede —<span class="dicho">+ PISCILAGO (6)</span>— que marca
+    todas las suyas de una vez.</li>
+  </ol>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-sede-nueva.png" alt="Crear una sede">
+    <figcaption><b>Figura 52</b>Crear una sede. Solo el nombre es obligatorio.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-sedes.png" alt="Tarjeta de sedes con sus bodegas">
+    <figcaption><b>Figura 53</b>Las sedes creadas, con cuántas bodegas tiene cada una, y debajo
+    la tabla para clasificar bodega por bodega.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-asignar-por-sede.png" alt="Marcar una sede entera al asignar">
+    <figcaption><b>Figura 54</b>Al repartir bodegas, los botones de sede marcan todas las suyas
+    de una vez, en vez de ir de a una.</figcaption>
+  </figure>
+
+  <div class="aviso dato">
+    <span class="rotulo">Una bodega sin sede está bien</span>
+    <p>No hay obligación de clasificarlas todas: una bodega sin sede funciona exactamente
+    igual. Y eliminar una sede <b>no borra sus bodegas</b> — simplemente vuelven a quedar
+    sin sede.</p>
+  </div>
+
   <h3>Crear una cuenta para alguien</h3>
   <ol class="pasos">
     <li><b>Entre a «Gestión de usuarios»</b>y toque <span class="ui">+ Nuevo usuario</span>.</li>
@@ -890,12 +931,12 @@
 
   <figure>
     <img src="11-ayuda.png" alt="Pantalla de ayuda con preguntas frecuentes">
-    <figcaption><b>Figura 52</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
+    <figcaption><b>Figura 55</b>Ayuda. El agente responde con los datos reales de la pantalla en la que está.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/ayuda-estado-sistema.png" alt="Estado del sistema">
-    <figcaption><b>Figura 53</b>Si algo va lento o falla, aquí se ve si el problema es del servidor o de su conexión.</figcaption>
+    <figcaption><b>Figura 56</b>Si algo va lento o falla, aquí se ve si el problema es del servidor o de su conexión.</figcaption>
   </figure>
 
   <p>A la derecha, en <b>Soporte en vivo</b>, hay tres botones que hacen cosas distintas y conviene no confundir:</p>
@@ -917,7 +958,7 @@
 
   <figure>
     <img src="23-escribir-administrador.png" alt="Cuadro para escribirle al administrador de bodega">
-    <figcaption><b>Figura 54</b>Escribirle al administrador. El cuadro admite dictado por voz.</figcaption>
+    <figcaption><b>Figura 57</b>Escribirle al administrador. El cuadro admite dictado por voz.</figcaption>
   </figure>
 
   <div class="aviso dato">
@@ -934,7 +975,7 @@
 
   <figure>
     <img src="24-reportar-problema.png" alt="Cuadro para reportar un problema a soporte">
-    <figcaption><b>Figura 55</b>Reportar un problema. Queda en el registro de trazabilidad con su nombre y la hora.</figcaption>
+    <figcaption><b>Figura 58</b>Reportar un problema. Queda en el registro de trazabilidad con su nombre y la hora.</figcaption>
   </figure>
 
   <div class="aviso dato">
@@ -952,7 +993,7 @@
 
   <figure>
     <img src="29-volver-al-video.png" alt="El recorrido en video abierto desde Ayuda">
-    <figcaption><b>Figura 56</b>El recorrido, reabierto desde <span class="ui">Ayuda › Ver el recorrido en video</span>.</figcaption>
+    <figcaption><b>Figura 59</b>El recorrido, reabierto desde <span class="ui">Ayuda › Ver el recorrido en video</span>.</figcaption>
   </figure>
 
   <div class="aviso dato">
@@ -977,12 +1018,12 @@
 
   <figure>
     <img src="10-mensajes.png" alt="Bandeja de mensajes internos">
-    <figcaption><b>Figura 57</b>Mensajes. Para el auxiliar: lo que escribió y si ya le contestaron.</figcaption>
+    <figcaption><b>Figura 60</b>Mensajes. Para el auxiliar: lo que escribió y si ya le contestaron.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/mensajes-responder.png" alt="Responder un mensaje">
-    <figcaption><b>Figura 58</b>La respuesta se puede dictar. Al enviarla le llega también por correo a quien escribió.</figcaption>
+    <figcaption><b>Figura 61</b>La respuesta se puede dictar. Al enviarla le llega también por correo a quien escribió.</figcaption>
   </figure>
 
   <h3>Escribirle al administrador</h3>
@@ -1004,7 +1045,7 @@
 
   <figure>
     <img src="26-mensajes-administrador.png" alt="Bandeja del administrador con mensajes por responder">
-    <figcaption><b>Figura 59</b>La misma bandeja vista por el administrador, con el botón Responder.</figcaption>
+    <figcaption><b>Figura 62</b>La misma bandeja vista por el administrador, con el botón Responder.</figcaption>
   </figure>
 
   <div class="aviso dato">
@@ -1028,17 +1069,17 @@
 
   <figure>
     <img src="12-mi-perfil.png" alt="Pantalla de Mi perfil">
-    <figcaption><b>Figura 60</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
+    <figcaption><b>Figura 63</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/mi-perfil-mfa.png" alt="Verificación en dos pasos">
-    <figcaption><b>Figura 61</b>Activarla es opcional. Pide un código de su aplicación autenticadora además de la clave.</figcaption>
+    <figcaption><b>Figura 64</b>Activarla es opcional. Pide un código de su aplicación autenticadora además de la clave.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/mi-perfil-cerrar-todos.png" alt="Cerrar sesión en todos los dispositivos">
-    <figcaption><b>Figura 62</b>Útil si dejó la sesión abierta en una tableta compartida.</figcaption>
+    <figcaption><b>Figura 65</b>Útil si dejó la sesión abierta en una tableta compartida.</figcaption>
   </figure>
 
   <h3>Cambiar la clave</h3>
@@ -1065,7 +1106,7 @@
 
   <figure>
     <img src="13-accesibilidad.png" alt="Ajustes de accesibilidad en Mi perfil">
-    <figcaption><b>Figura 63</b>Accesibilidad. Disponible para todos los perfiles.</figcaption>
+    <figcaption><b>Figura 66</b>Accesibilidad. Disponible para todos los perfiles.</figcaption>
   </figure>
 </section>
 
@@ -1082,7 +1123,7 @@
 
   <figure>
     <img src="25-cerrar-sesion.png" alt="Aviso al cerrar sesión con una bodega abierta">
-    <figcaption><b>Figura 64</b>Cerrar sesión avisa si quedó trabajo abierto antes de salir.</figcaption>
+    <figcaption><b>Figura 67</b>Cerrar sesión avisa si quedó trabajo abierto antes de salir.</figcaption>
   </figure>
 </section>
 

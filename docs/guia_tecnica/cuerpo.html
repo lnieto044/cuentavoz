@@ -6,19 +6,19 @@
   <li><span class="n">2</span><span class="t">La arquitectura en una página</span><span class="rol">Panorama</span><span class="pag">3</span></li>
   <li><span class="n">3</span><span class="t">Poner el proyecto a andar</span><span class="rol">Arranque</span><span class="pag">4</span></li>
   <li><span class="n">4</span><span class="t">Identidad y permisos</span><span class="rol">Por dentro</span><span class="pag">6</span></li>
-  <li><span class="n">5</span><span class="t">El agente de voz</span><span class="rol">Por dentro</span><span class="pag">9</span></li>
-  <li><span class="n">6</span><span class="t">El modelo de datos</span><span class="rol">Por dentro</span><span class="pag">11</span></li>
-  <li><span class="n">7</span><span class="t">La API</span><span class="rol">Por dentro</span><span class="pag">14</span></li>
-  <li><span class="n">8</span><span class="t">El frontend</span><span class="rol">Por dentro</span><span class="pag">15</span></li>
-  <li><span class="n">9</span><span class="t">Trabajar sin conexión</span><span class="rol">Por dentro</span><span class="pag">16</span></li>
-  <li><span class="n">10</span><span class="t">Reportes y archivos</span><span class="rol">Por dentro</span><span class="pag">17</span></li>
-  <li><span class="n">11</span><span class="t">Trazabilidad y auditoría</span><span class="rol">Por dentro</span><span class="pag">18</span></li>
-  <li><span class="n">12</span><span class="t">Las catorce vistas, una por una</span><span class="rol">Por dentro</span><span class="pag">19</span></li>
-  <li><span class="n">13</span><span class="t">Pruebas</span><span class="rol">Operación</span><span class="pag">96</span></li>
-  <li><span class="n">14</span><span class="t">Despliegue</span><span class="rol">Operación</span><span class="pag">97</span></li>
-  <li><span class="n">15</span><span class="t">Decisiones de diseño</span><span class="rol">Operación</span><span class="pag">98</span></li>
-  <li><span class="n">16</span><span class="t">Cuando algo falla</span><span class="rol">Operación</span><span class="pag">99</span></li>
-  <li><span class="n">17</span><span class="t">El código completo</span><span class="rol">Apéndice</span><span class="pag">100</span></li>
+  <li><span class="n">5</span><span class="t">El agente de voz</span><span class="rol">Por dentro</span><span class="pag">11</span></li>
+  <li><span class="n">6</span><span class="t">El modelo de datos</span><span class="rol">Por dentro</span><span class="pag">13</span></li>
+  <li><span class="n">7</span><span class="t">La API</span><span class="rol">Por dentro</span><span class="pag">16</span></li>
+  <li><span class="n">8</span><span class="t">El frontend</span><span class="rol">Por dentro</span><span class="pag">17</span></li>
+  <li><span class="n">9</span><span class="t">Trabajar sin conexión</span><span class="rol">Por dentro</span><span class="pag">18</span></li>
+  <li><span class="n">10</span><span class="t">Reportes y archivos</span><span class="rol">Por dentro</span><span class="pag">19</span></li>
+  <li><span class="n">11</span><span class="t">Trazabilidad y auditoría</span><span class="rol">Por dentro</span><span class="pag">20</span></li>
+  <li><span class="n">12</span><span class="t">Las catorce vistas, una por una</span><span class="rol">Por dentro</span><span class="pag">21</span></li>
+  <li><span class="n">13</span><span class="t">Pruebas</span><span class="rol">Operación</span><span class="pag">98</span></li>
+  <li><span class="n">14</span><span class="t">Despliegue</span><span class="rol">Operación</span><span class="pag">99</span></li>
+  <li><span class="n">15</span><span class="t">Decisiones de diseño</span><span class="rol">Operación</span><span class="pag">100</span></li>
+  <li><span class="n">16</span><span class="t">Cuando algo falla</span><span class="rol">Operación</span><span class="pag">101</span></li>
+  <li><span class="n">17</span><span class="t">El código completo</span><span class="rol">Apéndice</span><span class="pag">102</span></li>
 </ol>
 </div>
 
@@ -175,6 +175,16 @@
     <span class="rotulo">Sin sede es un estado válido, no un pendiente</span>
     <p>Las 54 bodegas que ya existían quedaron con <span class="ui">sede_id</span> nulo y se comportan exactamente igual que antes. Nada obliga a clasificarlas, y borrar una sede tampoco borra sus bodegas: vuelven a quedar sin sede. Una migración que hubiera repartido las 54 en sedes inventadas habría sido peor que no tener sedes.</p>
   </div>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-sedes.png" alt="Tarjeta de sedes en Ajustes">
+    <figcaption><b>Figura</b>La tarjeta de sedes en <span class="ui">Ajustes → Gestión de usuarios</span>, con la tabla que clasifica bodega por bodega.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-asignar-por-sede.png" alt="Marcar una sede entera">
+    <figcaption><b>Figura</b>El motivo por el que existe: marcar una sede entera al repartir. Los ids los da <span class="ui">/api/sedes/{id}/bodegas</span>, que ya filtra lo que quien reparte no puede repartir.</figcaption>
+  </figure>
 
   <h3>Cerrar sesión de verdad</h3>
   <p>«Cerrar sesión» no se limita a borrar el token de este navegador: llama a <span class="ui">/api/usuarios/yo/cerrar-todas</span>, que revoca la sesión en Cognito. Sin eso, el access token seguía siendo válido hasta vencer solo — hasta una hora. En una tableta que se pasan entre turnos, eso es una cuenta abierta para el siguiente.</p>
