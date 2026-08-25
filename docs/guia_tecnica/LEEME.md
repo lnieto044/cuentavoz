@@ -12,6 +12,7 @@ guía la hereda en la siguiente corrida.
 | --- | --- |
 | `cuerpo.html` | **Lo único que se edita a mano.** Las secciones 1 a 16: texto, tablas y avisos. |
 | `codigo.py` | Genera la sección 17 (el código completo) **leyendo los archivos reales** del repositorio. Para agregar o quitar un archivo del apéndice, edite la lista `GRUPOS` de aquí. |
+| capturas | Las figuras salen de `docs/capturas/`. Para refrescarlas: `node docs/capturas/recapturar.js`. |
 | `guia.html` | Generado. `cuerpo.html` + los estilos del manual. No lo edite. |
 | `portada.html` | Generado a partir de la portada del manual. No lo edite: los textos propios de la guía están dentro de `armar.py`. |
 | `armar.py` | Arma `guia.html` y `portada.html`, y une el PDF final. |
@@ -36,7 +37,7 @@ node docs/guia_tecnica/generar_pdf.js     # imprime portada y cuerpo
 python docs/guia_tecnica/armar.py         # arma el HTML y une el PDF
 ```
 
-El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf` (unas 240 páginas).
+El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf` (unas 390 páginas).
 
 > **El código del apéndice no se transcribe: se genera.** Es la diferencia de
 > fondo con la guía V4, que traía 270 páginas de código pegado a mano y quedó

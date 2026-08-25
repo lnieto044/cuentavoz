@@ -33,7 +33,18 @@ GRUPOS = [
         ("backend/horario.py",
          "La hora local de la operacion, en un solo sitio."),
     ]),
-    ("17.2", "Backend · servicios", [
+    ("17.2", "Backend · el agente", [
+        ("backend/agente/orquestador.py",
+         "El que dirige un turno de conversacion de punta a punta: recibe la "
+         "frase, decide que hacer con ella, resuelve el articulo contra el "
+         "catalogo, valida y contesta. Es el archivo mas importante del "
+         "proyecto despues de main.py."),
+        ("backend/agente/cerebro.py",
+         "La conversacion con Gemini: el prompt, las reglas del sistema y la "
+         "lectura de la respuesta. Cuando no hay llave, aqui es donde entra "
+         "el interprete local en su lugar."),
+    ]),
+    ("17.3", "Backend · servicios", [
         ("backend/servicios/interprete.py",
          "El interprete local: numeros en palabras, unidades e intenciones. "
          "Es el que permite que la plataforma funcione sin Gemini."),
@@ -50,7 +61,7 @@ GRUPOS = [
         ("backend/servicios/archivos.py",
          "Escritura y lectura de los archivos generados."),
     ]),
-    ("17.3", "Frontend · nucleo", [
+    ("17.4", "Frontend · nucleo", [
         ("frontend/src/main.jsx", "El punto de entrada."),
         ("frontend/src/App.jsx",
          "El menu, la vista activa, la sesion y el contexto. Agregar una "
@@ -72,7 +83,7 @@ GRUPOS = [
         ("frontend/src/tutorial.js", "Si el recorrido en video se abre solo."),
         ("frontend/src/correoAdmin.js", "El respaldo de envio por correo."),
     ]),
-    ("17.4", "Frontend · componentes compartidos", [
+    ("17.5", "Frontend · componentes compartidos", [
         ("frontend/src/BarraLateral.jsx",
          "El menu lateral, el avatar y el aviso de cola sin conexion."),
         ("frontend/src/Marco.jsx", "El encabezado comun de cada pantalla."),
@@ -85,7 +96,7 @@ GRUPOS = [
         ("frontend/src/VideoRecorrido.jsx", "El recorrido narrado por perfil."),
         ("frontend/src/Iconos.jsx", "Los iconos, en SVG."),
     ]),
-    ("17.5", "Frontend · las catorce vistas", [
+    ("17.6", "Frontend · las catorce vistas", [
         ("frontend/src/vistas/Ingreso.jsx", "Ingreso, registro y recuperacion."),
         ("frontend/src/vistas/Inicio.jsx", "El resumen del dia."),
         ("frontend/src/vistas/Pedido.jsx", "Del plato a los insumos."),
@@ -103,7 +114,7 @@ GRUPOS = [
         ("frontend/src/vistas/MiPerfil.jsx", "La cuenta propia."),
         ("frontend/src/vistas/CerrarSesion.jsx", "Salir sin dejar nada a medias."),
     ]),
-    ("17.6", "Pruebas", [
+    ("17.7", "Pruebas", [
         ("backend/tests/conftest.py", "La base en memoria que usan todas."),
         ("backend/tests/test_cerebro.py", "El orquestador del agente."),
         ("backend/tests/test_interprete.py", "El interprete local."),
@@ -118,6 +129,34 @@ GRUPOS = [
         ("frontend/src/accesibilidad.test.js", "Contraste y tamaño de letra."),
         ("frontend/src/confirmacionVoz.test.js", "Que cuenta como un si."),
         ("frontend/src/tutorial.test.js", "Cuando se abre el recorrido."),
+        ("backend/tests/test_crear_bodega.py", "Alta de bodegas y su aprobacion."),
+        ("backend/tests/test_asistente_contextual.py", "El asistente que responde por pantalla."),
+        ("backend/tests/test_asistente_abre_bodega.py", "Abrir una bodega hablando."),
+        ("backend/tests/test_consulta_articulo_sugiere_bodega.py",
+         "Consultar un articulo, y no confundirlo con una bodega."),
+        ("backend/tests/test_orquestador_desambiguacion.py",
+         "Cuando hay varias candidatas en el catalogo."),
+        ("backend/tests/test_previsualizar_reporte_por_voz.py",
+         "Pedir un reporte hablando."),
+        ("backend/tests/test_receta_plural.py", "El plato dictado en plural."),
+        ("backend/tests/test_cognito_config.py", "La configuracion del User Pool."),
+        ("backend/tests/test_cognito_no_disponible.py",
+         "Que pasa cuando Cognito no responde."),
+        ("backend/tests/test_esquema_desfasado.py",
+         "Cuando la base tiene un esquema viejo."),
+    ]),
+    ("17.8", "Estilos, configuracion y despliegue", [
+        ("frontend/src/index.css",
+         "La hoja de estilos entera: variables de color, la rejilla de la "
+         "aplicacion, los componentes y los ajustes de accesibilidad."),
+        ("frontend/vite.config.js",
+         "El empaquetado y la PWA, incluido que los mp4 del recorrido no "
+         "entran al precacheo."),
+        ("frontend/package.json", "Dependencias y guiones del frontend."),
+        ("backend/requirements.txt", "Dependencias del backend, con version fija."),
+        ("render.yaml", "Los tres servicios del despliegue."),
+        ("docker-compose.yml", "El entorno local con PostgreSQL."),
+        (".env.ejemplo", "Todas las variables de entorno, comentadas."),
     ]),
 ]
 
@@ -133,7 +172,7 @@ ESTILO = """
   .codigo-cabeza p{ margin:1.2mm 0 0; font-size:8.2pt; color:var(--pizarra);
     line-height:1.35; }
   pre.codigo{ margin:2mm 0 0; font-family:"Consolas","DejaVu Sans Mono",monospace;
-    font-size:6.5pt; line-height:1.32; color:var(--tinta);
+    font-size:7.4pt; line-height:1.34; color:var(--tinta);
     white-space:pre-wrap; word-break:break-word; }
   pre.codigo .ln{ display:inline-block; width:7mm; text-align:right;
     margin-right:2.2mm; color:#A9B7C7; user-select:none; }

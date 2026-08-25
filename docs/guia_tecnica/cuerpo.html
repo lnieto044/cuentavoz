@@ -161,6 +161,16 @@
   <h2 class="seccion"><span class="num">5</span>El agente de voz</h2>
   <p class="seccion-intro">De «arroz, veinte kilos» a una fila en la base de datos.</p>
 
+  <h3>Dónde vive</h3>
+  <table>
+    <thead><tr><th>Archivo</th><th>De qué responde</th></tr></thead>
+    <tbody>
+      <tr><td><span class="ui">backend/agente/orquestador.py</span><br>724 líneas</td><td>Dirige el turno de punta a punta: recibe la frase, decide qué hacer con ella, resuelve el artículo contra el catálogo, valida y contesta. Después de <span class="ui">main.py</span>, es el archivo más importante del proyecto.</td></tr>
+      <tr><td><span class="ui">backend/agente/cerebro.py</span><br>315 líneas</td><td>La conversación con Gemini: el <i>prompt</i>, las reglas del sistema y la lectura de la respuesta. Cuando no hay llave, aquí es donde entra el intérprete local en su lugar.</td></tr>
+      <tr><td><span class="ui">backend/servicios/interprete.py</span><br>147 líneas</td><td>El intérprete local. El mismo código, en JavaScript, corre además dentro del navegador para el modo sin conexión.</td></tr>
+    </tbody>
+  </table>
+
   <h3>El recorrido de una frase</h3>
   <ol class="pasos">
     <li><b>El navegador escucha</b>con la API <span class="ui">SpeechRecognition</span>, en español de Colombia. El audio no sale del dispositivo: lo que viaja es el texto.</li>
@@ -367,8 +377,23 @@
   </table>
 
   <figure>
-    <img src="../capturas/tablet/ingreso.png" alt="Pantalla de ingreso">
-    <figcaption><b>Figura X</b>Ingreso. El perfil se detecta mientras se escribe el usuario.</figcaption>
+    <img src="../capturas/manual/ingreso-login.png" alt="Pantalla de ingreso">
+    <figcaption><b>Figura X</b>Modo <span class="dicho">login</span>. El perfil se detecta mientras se escribe el usuario.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ingreso-registro.png" alt="Formulario de registro">
+    <figcaption><b>Figura X</b>Modo <span class="dicho">registro</span>. Los cuatro requisitos de clave se marcan en verde a medida que se escribe.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ingreso-recuperar.png" alt="Recuperación de clave">
+    <figcaption><b>Figura X</b>Modo <span class="dicho">recuperar</span>. Se pide el usuario, no el correo: el código va a la dirección ya registrada.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/mi-perfil-mfa.png" alt="Configuración del segundo factor">
+    <figcaption><b>Figura X</b>Modo <span class="dicho">registro-mfa</span>. El mismo componente que abre Mi perfil: QR, llave secreta y código de seis dígitos.</figcaption>
   </figure>
 
   <h3>12.2 Inicio<span class="rol-tag">Menú 1</span></h3>
@@ -382,12 +407,12 @@
   </table>
 
   <figure>
-    <img src="../capturas/tablet/inicio.png" alt="Pantalla de inicio">
-    <figcaption><b>Figura X</b>Inicio. Los cuatro indicadores del día, los accesos directos y la actividad reciente.</figcaption>
+    <img src="../capturas/tablet/inicio.png" alt="Inicio del auxiliar">
+    <figcaption><b>Figura X</b>Inicio del auxiliar: sus bodegas, lo que lleva contado y su exactitud.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/inicio-administrador.png" alt="Inicio visto por el administrador">
+    <img src="../capturas/manual/inicio-administrador.png" alt="Inicio del administrador">
     <figcaption><b>Figura X</b>El mismo Inicio con perfil de administrador: los indicadores son de la operación entera.</figcaption>
   </figure>
 
@@ -404,7 +429,32 @@
 
   <figure>
     <img src="../capturas/tablet/pedidos.png" alt="Pantalla de pedidos">
-    <figcaption><b>Figura X</b>Pedidos. Se dicta el plato y las porciones; la receta hace el resto.</figcaption>
+    <figcaption><b>Figura X</b>Pedidos. Se dicta el plato y las porciones.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/pedido-porciones.png" alt="Confirmar las porciones">
+    <figcaption><b>Figura X</b>Antes de calcular, la plataforma confirma cuántas porciones entendió.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/pedido-receta.png" alt="La receta que sustenta el cálculo">
+    <figcaption><b>Figura X</b>«Ver la receta»: el catálogo de Colsubsidio con la preparación paso a paso.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/pedido-calculado.png" alt="El pedido calculado">
+    <figcaption><b>Figura X</b>La tabla de insumos: cuánto se necesita, cuánto hay y cuánto falta pedir.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/pedido-recibo.png" alt="Recibo del pedido enviado">
+    <figcaption><b>Figura X</b>El recibo, con número real de pedido.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/pedido-sin-conexion.png" alt="Pedidos sin conexión">
+    <figcaption><b>Figura X</b>Sin red no se calcula: pedir con existencias desactualizadas es peor que no pedir.</figcaption>
   </figure>
 
   <h3>12.4 Conteo<span class="rol-tag">Menú 3</span></h3>
@@ -422,13 +472,48 @@
   </div>
 
   <figure>
-    <img src="../capturas/tablet/conteo.png" alt="Selector de bodega del conteo">
-    <figcaption><b>Figura X</b>Conteo. El selector de bodega, con el estado y el avance de cada zona.</figcaption>
+    <img src="../capturas/tablet/conteo.png" alt="Selector de bodega">
+    <figcaption><b>Figura X</b>Conteo. El selector, con el estado y el avance de cada zona.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/conteo-teclado.png" alt="Cuadro para escribir en vez de hablar">
-    <figcaption><b>Figura X</b>Conteo · Teclado. El respaldo de siempre: si la voz falla, se escribe.</figcaption>
+    <img src="../capturas/manual/conteo-bodega-desambiguacion.png" alt="Desambiguación de bodega">
+    <figcaption><b>Figura X</b>Un nombre ambiguo («kiosco») devuelve las candidatas en vez de adivinar.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-bodega-no-encontrada.png" alt="Bodega no encontrada">
+    <figcaption><b>Figura X</b>Cuando el nombre exacto no existe, se dice: no se abre otra parecida.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-bodega-abierta.png" alt="Bodega abierta, lista para dictar">
+    <figcaption><b>Figura X</b>Bodega abierta: el avance y las alertas arriba, y los cuatro botones abajo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-desambiguacion.png" alt="Desambiguación de artículo">
+    <figcaption><b>Figura X</b>Varias candidatas del catálogo, como tarjetas con su código.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-alerta-unidad.png" alt="Alerta antes de guardar">
+    <figcaption><b>Figura X</b>La cantidad o la unidad se salen de lo esperado: se pregunta antes de guardar.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-crear-producto.png" alt="Alta de un producto nuevo">
+    <figcaption><b>Figura X</b>Lo que no está en el catálogo se crea sobre la marcha y queda pendiente de aprobación.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-teclado.png" alt="Escribir en vez de hablar">
+    <figcaption><b>Figura X</b>El respaldo de siempre: si la voz falla, se escribe.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/conteo-sin-conexion.png" alt="Conteo sin conexión">
+    <figcaption><b>Figura X</b>Sin red el conteo sigue por escrito, y se sincroniza solo al volver la señal.</figcaption>
   </figure>
 
   <h3>12.5 Legalización<span class="rol-tag">Menú 4</span></h3>
@@ -446,6 +531,16 @@
     <figcaption><b>Figura X</b>Legalización. Lo pedido contra lo usado, con el nombre de cada diferencia.</figcaption>
   </figure>
 
+  <figure>
+    <img src="../capturas/manual/legalizacion-ajustar-voz.png" alt="Ajustar un renglón por voz">
+    <figcaption><b>Figura X</b>Cada cifra se corrige dictándola, sin salir de la tabla.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/legalizacion-merma.png" alt="Explicar la merma">
+    <figcaption><b>Figura X</b>Lo que faltó no desaparece: queda explicado y firmado.</figcaption>
+  </figure>
+
   <h3>12.6 Bodegas<span class="rol-tag">Menú 5</span></h3>
   <table>
     <tbody>
@@ -457,18 +552,43 @@
   </table>
 
   <figure>
-    <img src="../capturas/tablet/bodegas.png" alt="Tablero de bodegas en vivo">
+    <img src="../capturas/tablet/bodegas.png" alt="Tablero de bodegas">
     <figcaption><b>Figura X</b>Bodegas. El parque completo, con el estado de cada zona por color.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/bodegas-consulta.png" alt="Consulta de un artículo">
-    <figcaption><b>Figura X</b>Bodegas · consulta. Dónde está un artículo y cuánto hay en cada zona.</figcaption>
+    <img src="../capturas/manual/bodegas-detalle.png" alt="Detalle de una bodega">
+    <figcaption><b>Figura X</b>Al tocar una tarjeta: referencias, quién la cuenta y las alertas que quedaron.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/bodegas-nueva.png" alt="Alta de una bodega nueva">
-    <figcaption><b>Figura X</b>Bodegas · nueva. Queda pendiente de aprobación del administrador.</figcaption>
+    <img src="../capturas/manual/bodegas-consulta.png" alt="Consulta de un artículo">
+    <figcaption><b>Figura X</b>Dónde está un artículo y cuánto hay en cada zona.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/bodegas-movimientos.png" alt="Movimientos de un artículo">
+    <figcaption><b>Figura X</b>Su trazabilidad en el tiempo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/bodegas-en-recetas.png" alt="En qué recetas entra">
+    <figcaption><b>Figura X</b>Con qué platos se relaciona ese insumo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/bodegas-sugerencia-nombre.png" alt="Se buscó una bodega en el buscador de artículos">
+    <figcaption><b>Figura X</b>La plataforma lo nota y sugiere la bodega, en vez de no encontrar nada.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/bodegas-nueva.png" alt="Alta de una bodega">
+    <figcaption><b>Figura X</b>Queda pendiente de aprobación del administrador.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/bodegas-reabrir.png" alt="Reabrir una bodega cerrada">
+    <figcaption><b>Figura X</b>Es una acción de peligro y se confirma como tal.</figcaption>
   </figure>
 
   <h3>12.7 Auditoría<span class="rol-tag adm">Menú 6 · Administrador</span></h3>
@@ -482,23 +602,48 @@
   </table>
 
   <figure>
-    <img src="../capturas/tablet/auditoria.png" alt="Auditoría, pestaña de recuento ciego">
+    <img src="../capturas/tablet/auditoria.png" alt="Auditoría, recuento ciego">
     <figcaption><b>Figura X</b>Auditoría · Recuento ciego y cierre, la pestaña por defecto.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/auditoria-aprobaciones.png" alt="Pestaña de aprobaciones">
-    <figcaption><b>Figura X</b>Auditoría · Aprobaciones. Lo que se creó en medio del conteo, esperando visto bueno.</figcaption>
+    <img src="../capturas/manual/auditoria-recuento-bodega.png" alt="Bodega seleccionada para auditar">
+    <figcaption><b>Figura X</b>Se elige la bodega a recontar, sin ver todavía ningún número.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/auditoria-pedidos-pendientes.png" alt="Pestaña de pedidos pendientes">
-    <figcaption><b>Figura X</b>Auditoría · Pedidos pendientes. Se autoriza antes de que salga del almacén.</figcaption>
+    <img src="../capturas/manual/auditoria-teclado.png" alt="Recuento por teclado">
+    <figcaption><b>Figura X</b>El mismo respaldo del conteo, dentro de la auditoría.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/auditoria-comparacion-doble-firma.png" alt="La comparación y la doble firma">
+    <figcaption><b>Figura X</b>Solo al terminar se revela: sistema contra conteo original contra el suyo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/auditoria-bodega-cerrada-detalle.png" alt="Detalle de una bodega ya cerrada">
+    <figcaption><b>Figura X</b>Solo lectura, con los indicadores del cierre.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/auditoria-aprobaciones.png" alt="Pestaña de aprobaciones">
+    <figcaption><b>Figura X</b>Lo que se creó en medio del conteo, esperando visto bueno.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/auditoria-pedidos-pendientes.png" alt="Pedidos pendientes">
+    <figcaption><b>Figura X</b>Se autoriza antes de que salga del almacén.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/auditoria-bandeja-alertas.png" alt="Bandeja de alertas">
-    <figcaption><b>Figura X</b>Auditoría · Bandeja de alertas, agrupadas por tipo de diferencia.</figcaption>
+    <figcaption><b>Figura X</b>Las diferencias marcadas, agrupadas por tipo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/auditoria-alerta-detalle.png" alt="Detalle de una alerta">
+    <figcaption><b>Figura X</b>Su motivo exacto, para poder resolverla.</figcaption>
   </figure>
 
   <h3>12.8 Reportes<span class="rol-tag adm">Menú 7 · Administrador</span></h3>
@@ -514,22 +659,42 @@
 
   <figure>
     <img src="../capturas/tablet/reportes.png" alt="Pantalla de reportes">
-    <figcaption><b>Figura X</b>Reportes · Consolidado de la toma, con la vista previa a la derecha.</figcaption>
+    <figcaption><b>Figura X</b>Reportes · Consolidado de la toma.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/reportes-vista-consolidado.png" alt="Vista previa del consolidado">
-    <figcaption><b>Figura X</b>La vista previa del consolidado para My Inventory, antes de descargarlo.</figcaption>
+    <figcaption><b>Figura X</b>El archivo para My Inventory, antes de descargarlo.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/reportes-vista-diferencias.png" alt="Vista previa de diferencias">
-    <figcaption><b>Figura X</b>La vista previa del archivo de diferencias por bodega.</figcaption>
+    <figcaption><b>Figura X</b>Las diferencias por bodega.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/reportes-vista-estado-tablero.png" alt="Vista previa del estado del tablero">
+    <figcaption><b>Figura X</b>El estado de cada bodega.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/reportes-vista-detalle-bodega.png" alt="Vista previa del detalle de una bodega">
+    <figcaption><b>Figura X</b>Artículo por artículo, con su diferencia.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/reportes-vista-trazabilidad.png" alt="Vista previa del registro de trazabilidad">
+    <figcaption><b>Figura X</b>Quién hizo qué y cuándo, exportable.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/reportes-analisis-consumo.png" alt="Pestaña de análisis de consumo">
-    <figcaption><b>Figura X</b>Reportes · Análisis de consumo: el sobrepedido frente a la receta.</figcaption>
+    <figcaption><b>Figura X</b>El sobrepedido frente a la receta y la recomendación del agente.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/reportes-vista-analisis-archivo.png" alt="Vista previa del análisis">
+    <figcaption><b>Figura X</b>El análisis de consumo como archivo.</figcaption>
   </figure>
 
   <h3>12.9 Panel<span class="rol-tag adm">Menú 8 · Administrador</span></h3>
@@ -546,6 +711,11 @@
   <figure>
     <img src="../capturas/tablet/panel.png" alt="Panel gerencial">
     <figcaption><b>Figura X</b>Panel · Resumen ejecutivo.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/panel-grafica.png" alt="Diferencia absoluta por bodega">
+    <figcaption><b>Figura X</b>La gráfica que dice qué zona revisar primero.</figcaption>
   </figure>
 
   <figure>
@@ -568,23 +738,43 @@
   </div>
 
   <figure>
-    <img src="../capturas/tablet/ajustes.png" alt="Pantalla de ajustes">
-    <figcaption><b>Figura X</b>Ajustes · Configuración, la primera de sus cuatro pestañas.</figcaption>
+    <img src="../capturas/tablet/ajustes.png" alt="Ajustes, configuración">
+    <figcaption><b>Figura X</b>Ajustes · Configuración: el umbral de alertas y el modo sin conexión.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/ajustes-usuarios.png" alt="Gestión de usuarios">
-    <figcaption><b>Figura X</b>Ajustes · Gestión de usuarios. Aquí se asignan las bodegas de cada auxiliar.</figcaption>
+    <figcaption><b>Figura X</b>Ajustes · Gestión de usuarios.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-nuevo-usuario.png" alt="Alta de una persona">
+    <figcaption><b>Figura X</b>Crear una cuenta con su perfil.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-editar-usuario.png" alt="Editar una persona">
+    <figcaption><b>Figura X</b>Corregir el correo, el perfil o desactivar la cuenta.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-asignar-bodegas.png" alt="Asignar bodegas">
+    <figcaption><b>Figura X</b>Es lo que decide qué puede contar cada auxiliar — también por voz.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/ajustes-recetas.png" alt="Pestaña de recetas">
-    <figcaption><b>Figura X</b>Ajustes · Recetas. Los platos con sus ingredientes, base del cálculo de pedidos.</figcaption>
+    <figcaption><b>Figura X</b>Los platos con sus ingredientes, base del cálculo de pedidos.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ajustes-editar-receta.png" alt="Editar una receta">
+    <figcaption><b>Figura X</b>Ingredientes, rendimiento y preparación.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/ajustes-trazabilidad.png" alt="Registro de trazabilidad">
-    <figcaption><b>Figura X</b>Ajustes · Registro de trazabilidad. Quién hizo qué y cuándo, exportable.</figcaption>
+    <figcaption><b>Figura X</b>Quién hizo qué y cuándo, filtrable y exportable.</figcaption>
   </figure>
 
   <h3>12.11 Ayuda<span class="rol-tag">Menú 10</span></h3>
@@ -599,17 +789,27 @@
 
   <figure>
     <img src="../capturas/tablet/ayuda.png" alt="Centro de ayuda">
-    <figcaption><b>Figura X</b>Ayuda. Preguntas frecuentes, el agente, el estado del sistema y los botones de soporte.</figcaption>
+    <figcaption><b>Figura X</b>Ayuda. Preguntas frecuentes, el agente y los botones de soporte.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/ayuda-escribir-admin.png" alt="Cuadro para escribirle al administrador">
-    <figcaption><b>Figura X</b>Ayuda · Escribirle al administrador. Para lo que es de la operación.</figcaption>
+    <img src="../capturas/manual/ayuda-estado-sistema.png" alt="Estado del sistema">
+    <figcaption><b>Figura X</b>API, datos de inventario y agente, en vivo.</figcaption>
   </figure>
 
   <figure>
-    <img src="../capturas/manual/ayuda-reportar-problema.png" alt="Cuadro para reportar un problema">
-    <figcaption><b>Figura X</b>Ayuda · Reportar un problema. Para cuando lo que falla es la aplicación.</figcaption>
+    <img src="../capturas/manual/ayuda-escribir-admin.png" alt="Escribirle al administrador">
+    <figcaption><b>Figura X</b>Para lo que es de la operación.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/ayuda-reportar-problema.png" alt="Reportar un problema">
+    <figcaption><b>Figura X</b>Para cuando lo que falla es la aplicación.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/correo-recibido-mensaje-admin.png" alt="El correo que llega">
+    <figcaption><b>Figura X</b>Cuando el envío por correo está configurado, esto es lo que recibe el administrador.</figcaption>
   </figure>
 
   <h3>12.12 Mensajes<span class="rol-tag">Menú 11</span></h3>
@@ -623,13 +823,23 @@
   </table>
 
   <figure>
-    <img src="../capturas/tablet/mensajes.png" alt="Bandeja de mensajes">
-    <figcaption><b>Figura X</b>Mensajes. La bandeja del auxiliar: lo que escribió y si ya le respondieron.</figcaption>
+    <img src="../capturas/tablet/mensajes.png" alt="Bandeja del auxiliar">
+    <figcaption><b>Figura X</b>Mensajes. Lo que escribió y si ya le respondieron.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/mensajes-enviado-por-auxiliar.png" alt="Un mensaje enviado">
+    <figcaption><b>Figura X</b>La bandeja después de escribirle al administrador.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/mensajes-administrador.png" alt="Bandeja del administrador">
+    <figcaption><b>Figura X</b>Los mismos contadores, con otro significado: recibidos, por responder, resueltos.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/mensajes-responder.png" alt="Responder un mensaje">
-    <figcaption><b>Figura X</b>Mensajes · Responder, con el mensaje original a la vista.</figcaption>
+    <figcaption><b>Figura X</b>Con el mensaje original a la vista, para no responder de memoria.</figcaption>
   </figure>
 
   <h3>12.13 Mi perfil<span class="rol-tag">Menú 12</span></h3>
@@ -644,12 +854,22 @@
 
   <figure>
     <img src="../capturas/tablet/mi-perfil.png" alt="Pantalla de perfil">
-    <figcaption><b>Figura X</b>Mi perfil. Datos, seguridad, voz y accesibilidad.</figcaption>
+    <figcaption><b>Figura X</b>Mi perfil. Datos personales, seguridad y preferencias de voz.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/mi-perfil-mfa.png" alt="Verificación en dos pasos">
+    <figcaption><b>Figura X</b>El QR del segundo factor, o la llave secreta si el celular no puede escanear.</figcaption>
   </figure>
 
   <figure>
     <img src="../capturas/manual/mi-perfil-cerrar-todos.png" alt="Cerrar sesión en todos los dispositivos">
-    <figcaption><b>Figura X</b>Mi perfil · Cerrar sesión en todos los dispositivos: revoca en Cognito, no solo aquí.</figcaption>
+    <figcaption><b>Figura X</b>Revoca en Cognito, no solo en este navegador.</figcaption>
+  </figure>
+
+  <figure>
+    <img src="../capturas/manual/mi-perfil-accesibilidad.png" alt="Accesibilidad">
+    <figcaption><b>Figura X</b>Alto contraste y tamaño de letra, para bodegas con poca luz.</figcaption>
   </figure>
 
   <h3>12.14 Cerrar sesión<span class="rol-tag">Menú 13</span></h3>
@@ -667,7 +887,7 @@
   </div>
   <figure>
     <img src="../capturas/tablet/cerrar-sesion.png" alt="Aviso al cerrar sesión">
-    <figcaption><b>Figura X</b>Cerrar sesión. Avisa qué quedó abierto antes de dejar salir.</figcaption>
+    <figcaption><b>Figura X</b>Avisa qué quedó abierto y con cuántas referencias, antes de dejar salir.</figcaption>
   </figure>
 
 </section>
