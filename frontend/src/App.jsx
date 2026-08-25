@@ -202,6 +202,11 @@ export default function App() {
 
   return (
     <div className="app-root">
+      {/* Salto al contenido: invisible hasta que alguien tabula. Sin esto,
+          quien navega con teclado o con lector de pantalla tiene que
+          recorrer las trece opciones del menú en CADA pantalla antes de
+          llegar a lo que vino a hacer. */}
+      <a className="salto-contenido" href="#contenido">Saltar al contenido</a>
       <BarraLateral
         activo={salir ? "salir" : menuDe(vista)}
         usuario={sesion.usuario}
@@ -226,7 +231,11 @@ export default function App() {
         }}
       />
 
-      <div className="contenido">
+      {/* <main> y no <div>: es el punto de referencia que buscan los
+          lectores de pantalla para saltarse la navegación, y el destino
+          del enlace de arriba. tabIndex -1 para que el salto le lleve el
+          foco de verdad, no solo el desplazamiento. */}
+      <main className="contenido" id="contenido" tabIndex={-1}>
         <Vista
           token={sesion.token}
           usuario={sesion.usuario}
@@ -234,7 +243,7 @@ export default function App() {
           ir={ir}
           alAbrirBodega={alAbrirBodega}
         />
-      </div>
+      </main>
 
       {salir && (
         <CerrarSesion

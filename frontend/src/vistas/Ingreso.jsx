@@ -396,8 +396,11 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   const campo = { width: "100%", padding: "11px 13px", marginBottom: 8,
                   border: "1px solid var(--borde)", borderRadius: 12 };
 
+  // <main> aquí también: en el ingreso no hay navegación que saltarse,
+  // pero un lector de pantalla sigue necesitando saber dónde empieza el
+  // contenido de la página.
   return (
-    <div className="ingreso-fondo">
+    <main className="ingreso-fondo">
       <div className="ingreso">
         <div className="marca-cabecera">
           <img className="app" src="/logo.png" alt="CuentaVoz" width={52} />
@@ -652,6 +655,6 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
           </form>
         )}
       </div>
-    </div>
+    </main>
   );
 }
