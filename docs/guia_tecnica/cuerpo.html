@@ -143,14 +143,19 @@
     <thead><tr><th>Nivel</th><th>Cómo se aplica</th><th>Qué protege</th></tr></thead>
     <tbody>
       <tr><td><b>Por perfil</b></td><td><span class="ui">Depends(requiere_perfil("auditor"))</span> en el endpoint.</td><td>Auditoría, Panel, Reportes y Ajustes.</td></tr>
-      <tr><td><b>Por bodega</b></td><td>La tabla <span class="ui">asignacion_bodega</span>.</td><td>Un auxiliar solo puede contar las zonas que le asignaron.</td></tr>
+      <tr><td><b>Por bodega</b></td><td>La tabla <span class="ui">asignacion_bodega</span>.</td><td>Cada persona alcanza solo las zonas que le asignaron — auxiliar o administrador.</td></tr>
     </tbody>
   </table>
 
   <div class="aviso dato">
-    <span class="rotulo">El permiso por bodega se aplica en cuatro sitios, no en uno</span>
-    <p>Listar bodegas, abrir una bodega, ver su detalle y <b>la búsqueda por voz</b>. Ocultar la opción en el menú no es seguridad: si la restricción no está también en el endpoint, basta con pedir la URL a mano. Por eso el agente de voz también la respeta — es la puerta que más fácil se olvida.</p>
+    <span class="rotulo">El permiso por bodega se aplica en cada endpoint, no solo en el menú</span>
+    <p>Listar bodegas, abrirla, su detalle, sus artículos, sus firmas, las cuatro rutas de auditoría (iniciar, comparar, firmar, cerrar), reabrir, exportar el detalle y <b>la búsqueda por voz</b>. Ocultar la opción en el menú no es seguridad: si la restricción no está también en el endpoint, basta con pedir la URL a mano. Por eso el agente de voz también la respeta — es la puerta que más fácil se olvida.</p>
+    <p>Una sola función decide, <span class="ui">_requiere_acceso_bodega()</span>, para que agregar una ruta nueva sea agregar una línea y no volver a razonar la regla.</p>
   </div>
+
+  <h3>Administrador general y administrador de sede</h3>
+  <p>Manda la <b>asignación</b>, no el perfil. Un administrador <b>sin</b> bodegas asignadas es el administrador general: alcanza todo el parque, como siempre. Uno <b>con</b> bodegas asignadas es el administrador de esa sede y solo de esa — no puede iniciar, firmar ni cerrar la auditoría de otra, aunque su perfil sea el mismo.</p>
+  <p>Esto es lo que deja crecer a varias sedes sin inventar perfiles nuevos: el eje fino ya no es «auxiliar sí, administrador no», sino la lista de bodegas de cada quien. Y quien reparte bodegas reparte solo las suyas, porque si no el límite sería decorativo: bastaría con asignarse las 54 para volver a ser general. Lo que una persona tenga asignado en otra sede no se toca al guardar, para que dos administradores de sedes distintas puedan repartirle bodegas al mismo auxiliar sin pisarse.</p>
 
   <h3>Cerrar sesión de verdad</h3>
   <p>«Cerrar sesión» no se limita a borrar el token de este navegador: llama a <span class="ui">/api/usuarios/yo/cerrar-todas</span>, que revoca la sesión en Cognito. Sin eso, el access token seguía siendo válido hasta vencer solo — hasta una hora. En una tableta que se pasan entre turnos, eso es una cuenta abierta para el siguiente.</p>

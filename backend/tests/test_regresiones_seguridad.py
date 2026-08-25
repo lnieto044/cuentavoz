@@ -123,3 +123,147 @@ def test_websocket_rechaza_conexion_sin_token(client: TestClient) -> None:
             websocket.receive_json()
 
     assert error.value.code == 1008
+
+
+def _entrar(client: TestClient, nombre: str) -> dict[str, str]:
+    r = client.post("/api/ingresar", data={"username": nombre, "password": "StockXperts1"})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+def _asignar(nombre: str, bodega_id: int) -> None:
+    from bd import Sesion
+    from modelos import AsignacionBodega, Usuario
+
+    with Sesion() as s:
+        persona = s.query(Usuario).filter_by(nombre=nombre).one()
+        s.add(AsignacionBodega(usuario_id=persona.id, bodega_id=bodega_id))
+        s.commit()
+
+
+def test_administrador_sin_bodegas_asignadas_sigue_alcanzando_todo_el_parque(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """El administrador general no tiene zona propia: manda la asignación,
+    y sin asignaciones no hay nada que lo limite. Esto es lo que NO debe
+    romperse al agregar el administrador de sede - en la demo diana no
+    tiene ninguna bodega asignada."""
+    headers = _entrar(client, "diana")
+    ajena = datos_regresion["bodega_no_asignada_id"]
+
+    for ruta in (f"/api/bodegas/{ajena}/detalle",
+                 f"/api/bodegas/{ajena}/articulos",
+                 f"/api/bodegas/{ajena}/firmas"):
+        r = client.get(ruta, headers=headers)
+        assert r.status_code != 403, f"{ruta} -> {r.text}"
+
+    r = client.post(f"/api/bodegas/{ajena}/auditoria/iniciar", headers=headers)
+    assert r.status_code == 200, r.text
+
+
+def test_administrador_de_sede_no_alcanza_la_auditoria_de_otra_sede(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """Un administrador CON bodegas asignadas queda limitado a esas: sin
+    esto, al crecer a varias sedes el administrador de una podía iniciar,
+    firmar o cerrar la auditoría de la otra con solo cambiar el número en
+    la URL, aunque el tablero (?propias=1) ya no se la mostrara."""
+    propia = datos_regresion["bodega_asignada_id"]
+    ajena = datos_regresion["bodega_no_asignada_id"]
+    _asignar("diana", propia)
+    headers = _entrar(client, "diana")
+
+    ajenas = [
+        ("get", f"/api/bodegas/{ajena}/detalle"),
+        ("get", f"/api/bodegas/{ajena}/articulos"),
+        ("get", f"/api/bodegas/{ajena}/firmas"),
+        ("post", f"/api/bodegas/{ajena}/auditoria/iniciar"),
+        ("get", f"/api/bodegas/{ajena}/auditoria/comparar"),
+        ("post", f"/api/bodegas/{ajena}/auditoria/firmar"),
+        ("post", f"/api/bodegas/{ajena}/cerrar"),
+        ("post", f"/api/bodegas/{ajena}/exportar-detalle"),
+    ]
+    for metodo, ruta in ajenas:
+        r = getattr(client, metodo)(ruta, headers=headers)
+        assert r.status_code == 403, f"{ruta} devolvio {r.status_code}: {r.text}"
+
+    r = client.post(f"/api/bodegas/{ajena}/reabrir", headers=headers,
+                    json={"motivo": "prueba"})
+    assert r.status_code == 403, r.text
+
+    # y la suya sigue funcionando igual que antes
+    r = client.get(f"/api/bodegas/{propia}/detalle", headers=headers)
+    assert r.status_code == 200, r.text
+    r = client.post(f"/api/bodegas/{propia}/auditoria/iniciar", headers=headers)
+    assert r.status_code == 200, r.text
+
+
+def test_administrador_de_sede_no_ve_bodegas_ajenas_al_buscar_por_voz(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """La voz no debe ofrecer lo que la puerta va a rechazar: antes, decir
+    el nombre de una bodega de otra sede la encontraba igual."""
+    _asignar("diana", datos_regresion["bodega_asignada_id"])
+    headers = _entrar(client, "diana")
+
+    r = client.post("/api/bodegas/abrir", headers=headers,
+                    json={"bodega": datos_regresion["bodega_no_asignada"]})
+    assert r.status_code in (403, 404), r.text
+
+
+def test_administrador_de_sede_no_puede_asignarse_bodegas_de_otra_sede(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """Sin esto el límite de sede era decorativo: bastaba con asignarse a
+    sí mismo las bodegas ajenas para volver a alcanzar todo el parque."""
+    from bd import Sesion
+    from modelos import AsignacionBodega, Usuario
+
+    propia = datos_regresion["bodega_asignada_id"]
+    ajena = datos_regresion["bodega_no_asignada_id"]
+    _asignar("diana", propia)
+    headers = _entrar(client, "diana")
+
+    with Sesion() as s:
+        diana_id = s.query(Usuario).filter_by(nombre="diana").one().id
+
+    r = client.put(f"/api/usuarios/{diana_id}/bodegas", headers=headers,
+                   json={"bodega_ids": [propia, ajena]})
+    assert r.status_code == 200, r.text
+
+    with Sesion() as s:
+        quedaron = {a.bodega_id for a in
+                    s.query(AsignacionBodega).filter_by(usuario_id=diana_id).all()}
+    assert quedaron == {propia}, f"se coló una bodega ajena: {quedaron}"
+
+    r = client.get(f"/api/bodegas/{ajena}/detalle", headers=headers)
+    assert r.status_code == 403, r.text
+
+
+def test_administrador_de_sede_no_borra_las_asignaciones_de_otra_sede(
+    client: TestClient, datos_regresion: dict[str, object]
+) -> None:
+    """Dos administradores de sedes distintas pueden repartirle bodegas a
+    la misma persona: el de una no debe borrar el trabajo del otro al
+    guardar su propia lista."""
+    from bd import Sesion
+    from modelos import AsignacionBodega, Usuario
+
+    propia = datos_regresion["bodega_asignada_id"]
+    ajena = datos_regresion["bodega_no_asignada_id"]
+    auxiliar_id = datos_regresion["auxiliar_id"]
+
+    _asignar("diana", propia)
+    with Sesion() as s:            # el auxiliar ya trabaja en la otra sede
+        s.add(AsignacionBodega(usuario_id=auxiliar_id, bodega_id=ajena))
+        s.commit()
+
+    headers = _entrar(client, "diana")
+    r = client.put(f"/api/usuarios/{auxiliar_id}/bodegas", headers=headers,
+                   json={"bodega_ids": [propia]})
+    assert r.status_code == 200, r.text
+
+    with Sesion() as s:
+        quedaron = {a.bodega_id for a in
+                    s.query(AsignacionBodega).filter_by(usuario_id=auxiliar_id).all()}
+    assert quedaron == {propia, ajena}, f"se perdio la otra sede: {quedaron}"

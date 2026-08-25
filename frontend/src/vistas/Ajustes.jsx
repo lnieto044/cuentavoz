@@ -259,7 +259,10 @@ function TabUsuarios({ token, usuario }) {
 
   function cargar() {
     pedir("/api/usuarios", {}, token).then(setUsuarios).catch(() => {});
-    pedir("/api/bodegas", {}, token).then(setBodegas).catch(() => {});
+    // ?propias=1: la lista para repartir. Un administrador general (sin
+    // bodegas asignadas) sigue viendo el parque completo; uno de sede ve
+    // solo la suya, que es justo lo que el backend le va a dejar guardar.
+    pedir("/api/bodegas?propias=1", {}, token).then(setBodegas).catch(() => {});
     if (verCobertura) cargarCobertura();
   }
   useEffect(cargar, [token]);

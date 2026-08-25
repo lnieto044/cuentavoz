@@ -2681,9 +2681,7 @@ async def abrir(a: AbrirIn, u: Usuario = Depends(usuario_actual)):
         b = buscar_bodega(s, a.bodega, _ids_permitidos_para_buscar(s, u))
         if b is None:
             raise HTTPException(404, "No encuentro esa bodega.")
-        if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
-                usuario_id=u.id, bodega_id=b.id).first():
-            raise HTTPException(403, "Esa bodega no esta asignada a usted.")
+        _requiere_acceso_bodega(s, u, b.id)
         abierta = s.query(SesionConteo).filter_by(bodega_id=b.id, tipo="conteo",
                                                  estado="abierta").first()
         if abierta and abierta.usuario_id != u.id:
@@ -2743,13 +2741,22 @@ def _ultima_sesion(s, bodega_id: int, tipo: str):
 
 
 def _requiere_acceso_bodega(s, u: Usuario, bodega_id: int):
-    """El tablero (listar_bodegas) ya oculta las bodegas ajenas a un
-    auxiliar, pero eso no basta: sin este chequeo, pedir el detalle,
-    las firmas o el inventario completo por su bodega_id directamente
-    (sin pasar por el tablero) dejaba ver auditoria y stock de cualquier
-    zona con solo cambiar el numero en la URL."""
-    if u.perfil == "auxiliar" and not s.query(AsignacionBodega).filter_by(
-            usuario_id=u.id, bodega_id=bodega_id).first():
+    """El tablero (listar_bodegas) ya oculta las bodegas ajenas, pero eso
+    no basta: sin este chequeo, pedir el detalle, las firmas, el inventario
+    completo o la auditoria por su bodega_id directamente (sin pasar por el
+    tablero) dejaba ver -y hasta cerrar- zonas ajenas con solo cambiar el
+    numero en la URL.
+
+    Manda la asignacion, no el perfil. Un administrador SIN bodegas
+    asignadas es el administrador general de siempre y sigue alcanzando
+    todo el parque; uno CON bodegas asignadas es el administrador de esa
+    sede y solo de esa, para que crecer a varias sedes no signifique que
+    el administrador de una pueda firmar o cerrar la auditoria de la otra.
+    Un auxiliar sin asignaciones no alcanza ninguna: para ese perfil la
+    asignacion es la unica puerta."""
+    asignadas = {a.bodega_id for a in
+                 s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
+    if (asignadas or u.perfil == "auxiliar") and bodega_id not in asignadas:
         raise HTTPException(403, "Esa bodega no esta asignada a usted.")
 
 
@@ -2758,11 +2765,15 @@ def _ids_permitidos_para_buscar(s, u: Usuario) -> set[int] | None:
     que un auxiliar de verdad puede abrir - sin esto, decir "restaurante"
     ofrecia como opciones bodegas de zonas ajenas que ni siquiera podia
     llegar a abrir, puro ruido (y un nombre que no tenia por qué ver).
-    None para un auditor: puede buscar en todo el catálogo."""
-    if u.perfil != "auxiliar":
-        return None
-    return {a.bodega_id for a in
+    None solo para el administrador general (el que no tiene ninguna
+    bodega asignada): ese si busca en todo el catálogo. Mismo criterio que
+    _requiere_acceso_bodega, para que la voz no ofrezca lo que la puerta
+    va a rechazar."""
+    ids = {a.bodega_id for a in
            s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
+    if not ids and u.perfil != "auxiliar":
+        return None
+    return ids
 
 
 @app.get("/api/bodegas/{bodega_id}/firmas")
@@ -2818,6 +2829,7 @@ def firmar_sesion(sesion_id: int, u: Usuario = Depends(usuario_actual)):
 @app.post("/api/bodegas/{bodega_id}/auditoria/iniciar")
 async def iniciar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         if b is None:
             raise HTTPException(404, "Bodega no encontrada.")
@@ -2839,6 +2851,7 @@ async def iniciar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil
 @app.get("/api/bodegas/{bodega_id}/auditoria/comparar")
 def comparar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         ses_conteo = _ultima_sesion(s, bodega_id, "conteo")
         ses_audit = _ultima_sesion(s, bodega_id, "auditoria")
@@ -2888,6 +2901,7 @@ def comparar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("aud
 @app.post("/api/bodegas/{bodega_id}/auditoria/firmar")
 def firmar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         ses = _ultima_sesion(s, bodega_id, "auditoria")
         if ses is None:
             raise HTTPException(404, "No hay un recuento de auditoria iniciado.")
@@ -2903,6 +2917,7 @@ def firmar_auditoria(bodega_id: int, u: Usuario = Depends(requiere_perfil("audit
 @app.post("/api/bodegas/{bodega_id}/cerrar")
 async def cerrar(bodega_id: int, u: Usuario = Depends(requiere_perfil("auditor"))):
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         if b is None:
             raise HTTPException(404, "Bodega no encontrada.")
@@ -2941,6 +2956,7 @@ async def reabrir_bodega(bodega_id: int, body: dict,
     if not motivo:
         raise HTTPException(400, "Reabrir una bodega cerrada exige una justificación escrita.")
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         if b is None:
             raise HTTPException(404, "Bodega no encontrada.")
@@ -3398,10 +3414,14 @@ def reportes_recientes(u: Usuario = Depends(requiere_perfil("auditor"))):
 @app.post("/api/bodegas/{bodega_id}/exportar-detalle")
 def exportar_detalle_bodega(bodega_id: int, formato: str = "xlsx",
                             u: Usuario = Depends(requiere_perfil("auditor"))):
-    ruta = reportes.detalle_bodega(bodega_id, formato)
     with Sesion() as s:
+        _requiere_acceso_bodega(s, u, bodega_id)
         b = s.get(Bodega, bodega_id)
         nombre_bodega = b.nombre_oficial if b else str(bodega_id)
+    # el archivo se genera despues de comprobar el acceso: no tiene
+    # sentido escribir en disco el detalle de una bodega que quien pregunta
+    # no puede pedir.
+    ruta = reportes.detalle_bodega(bodega_id, formato)
     # el nombre (no solo el id) queda en el propio mensaje para que
     # _parsear_archivo_reporte pueda mostrar de cual bodega es la tarjeta,
     # y distinguir el archivo de esta bodega del de otra en "recientes".
@@ -4350,6 +4370,21 @@ def asignar_bodegas(usuario_id: int, body: dict,
         objetivo = s.get(Usuario, usuario_id)
         if objetivo is None:
             raise HTTPException(404, "Usuario no encontrado.")
+        # Un administrador de sede (el que tiene bodegas asignadas) solo
+        # reparte las suyas: sin esto el limite era decorativo, porque podia
+        # asignarSE las 54 bodegas y volver a ser administrador general.
+        # Lo que el objetivo tenga en otras sedes se conserva tal cual - ni
+        # se borra ni se puede crear desde aqui -, para que dos
+        # administradores de sedes distintas puedan repartirle bodegas a la
+        # misma persona sin pisarse el trabajo. El administrador general
+        # (sin bodegas asignadas) sigue repartiendo todo el parque.
+        mias = {a.bodega_id for a in
+                s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
+        if mias:
+            de_otras_sedes = [a.bodega_id for a in
+                              s.query(AsignacionBodega).filter_by(usuario_id=usuario_id).all()
+                              if a.bodega_id not in mias]
+            ids = [b for b in ids if b in mias] + de_otras_sedes
         s.query(AsignacionBodega).filter_by(usuario_id=usuario_id).delete()
         for bid in ids:
             s.add(AsignacionBodega(usuario_id=usuario_id, bodega_id=bid))
@@ -4365,13 +4400,22 @@ def ver_asignaciones_completas(u: Usuario = Depends(requiere_perfil("auditor")))
     nadie). Con varios auxiliares repartiendose 54 bodegas, el administrador
     necesita ver esto de un vistazo para no dejar bodegas sin nadie a cargo
     ni confundir a dos personas asignandoles las mismas por error - revisar
-    ficha por ficha de cada persona no lo deja ver."""
+    ficha por ficha de cada persona no lo deja ver.
+
+    Un administrador de sede ve la cobertura de SU sede: mostrarle huecos
+    de bodegas que no puede asignar seria pedirle que arregle algo que no
+    alcanza."""
     with Sesion() as s:
+        mias = {a.bodega_id for a in
+                s.query(AsignacionBodega).filter_by(usuario_id=u.id).all()}
         por_bodega: dict[int, list] = {}
         for a in s.query(AsignacionBodega).all():
             por_bodega.setdefault(a.bodega_id, []).append(a.usuario_id)
         salida = []
-        for b in s.query(Bodega).order_by(Bodega.nombre_oficial).all():
+        consulta = s.query(Bodega)
+        if mias:
+            consulta = consulta.filter(Bodega.id.in_(mias))
+        for b in consulta.order_by(Bodega.nombre_oficial).all():
             personas = []
             for uid in por_bodega.get(b.id, []):
                 us = s.get(Usuario, uid)
