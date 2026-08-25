@@ -153,6 +153,16 @@
     <p>Una sola función decide, <span class="ui">_requiere_acceso_bodega()</span>, para que agregar una ruta nueva sea agregar una línea y no volver a razonar la regla.</p>
   </div>
 
+  <h3>La puerta que no lleva un <span class="ui">bodega_id</span></h3>
+  <p>Revisar las rutas <span class="ui">/api/bodegas/{id}/…</span> no basta, y es el error fácil de cometer: a una bodega también se llega por el <b>id de sesión</b> y por el <b>respaldo de resiliencia</b> que el agente de voz acepta del cliente. Los dos los manda el navegador, y de los dos sale la bodega sobre la que se escribe.</p>
+  <p>Sin comprobarlos, la asignación no protegía nada por ese lado: bastaba con mandar el id de una bodega ajena en <span class="ui">bodega_id_respaldo</span> para quedar «dentro» de ella y contarle encima, sin haber pasado nunca por <span class="ui">/api/bodegas/abrir</span>, que era donde estaba el único chequeo. Lo mismo con el id de la sesión que otra persona tiene abierta.</p>
+  <p><span class="ui">_validar_sesion_de_voz()</span> cierra las cuatro entradas: el turno del agente, el avance de una sesión, firmar por id de sesión y crear un producto a mitad del conteo. Un <span class="ui">sesion_id</span> negativo se deja pasar a propósito — es la conversación de Pedidos, que no tiene bodega física que proteger.</p>
+
+  <div class="aviso dato">
+    <span class="rotulo">Lo que enseñó este caso</span>
+    <p>El respaldo de resiliencia se agregó para que un reinicio del backend no dejara al agente diciendo «no hay ninguna bodega activa» con la bodega visible en pantalla. Resolvió eso, y de paso abrió una puerta lateral: <b>todo dato que el cliente manda para «recordarle» algo al servidor es un dato que el cliente puede inventarse</b>. La comodidad y el permiso viajaban por el mismo campo.</p>
+  </div>
+
   <h3>Administrador general y administrador de sede</h3>
   <p>Manda la <b>asignación</b>, no el perfil. Un administrador <b>sin</b> bodegas asignadas es el administrador general: alcanza todo el parque, como siempre. Uno <b>con</b> bodegas asignadas es el administrador de esa sede y solo de esa — no puede iniciar, firmar ni cerrar la auditoría de otra, aunque su perfil sea el mismo.</p>
   <p>Esto es lo que deja crecer a varias sedes sin inventar perfiles nuevos: el eje fino ya no es «auxiliar sí, administrador no», sino la lista de bodegas de cada quien. Y quien reparte bodegas reparte solo las suyas, porque si no el límite sería decorativo: bastaría con asignarse las 54 para volver a ser general. Lo que una persona tenga asignado en otra sede no se toca al guardar, para que dos administradores de sedes distintas puedan repartirle bodegas al mismo auxiliar sin pisarse.</p>

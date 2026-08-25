@@ -430,6 +430,7 @@ class TurnoIn(BaseModel):
 
 @app.post("/api/agente/turno")
 async def turno(t: TurnoIn, u: Usuario = Depends(usuario_actual)):
+    _validar_sesion_de_voz(u, t.sesion_id, t.bodega_id_respaldo)
     # procesar_turno() es sincrono y llama a Gemini (pensar()), que puede
     # tardar varios segundos - llamarlo directo aqui (una ruta async def)
     # bloqueaba TODO el event loop mientras tanto: cualquier otra peticion,
@@ -2472,6 +2473,7 @@ def api_asistente(p: PreguntarAsistenteIn, u: Usuario = Depends(usuario_actual))
 @app.get("/api/sesiones/{sesion_id}/avance")
 def ver_avance(sesion_id: int, bodega_id_respaldo: int | None = None,
               u: Usuario = Depends(usuario_actual)):
+    _validar_sesion_de_voz(u, sesion_id, bodega_id_respaldo)
     est = ESTADOS.setdefault(sesion_id, {})
     # mismo respaldo que en /agente/turno: si el backend se reinicio, el
     # frontend todavia sabe en que bodega estaba y este numero deja de
@@ -2518,6 +2520,9 @@ def crear_producto_pendiente(p: CrearProductoIn, u: Usuario = Depends(usuario_ac
     Si quien cuenta es el administrador, el producto se confirma de una -
     igual que en crear_bodega_pendiente, dejarlo pendiente significaria que
     solo el mismo administrador puede aprobarlo despues."""
+    # mismo motivo que en /api/agente/turno: el sesion_id lo manda el
+    # cliente y de el sale la bodega donde va a quedar el producto nuevo.
+    _validar_sesion_de_voz(u, p.sesion_id)
     est = ESTADOS.get(p.sesion_id, {})
     bodega_id = est.get("bodega_id")
     if not bodega_id:
@@ -2760,6 +2765,30 @@ def _requiere_acceso_bodega(s, u: Usuario, bodega_id: int):
         raise HTTPException(403, "Esa bodega no esta asignada a usted.")
 
 
+def _validar_sesion_de_voz(u: Usuario, sesion_id: int,
+                           bodega_id_respaldo: int | None = None) -> None:
+    """El id de sesion y el bodega_id_respaldo los manda el CLIENTE, y de
+    ellos sale la bodega sobre la que el agente escribe. Sin comprobarlos,
+    la asignacion de bodegas no protegia nada por este lado: bastaba con
+    mandar el id de una bodega ajena -o el de la sesion que otra persona
+    tiene abierta- para contarle encima, sin haber pasado nunca por
+    /api/bodegas/abrir, que es donde estaba el unico chequeo.
+
+    Un sesion_id negativo es la conversacion de Pedidos (ver App.jsx, que
+    arranca en -2000 menos el id de la persona): ahi no hay bodega fisica
+    que proteger."""
+    if sesion_id < 0:
+        return
+    with Sesion() as s:
+        ses = s.get(SesionConteo, sesion_id)
+        if ses is not None:
+            if ses.usuario_id != u.id and u.perfil != "auditor":
+                raise HTTPException(403, "Esa sesion de conteo no es suya.")
+            _requiere_acceso_bodega(s, u, ses.bodega_id)
+        if bodega_id_respaldo:
+            _requiere_acceso_bodega(s, u, bodega_id_respaldo)
+
+
 def _ids_permitidos_para_buscar(s, u: Usuario) -> set[int] | None:
     """Para restringir buscar_bodega()/buscar_bodegas_candidatas() a lo
     que un auxiliar de verdad puede abrir - sin esto, decir "restaurante"
@@ -2813,6 +2842,10 @@ def firmar_sesion(sesion_id: int, u: Usuario = Depends(usuario_actual)):
             raise HTTPException(404, "Sesion no encontrada.")
         if ses.usuario_id != u.id and u.perfil != "auditor":
             raise HTTPException(403, "Solo quien contó puede firmar este conteo.")
+        # el perfil no basta: por aqui se rodeaba el limite por sede que si
+        # aplica /api/bodegas/{id}/auditoria/firmar, porque a la bodega se
+        # llega igual pero por el id de la sesion.
+        _requiere_acceso_bodega(s, u, ses.bodega_id)
         ses.firmada = 1
         ses.fin = ahora()
         b = s.get(Bodega, ses.bodega_id)
