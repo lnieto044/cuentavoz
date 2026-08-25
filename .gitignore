@@ -13,6 +13,11 @@ dist/
 
 # intermedios de la guia tecnica (PDF de portada y cuerpo antes de unirlos)
 docs/guia_tecnica/_build/
+# y el HTML que arma armar.py en cada corrida: se regenera desde cuerpo.html
+# mas los estilos del manual, asi que versionarlo solo guardaba 1,7 MB que
+# se desactualizan solos. Lo que se edita a mano es cuerpo.html.
+docs/guia_tecnica/guia.html
+docs/guia_tecnica/portada.html
 
 # cuadros intermedios de los GIF del README
 docs/capturas/_cuadros/
