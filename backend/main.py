@@ -626,8 +626,13 @@ _PERFIL_PREGUNTAS = [
     (re.compile(r"[uú]ltimo\s+acceso|cu[aá]ndo\s+(entr[eé]|ingres[eé])", re.IGNORECASE),
      lambda d: f"Su último acceso fue {d['ultimo_acceso_hablado']}." if d["ultimo_acceso_hablado"]
                else "Todavía no hay un acceso anterior registrado."),
-    (re.compile(r"\bpin\b.*\bvence|vence\b.*\bpin\b|cu[aá]nt\w*\s+d[ií]as.*\bpin\b", re.IGNORECASE),
-     lambda d: f"Su PIN vence en {d['pin_vence_en_dias']} días."),
+    # "pin" se sigue reconociendo aunque ya no se llame asi: quien lleva
+    # tiempo usando el sistema lo va a decir igual, y no entenderlo seria
+    # peor que conservar el nombre viejo en la respuesta.
+    (re.compile(r"\b(pin|clave|contrase[nñ]a)\b.*\bvence|vence\b.*\b(pin|clave|contrase[nñ]a)\b"
+                r"|cu[aá]nt\w*\s+d[ií]as.*\b(pin|clave|contrase[nñ]a)\b",
+                re.IGNORECASE),
+     lambda d: f"Su clave vence en {d['pin_vence_en_dias']} días."),
     (re.compile(r"bodegas?\s+(tengo|asignad\w*)|cu[aá]nt\w*\s+bodegas", re.IGNORECASE),
      lambda d: (f"Tiene {d['n_bodegas']} bodegas asignadas: {d['texto_bodegas']}."
                 if d["n_bodegas"] else "Todavía no tiene bodegas asignadas.")),
@@ -749,7 +754,7 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             "una, sin tocar el interruptor. En Gestión de usuarios, un administrador "
             "también puede decir «activa/desactiva a <nombre>» para cambiar el estado de "
             "otra persona, «crea un usuario llamado <nombre> perfil <auxiliar o "
-            "auditor>» para crear una cuenta nueva (con PIN temporal), «cambia el "
+            "auditor>» para crear una cuenta nueva (con clave temporal), «cambia el "
             "perfil de <nombre> a auxiliar/administrador» para lo mismo que el botón "
             "«Editar» (el correo no se cambia por voz), «asígnale/quítale la bodega "
             "<bodega> a <nombre>» para lo mismo que el botón «Asignar bodegas» pero "
@@ -867,7 +872,7 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
                 "a «Abrir» en su tarjeta - desde ahí, dictar los productos SÍ es por voz "
                 "con el micrófono normal de esa pantalla (igual que en Conteo). Pero "
                 "«Iniciar recuento ciego», «Ver comparación», «Aceptar todas», «Cerrar con "
-                "doble firma», firmar con PIN, y «Cerrar bodega definitivamente» "
+                "doble firma», «Firmar la auditoría», y «Cerrar bodega definitivamente» "
                 "son A PROPÓSITO solo manuales - nadie cierra una bodega con doble firma "
                 "por accidente con la voz. Si el mensaje llegó hasta usted es porque "
                 "«aprueba/rechaza <nombre>», «aprueba/rechaza el pedido de <...>», "
@@ -885,7 +890,7 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
         return (
             f"Pantalla: Mi perfil, de {u.nombre} ({u.perfil}). Datos personales, seguridad "
             "de la cuenta y preferencias de voz. "
-            f"Último acceso: {d['ultimo_acceso_hablado'] or 'sin registro'}. PIN vence en "
+            f"Último acceso: {d['ultimo_acceso_hablado'] or 'sin registro'}. La clave vence en "
             f"{d['pin_vence_en_dias']} días. Bodegas asignadas: {d['n_bodegas']}"
             + (f" ({d['texto_bodegas']})" if d["texto_bodegas"] else "") + ". "
             f"Voz actual: {d['voz_nombre']} ({d['voz_etiqueta'].lower()}), velocidad "
@@ -893,10 +898,10 @@ def _contexto_asistente(vista: str, u: Usuario) -> str:
             f"{'activada' if d['confirmacion_hablada'] else 'desactivada'}. "
             "SÍ se puede cambiar por voz: la voz neuronal («cambia mi voz a puck/kore/aoede/"
             "charon»), la velocidad («habla más lento/rápido», «velocidad normal») y la "
-            "confirmación hablada («activa/desactiva la confirmación hablada»). Cambiar el "
-            "PIN, subir una foto, y editar nombre/correo/teléfono son A PROPÓSITO solo "
-            "manuales, por seguridad - nunca diga que ya cambió el PIN por voz, eso sería "
-            "falso.")
+            "confirmación hablada («activa/desactiva la confirmación hablada»). Cambiar la "
+            "clave, subir una foto, y editar nombre/correo/teléfono son A PROPÓSITO solo "
+            "manuales, por seguridad - nunca diga que ya cambió la clave por voz, eso "
+            "sería falso.")
     if vista == "bodegas":
         with Sesion() as s:
             ids_permitidos = _ids_permitidos_para_buscar(s, u)
@@ -1123,8 +1128,8 @@ def _crear_usuario_por_voz(texto: str, u: Usuario) -> dict | None:
                 "accion": "actualizar", "destino": None, "pestana": None}
     registrar(u, "USUARIO", f"Usuario {nombre} creado ({perfil}) por voz", "ok")
     return {"respuesta_hablada": f"Listo, creé a {nombre.capitalize()} como {perfil}. "
-                                 f"Su PIN temporal es {pin_generado} - dígaselo para que "
-                                 "lo cambie en Mi perfil.",
+                                 f"Su clave temporal es {pin_generado} - dígasela para que "
+                                 "la cambie en Mi perfil.",
             "accion": "actualizar", "destino": None, "pestana": None}
 
 
@@ -3995,7 +4000,7 @@ def crear_usuario(datos: CrearUsuarioIn, u: Usuario = Depends(requiere_perfil("a
     else:
         pin_para_guardar = datos.pin
     if len(pin_para_guardar) < 8:
-        raise HTTPException(400, "El PIN debe tener al menos 8 caracteres.")
+        raise HTTPException(400, "La clave debe tener al menos 8 caracteres.")
     with Sesion() as s:
         if s.query(Usuario).filter_by(nombre=nombre).first():
             raise HTTPException(409, "Ya existe un usuario con ese nombre.")

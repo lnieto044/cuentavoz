@@ -185,6 +185,18 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     return () => clearTimeout(espera);
   }, [usuario, modo]);
 
+  /* Se guarda en el navegador y no en un useState porque entre "cambie
+     mi clave" e "inicie sesion" la persona puede recargar la pagina, o
+     cerrarla y volver mas tarde: el aviso de vencimiento seguiria mal. */
+  function marcarClaveCambiadaAlEntrar(token) {
+    try {
+      if (!localStorage.getItem("cv_clave_recien_cambiada")) return;
+      localStorage.removeItem("cv_clave_recien_cambiada");
+      pedir("/api/usuarios/yo/marcar-clave-cambiada", { method: "POST" }, token)
+        .catch(() => {});
+    } catch (_) { /* navegador sin almacenamiento: no vale romper el ingreso */ }
+  }
+
   function cambiarModo(nuevo) {
     setModo(nuevo);
     setErr(""); setErrCampo({}); setReenviado(false); setAvisoEspera("");
@@ -212,6 +224,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
         setModo("login-mfa");
         return;
       }
+      marcarClaveCambiadaAlEntrar(r.token);
       alEntrar(await sesionCompleta(r.token, avisarEspera));
     } catch (e2) {
       if (e2.code === "UserNotConfirmedException") {
@@ -243,6 +256,7 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     setCargando(true);
     try {
       const token = await confirmarCodigoMFA(mfaPendiente, codigoMFA.trim());
+      marcarClaveCambiadaAlEntrar(token);
       alEntrar(await sesionCompleta(token, avisarEspera));
     } catch (e2) {
       setErr(e2.message);
@@ -382,6 +396,9 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
     setCargando(true);
     try {
       await confirmarNuevaClave(usuario.trim(), codigo.trim(), claveNueva);
+      // La fecha del cambio la anota el backend en el primer ingreso: aqui
+      // todavia no hay token con que pedirselo.
+      try { localStorage.setItem("cv_clave_recien_cambiada", "1"); } catch (_) {}
       setClave(""); setCodigo(""); setClaveNueva(""); setClaveNueva2("");
       setModo("login");
       setErr("");

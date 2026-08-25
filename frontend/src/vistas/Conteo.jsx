@@ -79,6 +79,12 @@ export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, a
   const [crear, setCrear] = useState(null);       // {nombre, unidad_medida, cantidad_inicial}
   const [archivo, setArchivo] = useState(null);
   const [mostrarTeclado, setMostrarTeclado] = useState(false);
+  // La firma del conteo: cerrar una bodega exige DOS firmas, la de quien
+  // contó y la de quien auditó. La segunda la pone Auditoría; la primera
+  // no la ponía ninguna pantalla, así que ninguna bodega contada llegaba a
+  // poder cerrarse (el backend respondía 409 "Faltan firmas").
+  const [confirmarFirma, setConfirmarFirma] = useState(false);
+  const [firmado, setFirmado] = useState(false);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [cola, setCola] = useState(() => leerCola(sesionId));
   const rec = useRef(null);
@@ -331,6 +337,16 @@ export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, a
       setErr(e.message);
       hablar(e.message);
     }
+  }
+
+  async function firmarConteo() {
+    setConfirmarFirma(false);
+    try {
+      await pedir(`/api/sesiones/${sesionId}/firmar`, { method: "POST" }, token);
+      setFirmado(true);
+      setRespuesta("Conteo firmado. La bodega pasa a auditoría.");
+      hablar("Su conteo quedó firmado. La bodega pasa a auditoría.");
+    } catch (e) { setErr(e.message); }
   }
 
   function guardarEnCola(item) {
@@ -834,9 +850,44 @@ export default function Conteo({ token, sesionId, ir, usuario, bodegaSugerida, a
               <p className="pista" style={{ marginTop: 10 }}>
                 La voz es el camino rápido; el teclado siempre queda como respaldo.
               </p>
+
+              {/* En su propia fila y no junto a "Confirmar"/"Corregir":
+                  esos dos son del artículo que se está dictando, este
+                  termina el turno entero. */}
+              <div className="grilla-botones" style={{ marginTop: 14 }}>
+                {firmado ? (
+                  <p style={{ color: "var(--verde)", fontWeight: 700, flex: 1,
+                              textAlign: "center", margin: 0 }}>
+                    ✓ Conteo firmado · pasa a auditoría
+                  </p>
+                ) : (
+                  <button className="btn" style={{ flex: 1 }}
+                          disabled={avance.hechas === 0}
+                          onClick={() => setConfirmarFirma(true)}>
+                    Terminar y firmar mi conteo
+                  </button>
+                )}
+              </div>
+              {!firmado && avance.hechas === 0 && (
+                <p className="pista" style={{ marginTop: 6 }}>
+                  Cuente al menos un artículo antes de firmar.
+                </p>
+              )}
             </>
           )}
         </>
+      )}
+
+      {confirmarFirma && (
+        <Dialogo titulo="Firmar mi conteo"
+                 mensaje={`Va a firmar el conteo de ${bodega?.bodega || "esta bodega"} `
+                          + `con ${avance.hechas} `
+                          + `${avance.hechas === 1 ? "referencia" : "referencias"}. `
+                          + "Después no podrá agregar ni corregir artículos: la bodega "
+                          + "pasa a auditoría."}
+                 textoAceptar="Firmar"
+                 onAceptar={firmarConteo}
+                 onCancelar={() => setConfirmarFirma(false)} />
       )}
 
       {mostrarTeclado && (

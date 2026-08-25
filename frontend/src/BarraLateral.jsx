@@ -50,7 +50,7 @@ export default function BarraLateral({ activo, usuario, token, sesionId, onNaveg
   }, [token]);
 
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" aria-label="Menú principal">
       <div className="marca">
         <img src="/logo.png" alt="CuentaVoz" />
         <span>
@@ -60,31 +60,26 @@ export default function BarraLateral({ activo, usuario, token, sesionId, onNaveg
       </div>
       <hr />
 
+      {/* El botón va DENTRO del <li>, no en su lugar. Cuando el rol de
+          botón estaba sobre el <li>, ese <li> dejaba de contar como
+          elemento de lista y el menú se anunciaba como una lista vacía:
+          se perdía el «3 de 13», que es lo que ubica a quien no ve la
+          pantalla. Con un <button> de verdad, además, Enter y Espacio
+          funcionan solos y sobra el onKeyDown que había a mano. */}
       <ul>
         {items.map((m) => (
-          <li
-            key={m.id}
-            className={m.id === activo ? "sel" : ""}
-            onClick={() => onNavegar(m.id)}
-            role="button"
-            tabIndex={0}
-            aria-current={m.id === activo ? "page" : undefined}
-            // El menú principal solo tenía onClick - inalcanzable con
-            // teclado (Tab no lo enfocaba, nada respondía a Enter/Espacio).
-            // Para quien navega sin mouse (movilidad reducida, o un lector
-            // de pantalla), esto es el único menú de toda la app: sin
-            // esto, no había forma de cambiar de pantalla sin mouse.
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onNavegar(m.id);
-              }
-            }}
-          >
-            <span className="icono-menu">
-              <Icono nombre={m.id} tam={19} />
-            </span>
-            <span>{m.titulo}</span>
+          <li key={m.id}>
+            <button
+              type="button"
+              className={m.id === activo ? "sel" : ""}
+              onClick={() => onNavegar(m.id)}
+              aria-current={m.id === activo ? "page" : undefined}
+            >
+              <span className="icono-menu">
+                <Icono nombre={m.id} tam={19} />
+              </span>
+              <span>{m.titulo}</span>
+            </button>
           </li>
         ))}
       </ul>

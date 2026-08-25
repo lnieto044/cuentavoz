@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Sin maximum-scale ni user-scalable=no: bloqueaban el zoom, y eso es
+         un incumplimiento de WCAG 1.4.4 (axe lo marcaba en las 17 pantallas).
+         En una bodega, con guantes y poca luz, ampliar con dos dedos es
+         justo lo que la gente necesita. Se habia puesto para evitar el zoom
+         accidental al tocar dos veces, pero eso ya no lo causan los
+         navegadores actuales: basta con no usar tipografias diminutas. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>CuentaVoz · Colsubsidio</title>
   </head>
   <body>

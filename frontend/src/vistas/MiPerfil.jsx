@@ -42,7 +42,7 @@ function Interruptor({ activo, onChange, etiqueta }) {
 const _EJEMPLOS_PERFIL = [
   "cambia mi voz a puck", "usa la voz aoede", "habla más lento", "velocidad normal",
   "activa la confirmación hablada", "desactiva la confirmación hablada",
-  "¿cuándo fue mi último acceso?", "¿cuántos días le quedan a mi PIN?",
+  "¿cuándo fue mi último acceso?", "¿cuántos días le quedan a mi clave?",
   "¿qué bodegas tengo asignadas?",
 ];
 
@@ -255,7 +255,7 @@ export default function MiPerfil({ token, ir }) {
             Último acceso: <b>{formatoAcceso(datos.ultimo_acceso)}</b>
           </p>
           <p style={{ fontSize: ".87rem", marginBottom: 14 }}>
-            Su PIN vence en <b>{datos.pin_vence_en_dias} días</b>
+            Su clave vence en <b>{datos.pin_vence_en_dias} días</b>
           </p>
 
           {datos.pin_vence_en_dias <= 14 && (

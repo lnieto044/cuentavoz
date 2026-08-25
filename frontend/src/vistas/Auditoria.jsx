@@ -544,7 +544,7 @@ function TabRecuento({ token, esAuditor, onEnFoco, bodegaAuditar, navSeq }) {
                 <>
                   <p style={{ color: "var(--azul)", marginTop: 10 }}>Pendiente de su firma</p>
                   <button className="btn" style={{ marginTop: 8 }} onClick={firmarAuditoria}>
-                    Firmar con PIN
+                    Firmar la auditoría
                   </button>
                 </>
               )}

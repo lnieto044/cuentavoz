@@ -249,6 +249,12 @@
   </table>
 
   <div class="aviso dato">
+    <span class="rotulo">La doble firma son dos firmas, y venían de sitios distintos</span>
+    <p><span class="ui">POST /api/bodegas/{id}/cerrar</span> exige que la sesión de conteo <b>y</b> la de auditoría tengan <span class="ui">firmada = 1</span>. La segunda la ponía Auditoría; la primera no la ponía ninguna pantalla — <span class="ui">/api/sesiones/{id}/firmar</span> existía desde el commit inicial y el frontend nunca lo llamó. Resultado: ninguna bodega contada llegaba a poder cerrarse, y el botón «Cerrar bodega definitivamente» quedaba apagado para siempre.</p>
+    <p>Pasó desapercibido porque la base de la demo traía sesiones ya firmadas de pruebas anteriores. Leer el backend no lo revela: ahí estaba todo. Lo que lo revela es <b>recorrer el flujo completo</b> — abrir, contar, auditar, cerrar — y ver el 409. Vale como recordatorio: un endpoint que existe y pasa sus pruebas no es un flujo que funciona, si nada lo llama.</p>
+  </div>
+
+  <div class="aviso dato">
     <span class="rotulo">Nada se borra</span>
     <p>Corregir un conteo escribe una fila nueva que apunta a la anterior. Desactivar a una persona pone <span class="ui">activo = 0</span>, no borra la fila. Rechazar una aprobación la deja marcada como rechazada. Un inventario que pierde su historia no sirve para auditar.</p>
   </div>

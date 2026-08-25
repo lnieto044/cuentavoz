@@ -315,7 +315,7 @@ function TabUsuarios({ token, usuario }) {
         body: JSON.stringify({ nombre: nuevo.nombre, perfil: nuevo.perfil || "auxiliar",
                                correo: nuevo.correo || "" }),
       }, token);
-      setMsg(`Usuario ${nuevo.nombre} creado. PIN temporal: ${r.pin_temporal} `
+      setMsg(`Usuario ${nuevo.nombre} creado. Clave temporal: ${r.pin_temporal} `
              + "(cambíelo al primer ingreso, en Mi perfil).");
       setNuevo(null);
       cargar();

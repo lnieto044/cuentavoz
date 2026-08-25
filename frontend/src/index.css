@@ -121,22 +121,27 @@ textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
 .sidebar .marca i { font-size: .68rem; color: var(--amarillo); font-style: italic; }
 .sidebar hr { border: none; border-top: 1px solid #2A4573; margin: 0 18px 10px; }
 .sidebar ul { list-style: none; flex: 1; overflow-y: auto; }
-.sidebar li {
-  display: flex; align-items: center; gap: 10px;
+/* El que se pinta es el <button> de adentro, no el <li>: el <li> existe
+   solo para que el menú siga siendo una lista para un lector de pantalla
+   (ver BarraLateral.jsx). Por eso hereda tipografía y se estira al ancho:
+   un botón trae su propia fuente y su propio tamaño. */
+.sidebar li > button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 9px 18px; font-size: .88rem; color: #B9C4D6;
-  border-left: 3px solid transparent; user-select: none;
+  border: none; border-left: 3px solid transparent; user-select: none;
+  background: none; font-family: inherit; text-align: left; cursor: pointer;
 }
-.sidebar li:hover { background: #16305A; color: #fff; }
-.sidebar li.sel {
+.sidebar li > button:hover { background: #16305A; color: #fff; }
+.sidebar li > button.sel {
   background: var(--azul); color: #fff; font-weight: 700;
   border-left-color: var(--amarillo);
 }
-.sidebar li .icono-menu {
+.sidebar li > button .icono-menu {
   display: inline-flex; align-items: center; justify-content: center;
   flex: none; color: #8194B3;
 }
-.sidebar li:hover .icono-menu { color: #fff; }
-.sidebar li.sel .icono-menu { color: var(--amarillo); }
+.sidebar li > button:hover .icono-menu { color: #fff; }
+.sidebar li > button.sel .icono-menu { color: var(--amarillo); }
 .sidebar footer { padding: 12px 18px 0; border-top: 1px solid #2A4573; }
 .sidebar footer .avatar {
   width: 32px; height: 32px; border-radius: 50%; background: var(--amarillo);
@@ -511,9 +516,9 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
   .sidebar { flex-direction: row; overflow-x: auto; padding: 8px 6px; gap: 4px; }
   .sidebar .marca, .sidebar hr, .sidebar footer { display: none; }
   .sidebar ul { display: flex; gap: 4px; }
-  .sidebar li { border-left: none; border-bottom: 3px solid transparent;
+  .sidebar li > button { border-left: none; border-bottom: 3px solid transparent;
     white-space: nowrap; padding: 8px 12px; font-size: .8rem; border-radius: 8px; }
-  .sidebar li.sel { border-left: none; border-bottom-color: var(--amarillo); }
+  .sidebar li > button.sel { border-left: none; border-bottom-color: var(--amarillo); }
   .conteo-cols { grid-template-columns: 1fr; }
   .dos-columnas { grid-template-columns: 1fr; }
   .reportes-cols { grid-template-columns: 1fr; }
@@ -546,10 +551,10 @@ td.dif, td.falta { background: var(--amarillo-bg); color: var(--amarillo-tx);
   .sidebar hr, .sidebar footer small, .sidebar footer img,
   .sidebar footer b { display: none; }
   .sidebar ul { display: block; }
-  .sidebar li { flex-direction: column; gap: 3px; padding: 10px 4px;
+  .sidebar li > button { flex-direction: column; gap: 3px; padding: 10px 4px;
     font-size: .62rem; text-align: center; border-left: none;
     border-bottom: 3px solid transparent; white-space: normal; }
-  .sidebar li.sel { border-left: none; border-bottom-color: var(--amarillo); }
+  .sidebar li > button.sel { border-left: none; border-bottom-color: var(--amarillo); }
   .sidebar footer { padding: 12px 0 0; display: flex; justify-content: center; }
   .sidebar footer .avatar { margin-right: 0; }
 }
