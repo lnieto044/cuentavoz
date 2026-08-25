@@ -48,6 +48,15 @@
     color:var(--azul); min-width:26px; font-variant-numeric:tabular-nums;
   }
   .indice .t{ font-family:var(--display); font-size:11.4pt; font-weight:500; }
+  /* El numero de pagina lo rellena docs/numerar_indice.py despues de
+     imprimir: aqui solo se reserva el sitio, con el estilo final. */
+  .indice .pag{
+    font-family:var(--display); font-weight:600; font-size:9.6pt;
+    color:var(--navy); min-width:20px; text-align:right;
+    font-variant-numeric:tabular-nums; margin-left:12px;
+  }
+  .indice li a{ color:inherit; text-decoration:none; display:contents; }
+
   .indice .rol{
     margin-left:auto; font-family:var(--display); font-size:7.4pt;
     letter-spacing:.09em; text-transform:uppercase; color:var(--pizarra);
@@ -197,22 +206,22 @@
 <h2 class="seccion">Contenido</h2>
 <p class="seccion-intro">Las secciones 3 a 15 van en el mismo orden del menú de la aplicación, una por cada opción. Las marcadas como Administrador solo las ve el perfil de administrador de bodega.</p>
 <ol>
-  <li><span class="n">1</span><span class="t">Antes de empezar</span><span class="rol">Todos</span></li>
-  <li><span class="n">2</span><span class="t">Ingreso a la plataforma</span><span class="rol">Todos</span></li>
-  <li><span class="n">3</span><span class="t">Inicio  <em class="menu-ref">menú: Inicio</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">4</span><span class="t">Pedidos  <em class="menu-ref">menú: Pedidos</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">5</span><span class="t">Conteo  <em class="menu-ref">menú: Conteo</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">6</span><span class="t">Legalización  <em class="menu-ref">menú: Legalización</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">7</span><span class="t">Bodegas  <em class="menu-ref">menú: Bodegas</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">8</span><span class="t">Auditoría  <em class="menu-ref">menú: Auditoría</em></span><span class="rol">Administrador</span></li>
-  <li><span class="n">9</span><span class="t">Reportes  <em class="menu-ref">menú: Reportes</em></span><span class="rol">Administrador</span></li>
-  <li><span class="n">10</span><span class="t">Panel  <em class="menu-ref">menú: Panel</em></span><span class="rol">Administrador</span></li>
-  <li><span class="n">11</span><span class="t">Ajustes  <em class="menu-ref">menú: Ajustes</em></span><span class="rol">Administrador</span></li>
-  <li><span class="n">12</span><span class="t">Ayuda  <em class="menu-ref">menú: Ayuda</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">13</span><span class="t">Mensajes  <em class="menu-ref">menú: Mensajes</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">14</span><span class="t">Mi perfil  <em class="menu-ref">menú: Mi perfil</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">15</span><span class="t">Cerrar sesión  <em class="menu-ref">menú: Cerrar sesión</em></span><span class="rol">Todos</span></li>
-  <li><span class="n">16</span><span class="t">Preguntas frecuentes</span><span class="rol">Todos</span></li>
+  <li><span class="n">1</span><span class="t">Antes de empezar</span><span class="rol">Todos</span><span class="pag">2</span></li>
+  <li><span class="n">2</span><span class="t">Ingreso a la plataforma</span><span class="rol">Todos</span><span class="pag">4</span></li>
+  <li><span class="n">3</span><span class="t">Inicio  <em class="menu-ref">menú: Inicio</em></span><span class="rol">Todos</span><span class="pag">9</span></li>
+  <li><span class="n">4</span><span class="t">Pedidos  <em class="menu-ref">menú: Pedidos</em></span><span class="rol">Todos</span><span class="pag">12</span></li>
+  <li><span class="n">5</span><span class="t">Conteo  <em class="menu-ref">menú: Conteo</em></span><span class="rol">Todos</span><span class="pag">13</span></li>
+  <li><span class="n">6</span><span class="t">Legalización  <em class="menu-ref">menú: Legalización</em></span><span class="rol">Todos</span><span class="pag">16</span></li>
+  <li><span class="n">7</span><span class="t">Bodegas  <em class="menu-ref">menú: Bodegas</em></span><span class="rol">Todos</span><span class="pag">18</span></li>
+  <li><span class="n">8</span><span class="t">Auditoría  <em class="menu-ref">menú: Auditoría</em></span><span class="rol">Administrador</span><span class="pag">20</span></li>
+  <li><span class="n">9</span><span class="t">Reportes  <em class="menu-ref">menú: Reportes</em></span><span class="rol">Administrador</span><span class="pag">24</span></li>
+  <li><span class="n">10</span><span class="t">Panel  <em class="menu-ref">menú: Panel</em></span><span class="rol">Administrador</span><span class="pag">26</span></li>
+  <li><span class="n">11</span><span class="t">Ajustes  <em class="menu-ref">menú: Ajustes</em></span><span class="rol">Administrador</span><span class="pag">28</span></li>
+  <li><span class="n">12</span><span class="t">Ayuda  <em class="menu-ref">menú: Ayuda</em></span><span class="rol">Todos</span><span class="pag">31</span></li>
+  <li><span class="n">13</span><span class="t">Mensajes  <em class="menu-ref">menú: Mensajes</em></span><span class="rol">Todos</span><span class="pag">35</span></li>
+  <li><span class="n">14</span><span class="t">Mi perfil  <em class="menu-ref">menú: Mi perfil</em></span><span class="rol">Todos</span><span class="pag">38</span></li>
+  <li><span class="n">15</span><span class="t">Cerrar sesión  <em class="menu-ref">menú: Cerrar sesión</em></span><span class="rol">Todos</span><span class="pag">41</span></li>
+  <li><span class="n">16</span><span class="t">Preguntas frecuentes</span><span class="rol">Todos</span><span class="pag">42</span></li>
 </ol>
 </div>
 

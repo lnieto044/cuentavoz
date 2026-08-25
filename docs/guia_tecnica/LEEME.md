@@ -30,29 +30,35 @@ guía la hereda en la siguiente corrida.
 
 ## Regenerar
 
-Desde la raíz del repositorio, en este orden:
+Un solo comando, desde la raíz del repositorio:
 
 ```
-python docs/guia_tecnica/armar.py         # arma guia.html y portada.html
-node docs/guia_tecnica/generar_pdf.js     # los imprime a PDF
-python docs/guia_tecnica/armar.py         # une el PDF final
+python docs/guia_tecnica/publicar.py
 ```
 
-`armar.py` va primero **y** al final: la primera corrida escribe el HTML que
-Chromium necesita (que no está en el repositorio, se genera), y la segunda une
-las dos partes impresas. Correrlo dos veces no cuesta nada — la primera vez
-avisa «corra antes: node …» porque todavía no hay qué unir.
+El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf` (399 páginas).
 
-El resultado queda en `docs/Guia_Tecnica_CuentaVoz_V5.pdf` (391 páginas).
+Hace falta un solo comando porque el índice numerado obliga a **dos
+impresiones**: el número de página solo se sabe con el PDF ya armado, pero
+tiene que salir impreso dentro del índice. Encadenar eso a mano es como se
+imprimieron 399 páginas con `@@PAG@@` en el índice. El guion hace:
 
-> **El código del apéndice no se transcribe: se genera.** Es la diferencia de
-> fondo con la guía V4, que traía 270 páginas de código pegado a mano y quedó
-> desactualizada al primer commit. Aquí basta con regenerar para que el listado
-> impreso vuelva a coincidir con el repositorio.
+1. `armar.py` → `guia.html` + `portada.html`, con los huecos del índice
+2. imprimir → PDF con huecos
+3. medir en qué página cayó cada sección y rellenar `cuerpo.html`
+4. `armar.py` otra vez → ahora con los números de verdad
+5. imprimir el PDF definitivo
+6. enlazar cada fila del índice y agregar los marcadores del lector
 
-> `armar.py` regenera `guia.html` y `portada.html` en **cada** corrida, así que
-> si solo quiere revisar el HTML tras editar `cuerpo.html`, córralo suelto y
-> abra `guia.html` en el navegador. Ninguno de los dos se versiona.
+Para comprobar que el índice no miente:
+
+```
+python docs/verificar_indice.py docs/Guia_Tecnica_CuentaVoz_V5.pdf
+```
+
+Revisa que no queden huecos sin rellenar, que el enlace de cada fila esté
+sobre esa fila y no sobre otra cosa, y que el número impreso coincida con el
+del pie de la página destino. Las tres han fallado alguna vez.
 
 ## Al escribir
 
