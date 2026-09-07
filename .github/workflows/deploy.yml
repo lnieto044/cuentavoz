@@ -57,13 +57,14 @@ jobs:
 
       - name: Build y push imagen Docker a ECR
         env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./backend
-          docker push $ECR_REPOSITORY:$IMAGE_TAG
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REPOSITORY:latest
-          docker push $ECR_REPOSITORY:latest
+          docker build -t $REGISTRY/cuentavoz-backend:$IMAGE_TAG ./backend
+          docker build -t $REGISTRY/cuentavoz-backend:latest ./backend
+          docker push $REGISTRY/cuentavoz-backend:$IMAGE_TAG
+          docker push $REGISTRY/cuentavoz-backend:latest
 
       - name: Preparar clave SSH
         run: |
@@ -72,7 +73,7 @@ jobs:
 
       - name: Deploy en EC2 vía SSH
         env:
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           DB_URL: ${{ secrets.DB_URL }}
@@ -88,10 +89,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i cuentavoz-key.pem ec2-user@$EC2_HOST << EOF
             # Autenticar Docker contra ECR
             aws ecr get-login-password --region $AWS_REGION | \
-              docker login --username AWS --password-stdin $ECR_REPOSITORY
+              docker login --username AWS --password-stdin $REGISTRY
 
             # Descargar imagen nueva
-            docker pull $ECR_REPOSITORY:latest
+            docker pull $REGISTRY/cuentavoz-backend:latest
 
             # Detener y borrar el contenedor anterior si existe
             docker stop cuentavoz-api 2>/dev/null || true
@@ -114,7 +115,7 @@ jobs:
               -e IDIOMA_VOZ="es-CO" \
               -e UMBRAL_ANOMALIA="0.5" \
               -e MODELO="gemini-flash-latest" \
-              $ECR_REPOSITORY:latest
+              $REGISTRY/cuentavoz-backend:latest
 
             # Verificar que arrancó
             sleep 5
