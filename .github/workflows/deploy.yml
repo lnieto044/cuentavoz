@@ -1,0 +1,190 @@
+name: Deploy CuentaVoz a AWS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────
+  # 1. Tests del backend
+  # ─────────────────────────────────────────
+  test-backend:
+    name: Tests backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Ejecutar pytest
+        run: pytest
+        env:
+          DB_URL: sqlite:///test.db
+          COGNITO_REGION: us-east-2
+          COGNITO_USER_POOL_ID: us-east-2_pruebas
+          COGNITO_APP_CLIENT_ID: prueba
+          SEMBRAR_DEMO: "1"
+
+  # ─────────────────────────────────────────
+  # 2. Build y deploy del backend en EC2
+  # ─────────────────────────────────────────
+  deploy-backend:
+    name: Deploy backend → EC2
+    needs: test-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login a Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build y push imagen Docker a ECR
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker push $ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REPOSITORY:latest
+          docker push $ECR_REPOSITORY:latest
+
+      - name: Preparar clave SSH
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > cuentavoz-key.pem
+          chmod 600 cuentavoz-key.pem
+
+      - name: Deploy en EC2 vía SSH
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          DB_URL: ${{ secrets.DB_URL }}
+          COGNITO_REGION: ${{ secrets.COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+          AWS_ACCESS_KEY_ID_COGNITO: ${{ secrets.COGNITO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY_COGNITO: ${{ secrets.COGNITO_AWS_SECRET_ACCESS_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          ORIGEN_PERMITIDO: ${{ secrets.ORIGEN_PERMITIDO }}
+          SEMBRAR_DEMO: "0"
+        run: |
+          ssh -o StrictHostKeyChecking=no -i cuentavoz-key.pem ec2-user@$EC2_HOST << EOF
+            # Autenticar Docker contra ECR
+            aws ecr get-login-password --region $AWS_REGION | \
+              docker login --username AWS --password-stdin $ECR_REPOSITORY
+
+            # Descargar imagen nueva
+            docker pull $ECR_REPOSITORY:latest
+
+            # Detener y borrar el contenedor anterior si existe
+            docker stop cuentavoz-api 2>/dev/null || true
+            docker rm   cuentavoz-api 2>/dev/null || true
+
+            # Arrancar el contenedor nuevo
+            docker run -d \
+              --name cuentavoz-api \
+              --restart always \
+              -p 8000:8000 \
+              -e DB_URL="$DB_URL" \
+              -e COGNITO_REGION="$COGNITO_REGION" \
+              -e COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" \
+              -e COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID" \
+              -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID_COGNITO" \
+              -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY_COGNITO" \
+              -e GOOGLE_API_KEY="$GOOGLE_API_KEY" \
+              -e ORIGEN_PERMITIDO="$ORIGEN_PERMITIDO" \
+              -e SEMBRAR_DEMO="$SEMBRAR_DEMO" \
+              -e IDIOMA_VOZ="es-CO" \
+              -e UMBRAL_ANOMALIA="0.5" \
+              -e MODELO="gemini-flash-latest" \
+              $ECR_REPOSITORY:latest
+
+            # Verificar que arrancó
+            sleep 5
+            docker ps | grep cuentavoz-api
+          EOF
+
+      - name: Limpiar clave SSH
+        if: always()
+        run: rm -f cuentavoz-key.pem
+
+  # ─────────────────────────────────────────
+  # 3. Build y deploy del frontend en S3 + CloudFront
+  # ─────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend → S3 + CloudFront
+    needs: test-backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Build de producción
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Subir build a S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_FRONTEND }} \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "index.html" \
+            --exclude "sw.js" \
+            --exclude "manifest.webmanifest"
+
+          # index.html, sw.js y manifest sin caché para que el PWA siempre
+          # sirva la versión más reciente sin que el navegador la guarde
+          aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET_FRONTEND }}/index.html \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+          # sw.js puede no existir si el build no lo generó — se sube solo si está
+          test -f dist/sw.js && aws s3 cp dist/sw.js \
+            s3://${{ secrets.S3_BUCKET_FRONTEND }}/sw.js \
+            --cache-control "no-cache, no-store, must-revalidate" || true
+
+          test -f dist/manifest.webmanifest && aws s3 cp dist/manifest.webmanifest \
+            s3://${{ secrets.S3_BUCKET_FRONTEND }}/manifest.webmanifest \
+            --cache-control "no-cache, no-store, must-revalidate" || true
+
+      - name: Invalidar caché de CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
