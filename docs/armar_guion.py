@@ -34,13 +34,13 @@ AMARILLO_TX = RGBColor(0x8A, 0x6D, 0x00)
 
 # (nº, titulo, quien, segundos, [lineas del guion], [notas de puesta en escena])
 GUION = [
-    (1, "Portada", "LUIS", 20,
-     ["Buenos días. Somos StockXperts. Yo soy Luis, ella es Diana.",
+    (1, "Portada", "DIANA", 20,
+     ["Buenos días. Somos StockXperts. Yo soy Diana, él es Luis.",
       "Traemos CuentaVoz: contar el inventario hablando, en vez de escribiendo.",
       "En diez minutos se lo mostramos funcionando con los datos reales de ustedes."],
      ["No lea la diapositiva: ya se ve."]),
 
-    (2, "El conteo manual cuesta caro", "LUIS", 40,
+    (2, "El conteo manual cuesta caro", "DIANA", 40,
      ["Hoy el inventario de una bodega se toma en papel. Alguien camina con una "
       "planilla, anota, y después otra persona lo digita en el sistema.",
       "Eso tiene tres costos: TIEMPO —se hace dos veces—, ERRORES —de letra, de "
@@ -48,13 +48,13 @@ GUION = [
       "nadie se acuerda de qué pasó."],
      ["Pausa corta antes de pasar."]),
 
-    (3, "La solución, en una frase", "LUIS", 30,
+    (3, "La solución, en una frase", "DIANA", 30,
      ["Voz, inteligencia artificial y validaciones automáticas.",
       "La persona habla, el sistema entiende, valida contra el inventario y guarda.",
       "Una sola vez, en el sitio, y validado en el momento."],
      []),
 
-    (4, "Cómo piensa el agente", "DIANA", 40,
+    (4, "Cómo piensa el agente", "LUIS", 40,
      ["Cada vez que alguien habla pasan cinco pasos: escucha, interpreta, resuelve "
       "el artículo contra el catálogo oficial, valida y confirma.",
       "Y algo importante: el modelo interpreta, pero el que decide es el backend. "
@@ -62,7 +62,7 @@ GUION = [
       "reglas en código deciden si eso entra o no."],
      ["Ese matiz tranquiliza a quien pregunta por confiabilidad de la IA."]),
 
-    (5, "Tres momentos, una sola plataforma", "DIANA", 40,
+    (5, "Tres momentos, una sola plataforma", "LUIS", 40,
      ["No es solo contar. Son los tres momentos del ciclo: el PEDIDO al almacén "
       "calculado por receta, el CONTEO de la bodega, y la LEGALIZACIÓN del "
       "servicio al final del turno.",
@@ -91,14 +91,14 @@ GUION = [
       "bodega con ruido».",
       "CORTE: si a los 5:00 no han salido de la demo, córtenla y sigan."]),
 
-    (7, "Nada se guarda sin validar", "LUIS", 40,
+    (7, "Nada se guarda sin validar", "DIANA", 40,
      ["Lo que acaban de ver validó cuatro cosas sin que yo hiciera nada: que el "
       "artículo existe en el catálogo, que la unidad es la correcta, que la "
       "cantidad tiene sentido, y que yo tenía permiso sobre esa bodega.",
       "Si algo no cuadra, el conteo NO se detiene: queda marcado y sigue."],
      []),
 
-    (8, "Arquitectura", "DIANA", 40,
+    (8, "Arquitectura", "LUIS", 40,
      ["Está en AWS: el frontend en S3 con CloudFront, el backend en EC2 con Docker, "
       "la base en RDS. La misma nube que ya usa Colsubsidio, así que no hay nada "
       "que migrar.",
@@ -107,50 +107,50 @@ GUION = [
      ["Es la lámina donde más preguntan. No se extienda: si preguntan, hay tiempo "
       "al final."]),
 
-    (9, "Datos reales", "DIANA", 30,
+    (9, "Datos reales", "LUIS", 30,
      ["Nada de esto es una maqueta: son las 54 bodegas de ustedes, 1.041 artículos "
       "del catálogo oficial y 1.405 registros de stock.",
       "Al cargarlo, el sistema encontró 79 saldos negativos — inventario que el "
       "sistema dice tener en menos que cero."],
      []),
 
-    (10, "Seguridad", "LUIS", 30,
+    (10, "Seguridad", "DIANA", 30,
      ["La identidad la maneja AWS Cognito, con verificación en dos pasos opcional. "
       "La clave nunca pasa por nuestro servidor.",
       "Y nada se borra: una corrección crea un registro nuevo que apunta al "
       "original. La trazabilidad es completa."],
      ["Al terminar esta lámina deberían ir en 7:10."]),
 
-    (11, "Qué significa para Colsubsidio", "LUIS", 30,
+    (11, "Qué significa para Colsubsidio", "DIANA", 30,
      ["Decisiones con datos reales, no con memoria ni planillas sueltas.",
       "El auxiliar recupera tiempo, el administrador ve el estado en vivo."],
      ["Una sola idea. No enumere las tres viñetas: escoja la que más le importe a "
       "quien tiene enfrente."]),
 
-    (12, "Costo", "DIANA", 30,
+    (12, "Costo", "LUIS", 30,
      ["No hay licencias por usuario. Sumar una bodega o veinte personas más no "
       "cuesta más. Se paga la infraestructura y el consumo de la IA por uso."],
      []),
 
-    (13, "Adopción", "DIANA", 30,
+    (13, "Adopción", "LUIS", 30,
      ["Hoy: prototipo real desplegado y funcionando.",
       "Próximo paso: cargar el archivo oficial de recetas y un piloto guiado en un "
       "grupo de bodegas.",
       "Visión: toda la operación de hotelería, integrada con My Inventory."],
      []),
 
-    (14, "Qué necesitamos hoy", "LUIS", 40,
+    (14, "Qué necesitamos hoy", "DIANA", 40,
      ["Para pasar del prototipo al piloto necesitamos cuatro cosas concretas: un "
       "SPONSOR dentro de Operaciones, un GRUPO DE BODEGAS para el piloto, el "
       "ARCHIVO OFICIAL DE RECETAS, y ACCESO A MY INVENTORY para cerrar el ciclo."],
      ["ESTA LÁMINA NO SE SACRIFICA. Si va corto, recorte la 11 o la 12, nunca esta.",
       "Mire a la persona que puede decir que sí."]),
 
-    (15, "Equipo", "DIANA", 15,
+    (15, "Equipo", "LUIS", 15,
      ["Somos el equipo StockXperts. Esto lo construimos nosotros, de cero."],
      []),
 
-    (16, "Gracias", "LUIS", 15,
+    (16, "Gracias", "DIANA", 15,
      ["Ahí está la dirección para que lo prueben ustedes mismos, con estas cuentas. "
       "Quedamos atentos a sus preguntas."],
      ["Deje esta lámina puesta durante las preguntas: tiene la URL, las cuentas y "
@@ -161,20 +161,20 @@ PREGUNTAS = [
     ("¿Qué pasa si no hay señal en la bodega?", "LUIS",
      "El conteo no se detiene. Se guarda en la tableta y se sincroniza solo al "
      "volver la conexión. Es una PWA real."),
-    ("¿Y si la IA entiende mal?", "DIANA",
+    ("¿Y si la IA entiende mal?", "LUIS",
      "Confirma antes de guardar, siempre. Y si el nombre se parece a varios "
      "artículos, muestra las opciones para que la persona elija. El modelo "
      "propone; nunca escribe solo."),
     ("¿Esto reemplaza a My Inventory?", "DIANA",
      "No. Lo alimenta. Hoy comparamos contra el extracto que ustedes nos dieron; "
      "el siguiente paso es la integración directa."),
-    ("¿Cuánto cuesta?", "DIANA",
+    ("¿Cuánto cuesta?", "LUIS",
      "Infraestructura AWS y consumo de IA por uso. Sin licencias por usuario."),
-    ("¿Por qué la exactitud es del 88%?", "LUIS",
+    ("¿Por qué la exactitud es del 88%?", "DIANA",
      "Porque 12 de cada 100 referencias estaban descuadradas ANTES de que "
      "llegáramos. Ese número no mide qué tan bien contamos: mide qué tan lejos "
      "estaba el sistema de la bodega. Encontrarlo es el valor."),
-    ("¿Es accesible?", "LUIS",
+    ("¿Es accesible?", "DIANA",
      "Sí, y está medido: cero incumplimientos WCAG A/AA en las 17 pantallas, con "
      "axe-core. Navegación completa por teclado, alto contraste y tamaño de letra "
      "ajustable."),
