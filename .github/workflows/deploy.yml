@@ -117,9 +117,22 @@ jobs:
               -e MODELO="gemini-flash-latest" \
               $REGISTRY/cuentavoz-backend:latest
 
-            # Verificar que arrancó
-            sleep 5
-            docker ps | grep cuentavoz-api
+            # Verificar que de verdad responde, no solo que el contenedor exista.
+            # "docker ps | grep" daba verde aunque la aplicación estuviera
+            # muerta: con --restart always, un contenedor en bucle de reinicio
+            # igual aparece listado. Así fue como un DB_URL con un salto de
+            # línea llegó a producción sin que el pipeline dijera nada, y la
+            # caída solo se descubrió al intentar entrar a la plataforma.
+            for intento in \$(seq 1 20); do
+              if curl -fsS --max-time 5 http://localhost:8000/api/salud >/dev/null 2>&1; then
+                echo "El backend responde (intento \$intento)."
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "FALLO: el backend no respondió en 60 segundos. Últimos logs:"
+            docker logs --tail 40 cuentavoz-api 2>&1 || true
+            exit 1
           EOF
 
       - name: Limpiar clave SSH
