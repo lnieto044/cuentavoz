@@ -507,7 +507,7 @@ Detalle técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 | 🧪 **Recorridos completos**  | Pruebas que levantan la aplicación y la recorren entera —conteo, pedidos, auditoría y permisos— sobre una copia de la base → **[frontend/pruebas-flujo/](frontend/pruebas-flujo/LEEME.md)** |
 | ♿ **Accesibilidad**         | Cómo se comprueba, y con qué: axe-core sobre las 17 pantallas más una auditoría del árbol que lee un lector de pantalla → **[docs/accesibilidad/](docs/accesibilidad/LEEME.md)** |
 | 🎞️ **Presentación**         | Presentación para Colsubsidio, 16 diapositivas → **[PPTX](docs/CuentaVoz_Colsubsidio_V2.pptx)**          |
-| 🌐 **Demo en línea**         | Aplicación desplegada → **https://cuentavoz.onrender.com**                                               |
+| 🌐 **Demo en línea**         | Aplicación desplegada en AWS → **https://d13g9u0pgpag0b.cloudfront.net**                                 |
 | 🎥 **Video de demostración** | Recorrido y funcionamiento del proyecto → **https://www.youtube.com/watch?v=4tSRTV5POd4**                |
 
 
