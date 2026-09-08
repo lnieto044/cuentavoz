@@ -15,7 +15,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-produccion-336791?style=for-the-badge&logo=postgresql&logoColor=white)](backend/bd.py)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-agente_de_voz-1B3A6B?style=for-the-badge&logo=googlegemini&logoColor=white)](backend/agente)
 [![AWS Cognito](https://img.shields.io/badge/AWS_Cognito-identidad-D4A017?style=for-the-badge&logo=amazoncognito&logoColor=white)](backend/seguridad.py)
-[![Render](https://img.shields.io/badge/Render-despliegue-46E3B7?style=for-the-badge&logo=render&logoColor=white)](DESPLIEGUE.md)
+[![AWS](https://img.shields.io/badge/AWS-EC2%20·%20S3%20·%20CloudFront%20·%20RDS-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)](.github/workflows/deploy.yml)
 
 <br>
 
@@ -37,6 +37,7 @@
 - [🏗️ Arquitectura](#️-arquitectura)
 - [🔄 Momentos que cubre](#-los-tres-momentos-manuales-que-cubre)
 - [🛡️ Validaciones inteligentes](#️-validaciones-inteligentes)
+- [🧪 Pruebas](#-pruebas)
 - [♿ Accesibilidad](#-accesibilidad)
 - [🔐 Ingreso seguro](#-ingreso-seguro)
 - [📊 Datos reales](#-datos-reales)
@@ -113,6 +114,19 @@ CuentaVoz interpreta la solicitud, consulta la receta, descuenta el inventario d
 
 El usuario puede dictar las cantidades y el agente realiza la conciliación contra el catálogo oficial antes de registrar la información.
 
+Al terminar, quien contó **firma su conteo** y la bodega pasa a auditoría.
+
+---
+
+## ✍️ Cierre con doble firma
+
+Una bodega no la cierra nadie solo. Hacen falta **dos firmas**: la de quien
+contó y la de quien auditó, después de un **recuento ciego** —el
+administrador cuenta sin ver los números del auxiliar, y la comparación
+solo se revela al terminar—.
+
+Si falta una de las dos, el cierre se rechaza.
+
 ---
 
 ## 👩‍🍳 Recetas administrables
@@ -156,17 +170,61 @@ Permite visualizar información relacionada con:
 
 ---
 
+## 🗺️ Sedes y permisos por bodega
+
+Cada persona alcanza **solo las bodegas que le fueron asignadas** — y eso se
+comprueba en cada endpoint, no solo ocultando opciones del menú.
+
+Un administrador **sin** bodegas asignadas es el administrador general y
+alcanza todo el parque; uno **con** bodegas asignadas queda a cargo de esa
+sede y solo de esa.
+
+Las bodegas se agrupan en **sedes** (Piscilago, Calle 26…) para repartir una
+sede entera de un clic en vez de marcar doce a mano. La sede **no reparte
+permisos**: agrupa. Quién entra a cada bodega se sigue decidiendo bodega por
+bodega.
+
+---
+
 ## 📁 Reportes y trazabilidad
 
 Generación de consolidados exportables y registro de las acciones realizadas dentro de la plataforma.
 
 ---
 
-## ☁️ Preparado para producción
+## ☁️ En producción, en AWS
 
-Arquitectura preparada para despliegue mediante:
+No es una arquitectura "preparada para": está desplegada y respondiendo.
 
-**Render + Static Site + Web Service + PostgreSQL**
+| Pieza | Dónde vive |
+| --- | --- |
+| Frontend | **S3 + CloudFront** (HTTPS y caché en el borde) |
+| Backend | **EC2 + Docker**, con la imagen en **ECR** |
+| Base de datos | **RDS** |
+| Identidad | **AWS Cognito** |
+
+El despliegue es automático: cada `push` a `main` dispara
+[el pipeline de GitHub Actions](.github/workflows/deploy.yml), que **corre
+las pruebas del backend antes de construir nada**. Si una falla, no llega
+a producción.
+
+---
+
+## 🧪 Pruebas
+
+| Banda | Qué cubre |
+| --- | --- |
+| **149** · backend (`pytest`) | La API, el agente, los permisos por bodega y las regresiones de seguridad |
+| **58** · frontend (`node --test`) | Lógica pura: intérprete local, cola sin conexión, confirmación por voz |
+| **27** · recorridos completos | Levantan la aplicación **entera** y la recorren como una persona: conteo, pedidos, auditoría, permisos y sedes |
+
+Los recorridos existen por algo concreto: las otras dos bandas pasaban en
+verde mientras **«Cerrar bodega definitivamente» era inalcanzable** — cada
+pieza funcionaba por separado y ninguna pantalla llamaba al endpoint que
+pone la primera firma. Eso solo se ve recorriendo el flujo.
+
+Corren sobre una **copia** de la base, así que cuentan y cierran bodegas de
+verdad sin tocar los datos → **[frontend/pruebas-flujo/](frontend/pruebas-flujo/LEEME.md)**
 
 ---
 
@@ -402,10 +460,10 @@ Esto permite aprovechar mejor el espacio disponible en teléfonos.
 
 ```mermaid
 flowchart LR
-    U["👤 Usuario<br/>(voz o texto)"] --> FE["React + Vite<br/>Static Site en Render"]
-    FE -- "HTTPS / access token" --> API["FastAPI<br/>Web Service en Render"]
+    U["👤 Usuario<br/>(voz o texto)"] --> FE["React + Vite<br/>S3 + CloudFront"]
+    FE -- "HTTPS / access token" --> API["FastAPI<br/>EC2 + Docker (ECR)"]
     FE -. "registro, login, clave" .-> COGNITO["AWS Cognito<br/>identidad"]
-    API --> DB[("PostgreSQL<br/>(SQLite en local)")]
+    API --> DB[("PostgreSQL en RDS<br/>(SQLite en local)")]
     API --> GEMINI["Google Gemini<br/>agente de voz"]
     API -. "respaldo sin llave" .-> INTERPRETE["Intérprete local<br/>(reglas + fuzzy match)"]
 ```
@@ -451,9 +509,17 @@ agregado de último momento:
   sistema operativo.
 - **Áreas táctiles** de al menos 44px, cómodas también en tablet.
 
-Diseñada y verificada siguiendo las pautas WCAG 2.1 AA — no reemplaza una
-auditoría formal con lectores de pantalla certificados, pero cubre las
-fallas que hoy suelen dejar afuera a un usuario que no usa mouse.
+**Medido, no solo diseñado:** `axe-core` sobre la aplicación real, en las
+17 pantallas y en los dos perfiles, da **cero incumplimientos WCAG 2.1
+A/AA**. Y una segunda auditoría revisa lo que axe no puede ver —el árbol de
+accesibilidad, que es lo que de verdad lee un lector de pantalla—: 265
+controles con nombre, foco visible al tabular, diálogos que devuelven el
+foco al cerrarse y encabezados sin saltos de nivel.
+
+Las dos se pueden volver a correr → **[docs/accesibilidad/](docs/accesibilidad/LEEME.md)**
+
+No reemplaza una prueba con un lector de pantalla real y una persona
+usándolo: eso mide la estructura, no cómo suena.
 
 ## 🔐 Ingreso seguro
 
@@ -477,7 +543,7 @@ negativos detectados** (el mini reto).
 <table>
 <tr><td><b>Backend</b></td><td>Python · FastAPI · SQLAlchemy · SQLite (local) / PostgreSQL (producción) · AWS Cognito · Google Gemini AI</td></tr>
 <tr><td><b>Frontend</b></td><td>React · Vite · CSS propio, sin framework de UI</td></tr>
-<tr><td><b>Despliegue</b></td><td>Render (Static Site + Web Service) · Docker / docker-compose para desarrollo local</td></tr>
+<tr><td><b>Despliegue</b></td><td>AWS (EC2 + ECR · S3 + CloudFront · RDS) con GitHub Actions · Docker / docker-compose para desarrollo local</td></tr>
 </table>
 
 ## 🔒 Seguridad
@@ -499,7 +565,7 @@ Detalle técnico en **[ARQUITECTURA.md](ARQUITECTURA.md#seguridad)**.
 | Recurso                      | Descripción                                                                                              |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 💻 **Guía de ejecución**     | Requisitos y puesta en marcha local → **[LEEME_PRIMERO.md](LEEME_PRIMERO.md)**                           |
-| ☁️ **Guía de despliegue**    | Despliegue en Render con Static Site, Web Service y PostgreSQL → **[DESPLIEGUE.md](DESPLIEGUE.md)**      |
+| ☁️ **Guía de despliegue**    | El pipeline de AWS y las variables que necesita → **[deploy.yml](.github/workflows/deploy.yml)** · notas de despliegue → **[DESPLIEGUE.md](DESPLIEGUE.md)** |
 | 🧭 **Arquitectura**          | Estructura del código, dependencias y modelo de datos → **[ARQUITECTURA.md](ARQUITECTURA.md)**           |
 | 🤖 **Guía técnica**          | Manual técnico completo: arquitectura, agente de voz, modelo de datos, autenticación, pruebas, despliegue, las 14 vistas con **todas sus subvistas** (74 capturas), y **el código fuente completo** (76 archivos, 21.448 líneas), 401 pág., con índice numerado y navegable → **[PDF](docs/Guia_Tecnica_CuentaVoz_V5.pdf)** |
 | 📖 **Manual de usuario**     | Guía de capacitación para el personal de bodega, en el orden del menú y con paso a paso en cada pantalla, 65 pág. y 67 capturas —cada pantalla con todas sus subvistas—, con índice numerado y navegable → **[PDF](docs/Manual_Usuario_CuentaVoz_V2.pdf)** |
