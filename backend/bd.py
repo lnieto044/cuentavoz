@@ -13,7 +13,14 @@ class Base(DeclarativeBase):
 # archivo sin importar desde que carpeta se ejecute (uvicorn corre desde
 # backend/, pero cargar_excel.py corre desde data/).
 _RUTA_SQLITE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cuentavoz.db")
-DB_URL = os.getenv("DB_URL", f"sqlite:///{_RUTA_SQLITE}")
+# El .strip() no es adorno: si el secreto DB_URL se pega en la consola con
+# un salto de linea al final, ese salto viaja hasta el nombre de la base y
+# Postgres responde que la base "cuentavoz" -con el salto pegado- no
+# existe. El backend entonces no arranca, porque create_all() conecta
+# antes de servir, y el contenedor queda reiniciandose en bucle. El resto
+# de variables del proyecto ya se leian con .strip(); esta era la unica
+# que faltaba.
+DB_URL = os.getenv("DB_URL", f"sqlite:///{_RUTA_SQLITE}").strip()
 # Render (como antes Heroku) entrega la cadena de Postgres con el esquema
 # viejo "postgres://"; SQLAlchemy 2.x ya no lo traduce solo y falla al
 # arrancar si no se corrige aqui.
