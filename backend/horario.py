@@ -1,6 +1,6 @@
 """La hora de Bogotá para toda la aplicación.
 
-El servidor (Render) corre en UTC, pero CuentaVoz es una sola operación
+El servidor corre en UTC, pero CuentaVoz es una sola operación
 en Colombia: lo que se guarda en la base (creado, resuelto, inicio, fin...)
 y lo que se muestra (trazabilidad, alertas, reportes) debe leerse en hora
 de Bogotá, no en la del contenedor - si no, cada hora mostrada queda

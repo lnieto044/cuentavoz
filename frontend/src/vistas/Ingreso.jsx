@@ -32,19 +32,18 @@ function esCognitoNoDisponible(e) {
 
 /** Reintenta lo que falló por algo pasajero, no por culpa de quien ingresa.
     Dos casos, los dos reales:
-    - El backend vive en el plan gratuito de Render: si lleva 15 minutos sin
-      tráfico se duerme, y la petición que lo despierta tarda 30-50 segundos
-      o se corta en seco. Sin esto, quien se está registrando ve el botón
+    - El backend no contestó. En AWS la instancia no se duerme, pero un
+      despliegue reemplaza el contenedor y quedan unos segundos en que la
+      API no responde. Sin esto, quien se está registrando ve el botón
       congelado en «Confirmando…», y al reintentar un «Sin conexión con el
-      servidor» que además es falso - su Wi-Fi está bien, el servidor estaba
-      dormido.
+      servidor» que además es falso - su Wi-Fi está bien.
     - Cognito no respondió al verificar el token (ver seguridad.py).
     alEsperar avisa a la pantalla para que diga qué está pasando en vez de
     dejar un botón mudo. */
-// Despertar el servicio dormido de Render tarda entre 30 y 50 segundos, asi
-// que la espera total tiene que cubrir eso con margen: 2+4+6+8+10+12+15 = 57
-// segundos repartidos en 8 intentos. Un reintento corto (los 9 s que habia
-// antes) se agota entero DENTRO de la ventana de arranque y falla igual.
+// La ventana es generosa a proposito: 2+4+6+8+10+12+15 = 57 segundos en 8
+// intentos. No cuesta nada cuando todo va bien -solo entra en juego si algo
+// falla- y cubre de sobra el hueco de un despliegue. Un reintento corto (los
+// 9 s que habia antes) se agota entero dentro de ese hueco y falla igual.
 const ESPERAS = [2000, 4000, 6000, 8000, 10000, 12000, 15000];
 
 async function conPaciencia(fn, alEsperar) {
@@ -124,12 +123,14 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   const [errCampo, setErrCampo] = useState({});
   const [cargando, setCargando] = useState(false);
   // Lo que está pasando mientras se espera - solo aparece si de verdad hay
-  // que esperar (servidor dormido, ver conPaciencia), para que el botón no
-  // se quede mudo y parezca colgado.
+  // que esperar (ver conPaciencia), para que el botón no se quede mudo y
+  // parezca colgado. Dice lo que se sabe y nada más: que no responde y que
+  // se está reintentando. Decir «está despertando» seria adivinar, y en la
+  // caida del 2026-09-08 esa suposicion mando a esperar a quien tenia que
+  // avisar - el contenedor no dormia, se reiniciaba en bucle.
   const [avisoEspera, setAvisoEspera] = useState("");
   const avisarEspera = (intento) =>
-    setAvisoEspera("El servidor estaba en reposo y está despertando "
-                   + `(intento ${intento})… puede tardar hasta un minuto.`);
+    setAvisoEspera(`El servidor no responde. Reintentando (intento ${intento})…`);
   const [perfil, setPerfil] = useState(null);
 
   /** onChange que además borra el error de ESE campo apenas la persona
@@ -158,13 +159,13 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
   const [mfaPendiente, setMfaPendiente] = useState(null);
   const [codigoMFA, setCodigoMFA] = useState("");
 
-  // Despierta el backend apenas se abre esta pantalla, sin esperar a que
-  // alguien pulse nada. En el plan gratuito de Render el servicio se duerme
-  // tras 15 minutos sin tráfico y tarda 30-50 segundos en levantarse; ese
-  // tiempo se lo comía la primera acción de la persona (confirmar el código
-  // del correo, justo el peor momento). Iniciándolo aquí, mientras se
-  // escriben los datos y llega el correo, el servidor ya está listo cuando
-  // de verdad hace falta. /api/salud no pide sesión y no cambia nada.
+  // Toca el backend apenas se abre esta pantalla, sin esperar a que alguien
+  // pulse nada. Abre la conexión (TLS, DNS, el nodo de CloudFront más
+  // cercano) mientras se escriben los datos y llega el correo, de modo que
+  // la primera acción de verdad -confirmar el código, justo el peor momento
+  // para una demora- ya la encuentre lista. Y si el backend está caído, se
+  // sabe aquí y no tres pantallas más adelante. /api/salud no pide sesión y
+  // no cambia nada.
   useEffect(() => {
     pedir("/api/salud").catch(() => {});
   }, []);
@@ -326,9 +327,9 @@ export default function Ingreso({ alEntrar, avisoInicial }) {
       // crea la fila local (perfil auxiliar, siempre - ver main.py) con
       // los datos personales que Cognito no guarda. Con conPaciencia porque
       // esta es la PRIMERA llamada al backend de todo el registro: si el
-      // servicio estaba dormido (plan gratuito de Render), le toca a ella
-      // despertarlo, y sin reintento fallaba dejando la cuenta a medias -
-      // confirmada en Cognito pero sin fila local.
+      // backend no contesta en ese instante, sin reintento la cuenta queda a
+      // medias - confirmada en Cognito pero sin fila local, que es el peor
+      // estado posible porque no se puede reintentar el registro.
       await conPaciencia(() => pedir("/api/registro-completado", {
         method: "POST",
         body: JSON.stringify({

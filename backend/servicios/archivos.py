@@ -1,5 +1,5 @@
 """Guardar y leer los XLSX/CSV generados desde la base, no desde disco -
-el disco del Web Service en Render es efimero (se borra en cada deploy o
+el disco del contenedor es efimero (se borra en cada despliegue o
 reinicio), asi que un reporte "generado hace una hora" quedaria
 inalcanzable despues del siguiente `git push`. La "ruta" (ej.
 "reportes/consolidado_20260815_1636.xlsx") se sigue usando como

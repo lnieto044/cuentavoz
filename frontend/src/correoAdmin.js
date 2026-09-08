@@ -6,8 +6,8 @@
     frontend (a diferencia de una clave de API común, no es secreta -
     así lo documenta EmailJS). El correo sale desde el navegador de
     quien escribe, usando la cuenta de Gmail conectada en el panel de
-    EmailJS - por eso no pasa por la red de Render, que es lo que
-    bloqueaba el SMTP directo a Gmail y la API de Resend. */
+    EmailJS - por eso no depende de la red del servidor, que es donde se
+    atascaron el SMTP directo a Gmail y la API de Resend. */
 const EMAILJS_SERVICE_ID = "service_9dgu33i";
 const EMAILJS_TEMPLATE_ID = "template_9ddkqpa";
 const EMAILJS_PUBLIC_KEY = "raCRzjMA9m2ymYuwk";

@@ -21,9 +21,11 @@ _RUTA_SQLITE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cuentav
 # de variables del proyecto ya se leian con .strip(); esta era la unica
 # que faltaba.
 DB_URL = os.getenv("DB_URL", f"sqlite:///{_RUTA_SQLITE}").strip()
-# Render (como antes Heroku) entrega la cadena de Postgres con el esquema
-# viejo "postgres://"; SQLAlchemy 2.x ya no lo traduce solo y falla al
-# arrancar si no se corrige aqui.
+# Algunos proveedores gestionados entregan la cadena de Postgres con el
+# esquema viejo "postgres://" -Render en su momento, y Heroku antes que el-;
+# SQLAlchemy 2.x ya no lo traduce solo y falla al arrancar. RDS la entrega
+# bien, asi que hoy esta linea no hace nada; se queda porque no cuesta nada
+# y cubre el dia en que la cadena vuelva a venir de otra parte.
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
@@ -44,7 +46,7 @@ def _migrar_columnas_faltantes():
     """create_all() solo crea tablas nuevas, nunca agrega columnas a una
     tabla que ya existe. Sin esto, una columna agregada al modelo (como
     Usuario.foto) se ve localmente porque cuentavoz.db se recrea facil,
-    pero nunca llega a la base de Postgres ya desplegada en Render - hay
+    pero nunca llega a la base de Postgres ya desplegada en RDS - hay
     que agregarla a mano en la tabla que ya esta viva. Corre en cada
     arranque y no hace nada si ya esta al dia."""
     from sqlalchemy import inspect, text
@@ -72,7 +74,7 @@ def _migrar_columnas_ya_opcionales():
     volvio nullable=True en el modelo (ya nadie la llena, la clave la
     guarda Cognito), pero la tabla de Postgres seguia con el NOT NULL de
     cuando se creo. En local no se noto porque cuentavoz.db se recrea de
-    cero; en Render, CADA insercion de usuario fallaba - autoregistro y
+    cero; en produccion, CADA insercion de usuario fallaba - autoregistro y
     "crear usuario" desde Ajustes - con un 500 que ademas llegaba al
     navegador sin cabeceras CORS, o sea disfrazado de "Sin conexion con el
     servidor. Revise el Wi-Fi".

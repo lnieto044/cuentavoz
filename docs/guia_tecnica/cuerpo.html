@@ -959,21 +959,24 @@
   <h2 class="seccion"><span class="num">14</span>Despliegue</h2>
   <p class="seccion-intro">Cómo llega esto a producción.</p>
 
-  <p>El despliegue está descrito en <span class="ui">render.yaml</span> y detallado en <span class="ui">DESPLIEGUE.md</span>. Son tres servicios en Render:</p>
+  <p>El despliegue vive en AWS, automatizado en <span class="ui">.github/workflows/deploy.yml</span> y detallado en <span class="ui">DESPLIEGUE.md</span>. Son cuatro piezas:</p>
   <table>
-    <thead><tr><th>Servicio</th><th>Tipo</th><th>Qué es</th></tr></thead>
+    <thead><tr><th>Pieza</th><th>Servicio</th><th>Qué es</th></tr></thead>
     <tbody>
-      <tr><td><span class="ui">cuentavoz-db</span></td><td>PostgreSQL</td><td>La base de producción.</td></tr>
-      <tr><td><span class="ui">cuentavoz-api</span></td><td>Web (Python)</td><td>El backend con Uvicorn.</td></tr>
-      <tr><td><span class="ui">cuentavoz</span></td><td>Estático</td><td>El build del frontend, con reescritura para que las rutas de la aplicación funcionen.</td></tr>
+      <tr><td>Frontend</td><td>S3 + CloudFront</td><td>El build de Vite, servido desde el borde con HTTPS y caché.</td></tr>
+      <tr><td>Backend</td><td>EC2 + Docker</td><td>El contenedor con Uvicorn; la imagen se guarda en ECR.</td></tr>
+      <tr><td>Base de datos</td><td>RDS</td><td>La PostgreSQL de producción.</td></tr>
+      <tr><td>Identidad</td><td>Cognito</td><td>Registro, ingreso y recuperación de clave.</td></tr>
     </tbody>
   </table>
 
-  <p>La misma base de código sirve en local y en producción: lo único que cambia es <span class="ui">DB_URL</span> y las llaves. Las credenciales se cargan como variables de entorno del servicio, nunca en el repositorio.</p>
+  <p>Nadie despliega a mano. Cada <span class="ui">push</span> a <span class="ui">main</span> corre las pruebas del backend y, <em>solo si pasan</em>, construye la imagen, la sube a ECR, reemplaza el contenedor en la instancia y publica el frontend invalidando la caché de CloudFront. Una prueba en rojo detiene todo antes de tocar producción.</p>
+
+  <p>La misma base de código sirve en local y en producción: lo único que cambia es <span class="ui">DB_URL</span> y las llaves. Las credenciales se cargan como variables de entorno del contenedor, nunca en el repositorio.</p>
 
   <div class="aviso dato">
-    <span class="rotulo">El servidor se duerme</span>
-    <p>En el plan gratuito de Render el backend entra en reposo tras un rato sin tráfico, y la primera petición puede tardar hasta un minuto. Por eso las pantallas que dependen de la red avisan «el servidor estaba en reposo y está despertando» en vez de dar un error seco.</p>
+    <span class="rotulo">Un contenedor que revive no es un contenedor sano</span>
+    <p>La verificación del despliegue era <span class="ui">docker ps | grep</span>. Con <span class="ui">--restart always</span>, un contenedor en bucle de reinicio igual aparece listado, así que el pipeline daba verde con la aplicación muerta. Ahora consulta <span class="ui">/api/salud</span> hasta que responde y falla el job si no lo hace en 60 segundos. Fue así como se descubrió que un salto de línea al final del secreto <span class="ui">DB_URL</span> hacía pedirle a RDS una base que no existe: el backend no arrancaba, CloudFront devolvía 504 y los tres jobs seguían en verde.</p>
   </div>
 </section>
 

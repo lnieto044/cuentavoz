@@ -36,8 +36,8 @@ class Usuario(Base):
     idioma_voz = Column(String, default="es-MX")
     velocidad_voz = Column(String, default="normal")     # lenta | normal | rapida
     confirmacion_hablada = Column(Integer, default=1)
-    # la foto va en la misma base (no en disco): el disco del Web Service
-    # en Render es efimero y se borra en cada deploy/reinicio, la base no.
+    # la foto va en la misma base (no en disco): el disco del contenedor
+    # es efimero y se borra en cada despliegue o reinicio, la base no.
     foto = Column(LargeBinary, nullable=True)
     foto_tipo = Column(String, nullable=True)         # ej. "image/jpeg"
 
@@ -225,9 +225,9 @@ class ConfigClave(Base):
 class ArchivoGenerado(Base):
     """Los XLSX/CSV que se generan (consolidado, diferencias, análisis,
     trazabilidad...) guardados en la base, no en disco - mismo motivo que
-    la foto de perfil: el disco del Web Service en Render es efímero y se
-    borra en cada deploy/reinicio, así que un archivo "generado hace una
-    hora" debe poder seguir viéndose/descargándose después de un redeploy,
+    la foto de perfil: el disco del contenedor es efímero y se borra en
+    cada despliegue o reinicio, así que un archivo "generado hace una hora"
+    debe poder seguir viéndose y descargándose después de un redespliegue,
     no solo hasta el próximo `git push`."""
     __tablename__ = "archivo_generado"
     id = Column(Integer, primary_key=True)

@@ -150,13 +150,12 @@ async def cabeceras(request: Request, llamar):
 # Las 4 cuentas de demostracion (luis/diana/stephanie/valentina, clave
 # "StockXperts1" - la misma que aparece en el README) solo se siembran si
 # esta variable esta activa. Por defecto NO lo esta: sin esto, cualquier
-# despliegue con la base de usuarios vacia -incluido un Render de
-# produccion real, con datos reales, antes de que alguien cree las
-# cuentas de verdad- quedaba con una cuenta de perfil auditor (diana, con
-# permisos de administrador) accesible con una clave publicada. Para el
-# hackathon esto se activa a proposito en render.yaml; para un uso real
-# despues, basta con no ponerla (o quitarla) para que esas cuentas nunca
-# aparezcan solas.
+# despliegue con la base de usuarios vacia -incluido uno de produccion
+# real, con datos reales, antes de que alguien cree las cuentas de
+# verdad- quedaba con una cuenta de perfil auditor (diana, con permisos
+# de administrador) accesible con una clave publicada. En el pipeline se
+# activa solo en el job de pruebas (SEMBRAR_DEMO=1); el despliegue de
+# produccion la manda en 0, asi que esas cuentas nunca aparecen solas.
 SEMBRAR_DEMO = os.getenv("SEMBRAR_DEMO", "").strip() == "1"
 # La clave de las cuentas de demostracion vive en Cognito, no en esta base -
 # tiene que cumplir la politica del User Pool (min. 8, mayuscula+minuscula+
@@ -300,8 +299,8 @@ def salud():
                 "stock": s.query(StockSistema).count(),
                 "gemini": bool(os.getenv("GOOGLE_API_KEY", "").strip()),
                 # Solo si esta configurado, nunca el DSN: mismo criterio que
-                # con gemini. Sirve para saber desde fuera si la variable de
-                # Render quedo puesta, que si no hay que adivinarlo esperando
+                # con gemini. Sirve para saber desde fuera si la variable
+                # llego al contenedor, que si no hay que adivinarlo esperando
                 # a que ocurra un error real para ver si llega o no.
                 "sentry": bool(_SENTRY_DSN),
                 "cognito": _estado_cognito()}
@@ -315,8 +314,8 @@ def _estado_cognito() -> dict:
     frontend/src/cognito.js) - por eso pueden ir aqui sin problema, y no se
     expone nada mas (ni llaves de AWS, ni claves).
 
-    Existe porque estas tres variables van como sync:false en render.yaml,
-    o sea que viven solo en el panel de Render: si una queda vacia o
+    Existe porque estas tres variables viven solo en los secretos de GitHub
+    y llegan al contenedor por el pipeline: si una queda vacia o
     desactualizada, TODOS los tokens se rechazan con "Sesion invalida o
     vencida.", que suena a problema de la persona cuando en realidad es de
     configuracion. Comparar esto contra el frontend responde en un segundo
@@ -3544,7 +3543,7 @@ class EnviarPedidoIn(BaseModel):
 # cualquiera terminara de guardar, y las dos quedaban registradas como
 # pedidos reales en vez de que la segunda se detectara como duplicada.
 # Alcanza con un lock en memoria porque el servicio corre en un solo
-# proceso (uvicorn sin --workers, ver render.yaml); con varios procesos
+# proceso (uvicorn sin --workers, ver backend/Dockerfile); con varios
 # haría falta una constraint a nivel de base de datos.
 _lock_enviar_pedido = threading.Lock()
 
@@ -4755,11 +4754,11 @@ def reportar_problema(body: dict, u: Usuario = Depends(usuario_actual)):
 def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bool, str]:
     """Envía un correo de verdad por la API de Brevo (HTTPS) si hay
     credenciales configuradas (BREVO_API_KEY). Antes se intentó SMTP
-    directo a Gmail (Render bloquea el puerto 587, "Network is
-    unreachable") y luego la API de Resend (Cloudflare la rechazaba con
-    "error code: 1010", probablemente por la reputación de las IPs
-    compartidas de Render) - ninguna de las dos depende del código, así
-    que se cambió de proveedor otra vez. Sin BREVO_API_KEY configurada,
+    directo a Gmail y luego la API de Resend; las dos fallaron por la red
+    del proveedor de entonces, no por el código -el 587 bloqueado con
+    "Network is unreachable", y Cloudflare rechazando con "error code:
+    1010" por la reputación de las IPs compartidas-, así que se cambió de
+    proveedor hasta dar con uno que sale por HTTPS y no depende de eso. Sin BREVO_API_KEY configurada,
     no intenta nada: el llamador sigue funcionando igual que antes (solo
     trazabilidad), el mismo patrón de "se degrada sin romperse" que ya
     usa el agente sin GOOGLE_API_KEY. Devuelve (enviado, motivo-si-fallo)
@@ -4778,8 +4777,8 @@ def _enviar_correo_real(destinatario: str, asunto: str, cuerpo: str) -> tuple[bo
         "https://api.brevo.com/v3/smtp/email", data=payload, method="POST",
         headers={"api-key": api_key, "Content-Type": "application/json",
                  "Accept": "application/json",
-                 "User-Agent": "CuentaVoz/1.0 (+https://cuentavoz.onrender.com)"})
-    # El contenedor de Render no tiene ruta de salida por IPv6, pero la
+                 "User-Agent": "CuentaVoz/1.0 (+https://d13g9u0pgpag0b.cloudfront.net)"})
+    # El contenedor no tiene ruta de salida por IPv6, pero la
     # resolución de nombres a veces sí devuelve una dirección IPv6 (y
     # Python la intenta primero) - eso da exactamente "Network is
     # unreachable" aunque el IPv4 normal funcione bien. Se fuerza IPv4
