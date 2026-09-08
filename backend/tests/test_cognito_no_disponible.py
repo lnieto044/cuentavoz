@@ -1,7 +1,7 @@
 """Cuando Cognito no responde, el token NO es invalido: es el backend el que
 no pudo comprobarlo.
 
-Regresion real, vista en produccion (Render): un tropiezo de red al traer el
+Regresion real, vista en produccion: un tropiezo de red al traer el
 JWKS de AWS terminaba en 401 "Sesion invalida o vencida.", y como el frontend
 cierra la sesion ante cualquier 401 (api.js: alSesionInvalida), sacaba a la
 persona de la aplicacion por un problema que no era suyo. Debe responder 503.

@@ -18,7 +18,7 @@ export default defineConfig({
     // eso, la URL abre igual sin Wi-Fi - el problema real no es "la app se
     // cae sin internet", es que sin un service worker el navegador ni
     // siquiera puede pedir el archivo si no hay red la primera vez.
-    // Las llamadas a la API (otro dominio: cuentavoz-api en Render) no se
+    // Las llamadas a la API (que vive en otro dominio) no se
     // cachean aquí - eso ya lo resuelve por su cuenta cada pantalla
     // (sesión guardada, catálogo local, cola de sincronización).
     VitePWA({
@@ -39,8 +39,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // el rewrite de Render (/* -> /index.html) ya resuelve las rutas
-        // de la SPA con red; navigateFallback hace lo mismo sin red.
+        // CloudFront ya devuelve index.html para cualquier ruta que no
+        // sea un archivo, asi que /bodegas o /conteo abren bien con red,
+        // incluso recargando; navigateFallback hace lo mismo sin red.
         navigateFallback: "/index.html",
         // Los recorridos en video pesan varios megas cada uno. Precachearlos
         // obligaria a bajarlos completos la primera vez que alguien abre el

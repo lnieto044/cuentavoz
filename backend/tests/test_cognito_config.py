@@ -1,8 +1,8 @@
 """El backend debe saber contra que User Pool trabaja aunque nadie haya
 llenado las variables de entorno.
 
-Regresion real: en Render, COGNITO_USER_POOL_ID y COGNITO_APP_CLIENT_ID van
-como sync:false (viven solo en el panel). Quedaron vacias, el backend no
+Regresion real: COGNITO_USER_POOL_ID y COGNITO_APP_CLIENT_ID son secretos
+del despliegue, no viven en el repositorio. Quedaron vacias, el backend no
 pudo construir el verificador de tokens, y TODAS las sesiones se rechazaron
 con "Sesion invalida o vencida." - culpando a la persona por un problema de
 despliegue. El frontend nunca tuvo ese problema porque siempre llevo estos
@@ -40,7 +40,7 @@ def test_sin_variables_de_entorno_igual_puede_verificar_tokens(
 def test_una_variable_vacia_no_deja_el_backend_ciego(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Vacia y ausente son el mismo caso: en Render una variable se puede
+    """Vacia y ausente son el mismo caso: una variable de entorno se puede
     crear con el valor en blanco, que es como quedo en el incidente real."""
     monkeypatch.setenv("COGNITO_USER_POOL_ID", "")
     monkeypatch.setenv("COGNITO_APP_CLIENT_ID", "   ")

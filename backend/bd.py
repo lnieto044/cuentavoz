@@ -22,8 +22,8 @@ _RUTA_SQLITE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cuentav
 # que faltaba.
 DB_URL = os.getenv("DB_URL", f"sqlite:///{_RUTA_SQLITE}").strip()
 # Algunos proveedores gestionados entregan la cadena de Postgres con el
-# esquema viejo "postgres://" -Render en su momento, y Heroku antes que el-;
-# SQLAlchemy 2.x ya no lo traduce solo y falla al arrancar. RDS la entrega
+# esquema viejo "postgres://"; SQLAlchemy 2.x ya no lo traduce solo y
+# falla al arrancar si no se corrige aqui. RDS la entrega
 # bien, asi que hoy esta linea no hace nada; se queda porque no cuesta nada
 # y cubre el dia en que la cadena vuelva a venir de otra parte.
 if DB_URL.startswith("postgres://"):

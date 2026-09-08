@@ -126,12 +126,10 @@ ya no están en cero.
 
 ## Notas
 
-- **La instancia no se duerme.** En Render el plan gratis dormía los
-  servicios tras 15 minutos y el primer login tardaba 30-50 segundos. En
-  EC2 eso no pasa: si la API no responde, es una falla real y no un
-  arranque en frío. (El frontend todavía muestra un mensaje de "el
-  servidor estaba en reposo" al reintentar; es un resto de la época de
-  Render.)
+- **La instancia no se duerme.** No hay nada que "despertar": si la API
+  no responde, es una falla real y no un arranque en frío. El frontend
+  reintenta y lo dice tal cual —«El servidor no responde. Reintentando»—
+  justamente para no invitar a esperar a quien tendría que avisar.
 - **Base de datos**: en local se sigue usando SQLite (`DB_URL` por defecto
   en `backend/bd.py`); en producción la variable apunta a RDS. No hay que
   tocar código para el cambio.

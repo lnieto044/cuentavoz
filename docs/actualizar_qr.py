@@ -2,9 +2,9 @@
 """Regenera el codigo QR de la ultima diapositiva.
 
 El QR es una IMAGEN: cambiar la URL escrita al lado no lo actualiza. El de
-la presentacion seguia apuntando a https://cuentavoz.onrender.com, o sea
-que quien lo escaneara durante la presentacion aterrizaba en el despliegue
-viejo de Render en vez de en la plataforma.
+la presentacion seguia apuntando al despliegue anterior, ya apagado, o
+sea que quien lo escaneara durante la presentacion aterrizaba en una
+pagina muerta en vez de en la plataforma.
 
 Es el tipo de cosa que no se ve revisando el texto -el QR se ve igual
 apunte a donde apunte- y que solo aparece decodificandolo. Por eso este
