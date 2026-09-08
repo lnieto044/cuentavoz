@@ -13,8 +13,9 @@ El README explica el producto; esto explica el código.
 
 ## Vista general
 
-Dos servicios independientes, cada uno desplegado por separado en Render
-(ver [DESPLIEGUE.md](DESPLIEGUE.md)):
+Dos servicios independientes, cada uno desplegado por separado en AWS —
+el frontend en S3 + CloudFront, el backend en EC2 con Docker — y una
+base PostgreSQL en RDS (ver [DESPLIEGUE.md](DESPLIEGUE.md)):
 
 ```
 ┌─────────────────────┐        HTTPS + JWT        ┌──────────────────────┐
@@ -40,11 +41,11 @@ cliente HTTP podría reemplazar al frontend.
 | `fastapi` | El framework de la API | Tipado con Pydantic (valida el body de cada request solo), `Depends()` para inyectar `usuario_actual` en cada endpoint sin repetirlo, y genera `/docs` (Swagger) gratis. |
 | `uvicorn[standard]` | Servidor ASGI | Necesario porque FastAPI corre sobre ASGI, no WSGI (hace falta para el WebSocket del tablero en vivo). `[standard]` trae `websockets` y `httptools` sin instalarlos aparte. |
 | `sqlalchemy` | ORM | Todas las consultas pasan por el ORM (`s.query(...)`), nunca SQL armado a mano — así una inyección SQL no es un vector de ataque posible aquí, ver [Seguridad](#seguridad). También abstrae SQLite (local) vs PostgreSQL (producción) sin cambiar una línea de código de negocio. |
-| `psycopg2-binary` | Driver de PostgreSQL | Solo se usa en producción (Render); en local, SQLAlchemy usa el driver de SQLite que ya trae Python. |
+| `psycopg2-binary` | Driver de PostgreSQL | Solo se usa en producción (RDS); en local, SQLAlchemy usa el driver de SQLite que ya trae Python. |
 | `pandas` + `openpyxl` | Leer/escribir Excel | `data/cargar_excel.py` importa el catálogo real de Colsubsidio desde `.xlsx`; `reportes.py` genera los consolidados descargables en el mismo formato que ya usa el equipo. |
 | `rapidfuzz` | Coincidencia difusa de texto | El corazón de `servicios/conciliacion.py`: convierte «tabla para picar blanca» (como lo dice alguien en la bodega) en el nombre oficial del catálogo. Es una librería en C (vía bindings), mucho más rápida que comparar cadenas en Python puro para 1.000+ artículos. |
 | `google-genai` | Cliente de Gemini | El modelo entiende la intención detrás de una frase dicha con lenguaje natural (`agente/cerebro.py`) y genera la voz neuronal de las respuestas. Se llama solo si `GOOGLE_API_KEY` está configurada — sin ella, cae al intérprete local sin romper nada (ver [El agente conversacional](#el-agente-conversacional)). |
-| `python-dotenv` | Cargar `.env` en desarrollo | `load_dotenv()` en `main.py` lee variables de entorno de un archivo local; en producción (Render) esas mismas variables ya existen en el entorno del proceso, así que esta librería no hace nada allí — es puramente para no tener que exportar variables a mano en cada sesión de terminal local. |
+| `python-dotenv` | Cargar `.env` en desarrollo | `load_dotenv()` en `main.py` lee variables de entorno de un archivo local; en producción esas mismas variables ya existen en el entorno del proceso (el pipeline se las pasa al contenedor), así que esta librería no hace nada allí — es puramente para no tener que exportar variables a mano en cada sesión de terminal local. |
 | `pyjwt` | Verificar la sesión | La contraseña y el login los maneja AWS Cognito directamente; `pyjwt` (`PyJWKClient`) solo verifica la firma RS256 del access token de Cognito contra sus llaves públicas, en `Depends(usuario_actual)` — este backend nunca ve ni guarda una clave. |
 | `boto3` | Administrar Cognito | El SDK de AWS para las pocas operaciones que sí necesita el backend (no el frontend): crear las cuentas de demo, cerrar todas las sesiones de alguien (`admin_user_global_sign_out`), eliminar una cuenta. Usa una credencial de IAM propia, de solo esos permisos sobre el User Pool. |
 | `python-multipart` | Subida de archivos | FastAPI lo exige para poder recibir `UploadFile` (la foto de perfil llega como `multipart/form-data`, no JSON). |
@@ -55,7 +56,7 @@ cliente HTTP podría reemplazar al frontend.
 | Librería | Para qué | Por qué esta y no otra |
 |---|---|---|
 | `react` + `react-dom` | La UI | Sin Redux ni otro gestor de estado: cada vista (`vistas/*.jsx`) maneja su propio estado con `useState`/`useEffect` porque las pantallas no comparten datos entre sí más allá del `token`/`usuario` que pasa `App.jsx`. Añadir una librería de estado global sería complejidad sin beneficio real para este tamaño de app. |
-| `vite` | Bundler y servidor de desarrollo | Arranque y recarga en caliente casi instantáneos (a diferencia de Create React App/Webpack), y el build de producción (`vite build`) es el que sirve Render como Static Site. |
+| `vite` | Bundler y servidor de desarrollo | Arranque y recarga en caliente casi instantáneos (a diferencia de Create React App/Webpack), y el build de producción (`vite build`) es lo que se publica en S3 y sirve CloudFront. |
 | `@vitejs/plugin-react` | Soporte JSX/Fast Refresh en Vite | Sin él, Vite no sabe transformar `.jsx` ni mantener el estado de un componente al guardar el archivo en desarrollo. |
 | `vite-plugin-pwa` | Service worker + manifest | Genera el `sw.js` que cachea el cascarón de la app (HTML/JS/CSS/logos) la primera vez que carga con señal, para que la URL vuelva a abrir sin Wi-Fi después — ver [Modo sin conexión](#modo-sin-conexión-pwa). Sin CSS/UI framework: no hay Tailwind ni Material UI; todo el estilo vive en `index.css` a mano, con variables CSS para la paleta de marca de Colsubsidio. |
 

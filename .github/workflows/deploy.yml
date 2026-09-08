@@ -84,6 +84,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY_COGNITO: ${{ secrets.COGNITO_AWS_SECRET_ACCESS_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           ORIGEN_PERMITIDO: ${{ secrets.ORIGEN_PERMITIDO }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           SEMBRAR_DEMO: "0"
         run: |
           ssh -o StrictHostKeyChecking=no -i cuentavoz-key.pem ec2-user@$EC2_HOST << EOF
@@ -111,6 +112,7 @@ jobs:
               -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY_COGNITO" \
               -e GOOGLE_API_KEY="$GOOGLE_API_KEY" \
               -e ORIGEN_PERMITIDO="$ORIGEN_PERMITIDO" \
+              -e SENTRY_DSN="$SENTRY_DSN" \
               -e SEMBRAR_DEMO="$SEMBRAR_DEMO" \
               -e IDIOMA_VOZ="es-CO" \
               -e UMBRAL_ANOMALIA="0.5" \
